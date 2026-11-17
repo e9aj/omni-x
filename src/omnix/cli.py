@@ -35,6 +35,8 @@ def main(argv: list[str] | None = None) -> int:
     memory.add_argument("value", nargs="*")
     sub.add_parser("skills", help="list discovered skills")
     sub.add_parser("tools", help="list built-in tools")
+    models = sub.add_parser("models", help="discover models or check provider health")
+    models.add_argument("action", choices=["list", "health"], nargs="?", default="health")
     sub.add_parser("doctor", help="check local runtime readiness")
     args = parser.parse_args(argv)
 
@@ -46,7 +48,14 @@ def main(argv: list[str] | None = None) -> int:
             if args.name not in Settings.__dataclass_fields__ or args.value is None:
                 parser.error("config set requires a supported name and value")
             current = getattr(settings, args.name)
-            value = int(args.value) if isinstance(current, int) else args.value
+            if isinstance(current, bool):
+                value = args.value.lower() in {"1", "true", "yes", "on"}
+            elif isinstance(current, int):
+                value = int(args.value)
+            elif isinstance(current, float):
+                value = float(args.value)
+            else:
+                value = args.value
             if args.name == "mode" and value not in {"FREE", "SMART", "PERFORMANCE"}:
                 parser.error("mode must be FREE, SMART, or PERFORMANCE")
             setattr(settings, args.name, value)
@@ -80,6 +89,19 @@ def main(argv: list[str] | None = None) -> int:
         for name in ToolRegistry().tools:
             print(name)
         return 0
+    if args.command == "models":
+        from .providers import ModelClient
+        try:
+            client = ModelClient(load_settings())
+            if args.action == "health":
+                print(client.health_check())
+            else:
+                for model in client.list_models():
+                    print(model.get("id", model))
+            return 0
+        except ProviderError as exc:
+            print(f"omnix: {exc}", file=sys.stderr)
+            return 1
     if args.command == "doctor":
         settings = load_settings()
         print(f"OMNI-X {__version__}")

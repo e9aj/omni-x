@@ -16,3 +16,8 @@ def test_approved_write(tmp_path: Path):
     registry = ToolRegistry(tmp_path, approver=lambda _: True)
     assert registry.write_file("new.txt", "content") == "Wrote new.txt"
     assert (tmp_path / "new.txt").read_text(encoding="utf-8") == "content"
+
+
+def test_dangerous_command_is_rejected(tmp_path: Path):
+    registry = ToolRegistry(tmp_path, approver=lambda _: True)
+    assert "dangerous command rejected" in registry.call("run_command", {"command": "git reset --hard HEAD"})

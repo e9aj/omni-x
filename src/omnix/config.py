@@ -26,6 +26,10 @@ class Settings:
     mode: str = "SMART"
     max_steps: int = 8
     tool_policy: str = "ask"
+    max_cost_usd: float = 0.0
+    allow_paid: bool = False
+    request_timeout_seconds: int = 120
+    retry_limit: int = 2
 
 
 def config_path() -> Path:

@@ -19,6 +19,9 @@ class Store:
         CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, title TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id), role TEXT NOT NULL, content TEXT NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS memories (id INTEGER PRIMARY KEY, key TEXT NOT NULL, value TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL, UNIQUE(key));
+        CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, state TEXT NOT NULL, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS usage (id INTEGER PRIMARY KEY, task_id TEXT, provider TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, estimated_cost REAL NOT NULL, created REAL NOT NULL);
         """)
         self.db.commit()
 
@@ -46,3 +49,22 @@ class Store:
     def recall(self, query: str = "") -> list[dict[str, str]]:
         rows = self.db.execute("SELECT key,value FROM memories WHERE key LIKE ? OR value LIKE ? ORDER BY updated DESC", (f"%{query}%", f"%{query}%")).fetchall()
         return [{"key": row["key"], "value": row["value"]} for row in rows]
+
+    def start_task(self, session_id: str) -> str:
+        task_id = str(uuid.uuid4())
+        now = time.time()
+        self.db.execute("INSERT INTO tasks VALUES (?, ?, 'running', NULL, ?, ?)", (task_id, session_id, now, now))
+        self.db.commit()
+        return task_id
+
+    def update_task(self, task_id: str, state: str, error: str | None = None) -> None:
+        self.db.execute("UPDATE tasks SET state=?, error=?, updated=? WHERE id=?", (state, error, time.time(), task_id))
+        self.db.commit()
+
+    def event(self, task_id: str, kind: str, detail: str) -> None:
+        self.db.execute("INSERT INTO events(task_id,kind,detail,created) VALUES (?,?,?,?)", (task_id, kind, detail, time.time()))
+        self.db.commit()
+
+    def record_usage(self, task_id: str | None, provider: str, model: str, input_tokens: int, output_tokens: int, estimated_cost: float = 0.0) -> None:
+        self.db.execute("INSERT INTO usage(task_id,provider,model,input_tokens,output_tokens,estimated_cost,created) VALUES (?,?,?,?,?,?,?)", (task_id, provider, model, input_tokens, output_tokens, estimated_cost, time.time()))
+        self.db.commit()

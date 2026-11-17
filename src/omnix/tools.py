@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import re
 from pathlib import Path
 from typing import Any, Callable
 
@@ -62,6 +63,9 @@ class ToolRegistry:
         return f"Wrote {target.relative_to(self.workspace)}"
 
     def run_command(self, command: str) -> str:
+        dangerous = re.compile(r"(^|[;&|])(\s*)(rm\s+-rf|del\s+/s|format\s+|shutdown\s|git\s+reset\s+--hard|remove-item\s+-recurse)", re.IGNORECASE)
+        if dangerous.search(command):
+            raise PermissionDenied("dangerous command rejected")
         if not self.approver(f"run command: {command}"):
             raise PermissionDenied("command execution requires explicit approval")
         result = subprocess.run(command, cwd=self.workspace, shell=True, capture_output=True, text=True, timeout=120, env=os.environ.copy())

@@ -72,7 +72,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  explicitly verified free models: {len(discovery.free_models)}")
         for model in discovery.free_models:
             print(f"  usable in FREE mode: {model.get('id')}")
-        from .providers import PROVIDERS
         for name, provider in PROVIDERS.items():
             if name == "omniroute":
                 continue

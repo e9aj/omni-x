@@ -23,7 +23,7 @@ class Provider:
 
 PROVIDERS = {
     "openai": Provider("openai", "https://api.openai.com/v1", "OPENAI_API_KEY"),
-    "omniroute": Provider("omniroute", "http://127.0.0.1:20128/v1", "OMNIROUTE_API_KEY"),
+    "omniroute": Provider("omniroute", "http://127.0.0.1:20128/v1", "OMNIROUTE_API_KEY", free_eligible=True),
     "openrouter": Provider("openrouter", "https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "groq": Provider("groq", "https://api.groq.com/openai/v1", "GROQ_API_KEY", free_eligible=True),
     "cerebras": Provider("cerebras", "https://api.cerebras.ai/v1", "CEREBRAS_API_KEY", free_eligible=True),
@@ -46,7 +46,7 @@ class ModelClient:
         self.settings = settings
         self.provider = PROVIDERS[settings.provider]
         self.api_key = get_secret(self.provider.key_name) or os.environ.get(self.provider.key_name)
-        if not self.api_key:
+        if not self.api_key and self.provider.name != "omniroute":
             raise ProviderError(f"No credential configured for {self.provider.name}; use 'omnix config set-key {self.provider.key_name}'")
 
     def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> dict[str, Any]:
@@ -57,13 +57,16 @@ class ModelClient:
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
-        return self._post(url, body, {"Authorization": f"Bearer {self.api_key}"})
+        return self._post(url, body, self._auth_headers())
 
     def list_models(self) -> list[dict[str, Any]]:
         if self.provider.kind == "anthropic":
             return []
         url = (self.settings.base_url or self.provider.base_url).rstrip("/") + "/models"
-        return self._request_json(url, {"Authorization": f"Bearer {self.api_key}"}).get("data", [])
+        return self._request_json(url, self._auth_headers()).get("data", [])
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
 
     def health_check(self) -> dict[str, Any]:
         started = time.perf_counter()

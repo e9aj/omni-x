@@ -84,6 +84,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-16 | Created the initial register from the 38 explicit GitHub URLs in the OMNI-X specification and recorded GitHub API metadata plus preliminary scope decisions. |
 | 2026-11-17 | Verified Hermes's upstream MIT `LICENSE`; selected compatible concepts (provider abstraction, tools, SQLite state, approvals, skills, and CLI boundaries) for an independent OMNI-X implementation. Implemented the first scoped runtime, provider adapters, SQLite sessions/memory, permission-gated tools, skills discovery, and deterministic terminal compression. |
 | 2026-11-17 | Phase 2 review added provider health/model discovery methods, bounded retry and routing policy, task/event/usage state, dangerous-command rejection, Windows CI coverage, and documented live-provider limitations. |
+| 2026-11-17 | OmniRoute review verified the MIT local gateway, npm/source/Docker installation paths, OpenAI-compatible `/v1` API, `/v1/models` discovery, `/v1/models/query` documentation, third-party free-tier/account requirements, and RTK→Caveman gateway compression. OMNI-X added fail-closed onboarding and avoids duplicate local compression when routed through OmniRoute. |
 
 ## OMNI-X implementation status
 

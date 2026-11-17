@@ -14,6 +14,8 @@ omnix chat
 
 Useful commands also include `omnix run`, `omnix memory`, `omnix skills`, `omnix tools`, `omnix doctor`, and `omnix config`.
 
+For gateway-first free setup, install and start OmniRoute separately, then run `omnix discover` followed by `omnix onboard`. OMNI-X will probe the local `/v1/models` endpoint and configure only explicitly verified free models. It will explain when the gateway requires a provider account or key; it never invents credentials or silently selects paid inference.
+
 `omnix config set-key` reads a key without echoing it and stores it using Windows DPAPI when available. On other platforms it requires `OMNIX_MASTER_KEY` and stores an authenticated encrypted value with restrictive file permissions.
 
 The default tool policy is read-only. Shell execution and file writes require an explicit approval at the time of use. OMNI-X never silently changes providers or falls back to paid inference.

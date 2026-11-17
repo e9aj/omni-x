@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 
 
@@ -30,6 +30,7 @@ class Settings:
     allow_paid: bool = False
     request_timeout_seconds: int = 120
     retry_limit: int = 2
+    free_models: list[str] = field(default_factory=list)
 
 
 def config_path() -> Path:

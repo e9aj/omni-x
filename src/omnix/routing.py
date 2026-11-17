@@ -35,6 +35,11 @@ class Router:
             if not provider.free_eligible and not self.settings.allow_paid:
                 errors.append(f"{route.provider}: paid inference requires allow_paid=true")
                 continue
+            if self.settings.mode == "FREE" and route.provider == "omniroute":
+                known_free = route.model in self.settings.free_models or ":free" in route.model.lower() or route.model.lower().endswith("-free")
+                if not known_free:
+                    errors.append(f"{route.provider}: model is not verified free by discovery")
+                    continue
             if self.settings.mode == "FREE" and route.provider == "openrouter" and ":free" not in route.model:
                 errors.append("openrouter: model is not explicitly marked :free")
                 continue

@@ -7,6 +7,7 @@ Last reviewed: 2026-11-17
 - Python package installation and `omnix` CLI entry point.
 - SQLite sessions, messages, persistent key/value memory, task state, event logs, and usage records.
 - OpenAI-compatible provider interface with direct adapters for OpenAI, OmniRoute, OpenRouter, Groq, Cerebras, Gemini, Mistral, Together, and DeepSeek.
+- OmniRoute-first onboarding probe for local `/v1/models`, explicit free-model filtering, no-key probing, and automatic configuration only after a free model is actually advertised.
 - Direct Anthropic Messages API adapter.
 - Provider model listing and health-check methods.
 - FREE-mode route filtering and bounded SMART-mode fallback candidates.
@@ -21,11 +22,13 @@ Last reviewed: 2026-11-17
 ## Not yet verified or complete
 
 - No provider credentials were present during this review. No live AI provider request, free-tier eligibility, quota, cost, or real API latency has been verified.
+- The local OmniRoute endpoint was probed on 2026-11-17 and was not running (`connection refused`); therefore no no-key live inference endpoint was available to test.
 - Provider pricing and free-tier metadata are not yet persisted in a model registry; estimated cost is currently recorded as zero until verified pricing is added.
 - SMART routing is a bounded provider-order fallback with bounded transient retries, not yet a quota/latency/success-rate optimizer.
 - Tool-result caching, prompt caching, semantic context deduplication, and reusable task-result storage are not implemented.
 - MCP lifecycle management, browser automation, scheduling, multi-agent collaboration, marketplace, desktop application, and research citation workflow remain incomplete.
-- The real-world scenarios in the Phase 2 specification have not been live-provider validated. Local deterministic tool/memory/security scenarios are automated tests only; 12 automated tests currently pass.
+- The real-world scenarios in the Phase 2 specification have not been live-provider validated. Local deterministic tool/memory/security scenarios are automated tests only; 13 automated tests currently pass.
+- OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.
 - Hermes is used as an architectural reference; no Hermes source code is copied into OMNI-X.
 
 ## Evidence policy

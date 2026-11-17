@@ -66,7 +66,10 @@ class AgentRuntime:
                     except (KeyError, TypeError, json.JSONDecodeError) as exc:
                         raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
                     name = call["function"].get("name")
-                    result = compress_terminal_output(self.tools.call(name, args))
+                    raw_result = self.tools.call(name, args)
+                    # OmniRoute may already apply its RTK → Caveman pipeline. Avoid stacking
+                    # OMNI-X compression on top of a gateway-compressed tool result.
+                    result = raw_result if route.provider == "omniroute" else compress_terminal_output(raw_result)
                     messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
                     self.store.add_message(session_id, "tool", f"{name}: {result}")
                     self.store.event(task_id, "tool_result", name)

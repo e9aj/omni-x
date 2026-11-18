@@ -9,13 +9,18 @@ from pathlib import Path
 
 from .config import data_dir
 
+_DB_LOCKS: dict[str, threading.RLock] = {}
+_DB_LOCKS_GUARD = threading.Lock()
+
 
 class Store:
     def __init__(self, path: Path | None = None):
         self.path = path or data_dir() / "omnix.sqlite3"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(self.path, timeout=30, check_same_thread=False)
-        self._lock = threading.RLock()
+        key = str(self.path.resolve())
+        with _DB_LOCKS_GUARD:
+            self._lock = _DB_LOCKS.setdefault(key, threading.RLock())
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript("""
@@ -42,19 +47,22 @@ class Store:
         return cur.rowcount
 
     def create_schedule(self, prompt: str, schedule: str, kind: str, next_run_at: float) -> str:
-        ident = str(uuid.uuid4()); now = time.time()
-        self.db.execute("INSERT INTO schedules VALUES (?,?,?,?,?,NULL,1,0,?,?)", (ident, prompt, schedule, kind, next_run_at, now, now))
-        self.db.commit(); return ident
+        with self._lock:
+            ident = str(uuid.uuid4()); now = time.time()
+            self.db.execute("INSERT INTO schedules VALUES (?,?,?,?,?,NULL,1,0,?,?)", (ident, prompt, schedule, kind, next_run_at, now, now))
+            self.db.commit(); return ident
 
     def due_schedules(self, now: float) -> list[dict]:
         return [dict(r) for r in self.db.execute("SELECT * FROM schedules WHERE enabled=1 AND next_run_at<=? ORDER BY next_run_at", (now,)).fetchall()]
 
     def advance_schedule(self, schedule_id: str, next_run_at: float | None, last_run_at: float, missed: int = 0) -> None:
-        self.db.execute("UPDATE schedules SET next_run_at=?, last_run_at=?, missed_runs=missed_runs+?, enabled=CASE WHEN ? IS NULL THEN 0 ELSE enabled END, updated=? WHERE id=?", (next_run_at, last_run_at, missed, next_run_at, time.time(), schedule_id)); self.db.commit()
+        with self._lock:
+            self.db.execute("UPDATE schedules SET next_run_at=?, last_run_at=?, missed_runs=missed_runs+?, enabled=CASE WHEN ? IS NULL THEN 0 ELSE enabled END, updated=? WHERE id=?", (next_run_at, last_run_at, missed, next_run_at, time.time(), schedule_id)); self.db.commit()
 
     def create_job(self, prompt: str, schedule_id: str | None = None, parent_job_id: str | None = None, deadline: float | None = None, policy: dict | None = None) -> str:
-        ident = str(uuid.uuid4()); now = time.time()
-        self.db.execute("INSERT INTO jobs(id,schedule_id,parent_job_id,session_id,prompt,state,result,error,attempts,deadline,created,started,finished,updated,policy_json) VALUES (?,?,?,?,?,'queued',NULL,NULL,0,?,?,NULL,NULL,?,?)", (ident, schedule_id, parent_job_id, None, prompt, deadline, now, now, json.dumps(policy or {}, sort_keys=True))); self.db.commit(); return ident
+        with self._lock:
+            ident = str(uuid.uuid4()); now = time.time()
+            self.db.execute("INSERT INTO jobs(id,schedule_id,parent_job_id,session_id,prompt,state,result,error,attempts,deadline,created,started,finished,updated,policy_json) VALUES (?,?,?,?,?,'queued',NULL,NULL,0,?,?,NULL,NULL,?,?)", (ident, schedule_id, parent_job_id, None, prompt, deadline, now, now, json.dumps(policy or {}, sort_keys=True))); self.db.commit(); return ident
 
     def job(self, job_id: str) -> dict | None:
         row = self.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone(); return dict(row) if row else None
@@ -68,16 +76,20 @@ class Store:
         return [dict(r) for r in self.db.execute(f"SELECT * FROM jobs ORDER BY created DESC LIMIT {safe_limit}").fetchall()]
 
     def claim_job(self, job_id: str) -> bool:
-        cur = self.db.execute("UPDATE jobs SET state='running', attempts=attempts+1, started=?, updated=? WHERE id=? AND state='queued'", (time.time(), time.time(), job_id)); self.db.commit(); return cur.rowcount == 1
+        with self._lock:
+            cur = self.db.execute("UPDATE jobs SET state='running', attempts=attempts+1, started=?, updated=? WHERE id=? AND state='queued'", (time.time(), time.time(), job_id)); self.db.commit(); return cur.rowcount == 1
 
     def finish_job(self, job_id: str, state: str, result: str | None = None, error: str | None = None) -> None:
-        now = time.time(); self.db.execute("UPDATE jobs SET state=?, result=?, error=?, finished=?, updated=? WHERE id=?", (state, result, error, now, now, job_id)); self.db.commit()
+        with self._lock:
+            now = time.time(); self.db.execute("UPDATE jobs SET state=?, result=?, error=?, finished=?, updated=? WHERE id=?", (state, result, error, now, now, job_id)); self.db.commit()
 
     def cancel_job(self, job_id: str) -> None:
-        self.db.execute("UPDATE jobs SET state='cancelled', error='cancelled by user', finished=?, updated=? WHERE id=? AND state IN ('queued','running')", (time.time(), time.time(), job_id)); self.db.commit()
+        with self._lock:
+            self.db.execute("UPDATE jobs SET state='cancelled', error='cancelled by user', finished=?, updated=? WHERE id=? AND state IN ('queued','running')", (time.time(), time.time(), job_id)); self.db.commit()
 
     def create_delegation(self, parent_job_id: str, child_job_id: str, role: str) -> str:
-        ident = str(uuid.uuid4()); now = time.time(); self.db.execute("INSERT INTO delegations VALUES (?,?,?,?,?,?,?,?,?)", (ident, parent_job_id, child_job_id, role, 'running', None, None, now, now)); self.db.commit(); return ident
+        with self._lock:
+            ident = str(uuid.uuid4()); now = time.time(); self.db.execute("INSERT INTO delegations VALUES (?,?,?,?,?,?,?,?,?)", (ident, parent_job_id, child_job_id, role, 'running', None, None, now, now)); self.db.commit(); return ident
 
     def delegations(self, parent_job_id: str) -> list[dict]:
         return [dict(r) for r in self.db.execute("SELECT * FROM delegations WHERE parent_job_id=? ORDER BY created", (parent_job_id,)).fetchall()]

@@ -208,5 +208,6 @@ class TaskService:
             with self._inflight_lock: self._inflight.discard(job_id)
 
     def _settle_child(self, db: Store, parent: str, child: str, state: str, result: str | None, error: str | None) -> None:
-        db.db.execute("UPDATE delegations SET state=?, result=?, error=?, updated=? WHERE parent_job_id=? AND child_job_id=?", (state, result, error, time.time(), parent, child)); db.db.commit()
+        with db._lock:
+            db.db.execute("UPDATE delegations SET state=?, result=?, error=?, updated=? WHERE parent_job_id=? AND child_job_id=?", (state, result, error, time.time(), parent, child)); db.db.commit()
 

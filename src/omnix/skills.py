@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .hermes_runtime import installed_hermes_source
+
 
 @dataclass(frozen=True)
 class Skill:
@@ -22,9 +24,9 @@ def skill_roots(workspace: Path | None = None) -> list[Path]:
     # Hermes keeps skills as reviewed SKILL.md trees.  Reuse those trees only
     # when the operator explicitly points OMNI-X at an inspected Hermes source
     # checkout; never silently scan an arbitrary installation.
-    hermes_source = os.environ.get("OMNIX_HERMES_SOURCE")
-    if hermes_source:
-        source = Path(hermes_source).expanduser().resolve()
+    explicit_source = os.environ.get("OMNIX_HERMES_SOURCE")
+    source = Path(explicit_source).expanduser().resolve() if explicit_source else installed_hermes_source()
+    if source:
         roots.extend((source / "skills", source / "optional-skills"))
     return roots
 

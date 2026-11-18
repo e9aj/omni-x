@@ -57,3 +57,9 @@ task completed with one provider call, 552 prompt tokens, 61 completion tokens,
 10.3 seconds measured latency, and estimated cost `$0.00`. The event trace
 recorded `verified` followed by `completed`; no direct provider credential was
 used.
+
+The installed Hermes browser live test also passed on Windows: the actual
+`tools/browser_use_cli.py` implementation opened Chromium, navigated from
+`example.com` to IANA's example page, returned page metadata, captured a
+screenshot into Hermes's managed browser workspace, shut down all sessions via
+`tools/browser_session_lifecycle.py`, and successfully restarted the browser.

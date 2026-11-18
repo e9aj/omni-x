@@ -23,7 +23,7 @@ providers, and delegated worker backends.
 | Sessions and memory | Retain OMNI-X SQLite behind the Hermes backend | Existing schema is stable and security-scoped; Hermes persistence is broader than needed yet. |
 | Skills | **Reused directly:** Hermes `skills/` and allowlisted `optional-skills/` `SKILL.md` trees through OMNI-X loader | Explicit source path and optional-skill allowlist preserve review controls. |
 | Terminal execution | Retain OMNI-X containment/approval tools behind the Hermes executor boundary | Hermes execution semantics are reused without bypassing OMNI-X approvals. |
-| Browser automation | **Thin adapter added:** invokes Hermes `tools/browser_use_cli.py` when an explicit source checkout is configured | Reuses Hermes browser-harness/CDP lifecycle; unavailable rather than emulated when dependencies or source are absent. |
+| Browser automation | **Thin adapter added:** invokes Hermes `tools/browser_use_cli.py` from the installer-managed source | Reuses Hermes browser-harness/CDP lifecycle; unavailable rather than emulated when dependencies or source are absent. |
 | Scheduling/background tasks | Deferred adapter | Requires lifecycle and persistence migration design. |
 | Multi-agent delegation | Deferred adapter | Must map Hermes worker isolation to OMNI-X approval/audit boundaries. |
 | Error recovery | Adapt incrementally | Current bounded retry/health tracking is compatible; Hermes recovery is a later slice. |
@@ -46,3 +46,10 @@ subprocess adapter. Hermes cron/scheduler, background review, and delegated
 workers require their own durable lifecycle and identity model and remain
 incomplete. Terminal execution is retained in OMNI-X because its containment and
 approval policy is a security boundary.
+
+The reproducible Windows installer pins Hermes to
+`4ae451d4126327c871fd084e60c045dec0c85911` and uses Hermes's own
+`scripts/install.ps1`, locked Python environment, Chromium and browser-harness
+artifacts. The installed source is discovered under `%LOCALAPPDATA%\hermes`;
+normal OMNI-X operation does not require a manual clone or source environment
+variable.

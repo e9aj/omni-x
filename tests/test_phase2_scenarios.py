@@ -45,8 +45,7 @@ def test_hermes_skill_tree_is_reused_only_with_explicit_allowlist(monkeypatch, t
     assert discovered[0].description == "Review code safely"
 
 
-def test_hermes_browser_adapter_reports_unavailable_without_source(monkeypatch):
-    monkeypatch.delenv("OMNIX_HERMES_SOURCE", raising=False)
-    adapter = HermesBrowserAdapter()
+def test_hermes_browser_adapter_reports_unavailable_without_hermes_checkout(tmp_path: Path):
+    adapter = HermesBrowserAdapter(source=tmp_path / "missing-hermes")
     assert not adapter.available
     assert "configure OMNIX_HERMES_SOURCE" in adapter.execute("open('https://example.com')")

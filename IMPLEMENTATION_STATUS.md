@@ -33,9 +33,11 @@ Last reviewed: 2026-11-18
 - Provider pricing and free-tier metadata are not yet persisted in a model registry; estimated cost is currently recorded as zero until verified pricing is added.
 - SMART routing is a bounded provider-order fallback with bounded transient retries, not yet a quota/latency/success-rate optimizer.
 - Tool-result caching, prompt caching, semantic context deduplication, and reusable task-result storage are not implemented.
-- MCP lifecycle management, browser automation, scheduling, multi-agent collaboration, marketplace, desktop application, and research citation workflow remain incomplete.
-- Hermes's optional browser, scheduler, background-worker, and multi-agent subsystems are assessed but not yet embedded; the current integration includes the actual execution-loop boundary and tool dispatch, while preserving OMNI-X's security-scoped equivalents.
+- MCP lifecycle management, scheduling, background task APIs, multi-agent delegation, marketplace, desktop application, and research citation workflow remain incomplete.
+- Hermes browser execution and skills loading are now integrated through the managed install; Hermes cron/scheduler, background-worker, and delegated-worker subsystems are assessed but not yet embedded in OMNI-X's unified lifecycle.
 - Hermes skills are now directly reusable from an explicitly configured source checkout with an allowlist for optional skills. Browser automation has a thin adapter to Hermes `tools/browser_use_cli.py`; it reports unavailable when the Hermes browser runtime or dependencies are not installed.
+- The pinned Hermes Windows installer is validated on this machine: commit `4ae451d4126327c871fd084e60c045dec0c85911`, managed Python 3.14, Chromium, browser-harness, Node/npm and bundled skills installed under `%LOCALAPPDATA%\\hermes`; automatic discovery works without `OMNIX_HERMES_SOURCE`.
+- Opt-in live browser validation passed through the actual Hermes implementation: startup, navigation from example.com to IANA, page inspection, screenshot capture, shutdown, and clean restart recovery.
 - Live `auto/best-free` inference through OmniRoute still succeeds after the adapter change: one completed call returned the recorded verification response at estimated cost `$0.00`.
 - Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; 24 automated tests currently pass after this integration, including varied non-benchmark backend tasks.
 - OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.

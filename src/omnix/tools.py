@@ -22,6 +22,7 @@ class ToolRegistry:
         self.browser = HermesBrowserAdapter(approver=self.approver)
         if self.browser.available:
             self.tools["browser_exec"] = self.browser_exec
+            self.tools["browser_shutdown"] = self.browser_shutdown
 
     def schemas(self) -> list[dict[str, Any]]:
         return [{"type": "function", "function": {"name": name, "description": getattr(fn, "description", "OMNI-X tool"), "parameters": getattr(fn, "parameters", {"type": "object", "properties": {}})}} for name, fn in self.tools.items()]
@@ -79,6 +80,9 @@ class ToolRegistry:
     def browser_exec(self, code: str, timeout_s: int = 120) -> str:
         return self.browser.execute(code, timeout_s)
 
+    def browser_shutdown(self) -> str:
+        return self.browser.shutdown()
+
 
 ToolRegistry.read_file.parameters = {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}
 ToolRegistry.list_directory.parameters = {"type": "object", "properties": {"path": {"type": "string"}}}
@@ -86,3 +90,4 @@ ToolRegistry.search_text.parameters = {"type": "object", "properties": {"pattern
 ToolRegistry.write_file.parameters = {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}
 ToolRegistry.run_command.parameters = {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}
 ToolRegistry.browser_exec.parameters = {"type": "object", "properties": {"code": {"type": "string"}, "timeout_s": {"type": "integer"}}, "required": ["code"]}
+ToolRegistry.browser_shutdown.parameters = {"type": "object", "properties": {}}

@@ -37,7 +37,7 @@ remains OMNI-X. Required Hermes attribution is in `THIRD_PARTY_NOTICES.md`.
 
 ## Latest source reuse assessment
 
-The inspected Hermes source revision is `da9c2bd62fa567ed0006866de022939ac14582cf`.
+The inspected Hermes source revision is `4ae451d4126327c871fd084e60c045dec0c85911`.
 The current reuse boundary is explicit: the execution loop and tool dispatch are
 adapted into `HermesExecutionBackend`; session/memory state remains OMNI-X SQLite;
 skills are directly loaded from an operator-selected Hermes source tree; browser

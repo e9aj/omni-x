@@ -28,12 +28,19 @@ Last reviewed: 2026-11-18
 
 ## Not yet verified or complete
 
+### Task lifecycle Stage 1
+
+- `TaskService` adds SQLite-backed schedules, jobs and delegation records without replacing existing tables.
+- One-shot ISO schedules and recurring interval schedules execute persistently; schedule advancement occurs before dispatch and running jobs recover to queued after restart.
+- Evidence: Windows `py -m pytest tests/test_task_service.py` passed 3/3, covering scheduled execution, restart recovery, child lifecycle records and cancellation persistence.
+- Hermes reuse: managed `cron/jobs.py::parse_schedule` is used when available. Hermes `cron/scheduler.py` is not allowed to launch a second agent runtime.
+
 - No direct provider credentials were used. The live inference used OmniRoute's available free route; upstream availability and quotas remain subject to change.
 - The first live request exercised fallback failures (missing Chromium and a closed UncloseAI public beta), then succeeded after installing OmniRoute's supported Chromium dependency.
 - Provider pricing and free-tier metadata are not yet persisted in a model registry; estimated cost is currently recorded as zero until verified pricing is added.
 - SMART routing is a bounded provider-order fallback with bounded transient retries, not yet a quota/latency/success-rate optimizer.
 - Tool-result caching, prompt caching, semantic context deduplication, and reusable task-result storage are not implemented.
-- MCP lifecycle management, scheduling, background task APIs, multi-agent delegation, marketplace, desktop application, and research citation workflow remain incomplete.
+- MCP lifecycle management, durable detached worker supervision, full delegated aggregation, marketplace, desktop application, and research citation workflow remain incomplete.
 - Hermes browser execution and skills loading are now integrated through the managed install; Hermes cron/scheduler, background-worker, and delegated-worker subsystems are assessed but not yet embedded in OMNI-X's unified lifecycle.
 - Hermes skills are now directly reusable from an explicitly configured source checkout with an allowlist for optional skills. Browser automation has a thin adapter to Hermes `tools/browser_use_cli.py`; it reports unavailable when the Hermes browser runtime or dependencies are not installed.
 - The pinned Hermes Windows installer is validated on this machine: commit `4ae451d4126327c871fd084e60c045dec0c85911`, managed Python 3.14, Chromium, browser-harness, Node/npm and bundled skills installed under `%LOCALAPPDATA%\\hermes`; automatic discovery works without `OMNIX_HERMES_SOURCE`.

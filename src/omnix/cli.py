@@ -14,6 +14,7 @@ from .secrets import set_secret
 from .secrets import get_secret
 from .discovery import discover_omniroute, choose_free_model
 from .store import Store
+from .task_service import TaskService
 
 
 def _approve(question: str) -> bool:
@@ -45,6 +46,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("doctor", help="check local runtime readiness")
     hermes = sub.add_parser("hermes", help="install or inspect the managed Hermes backend")
     hermes.add_argument("action", choices=["install", "status"])
+    schedule = sub.add_parser("schedule", help="manage persistent scheduled tasks")
+    schedule.add_argument("action", choices=["add", "list"])
+    schedule.add_argument("prompt", nargs="?")
+    schedule.add_argument("when", nargs="?")
+    background = sub.add_parser("background", help="manage durable background tasks")
+    background.add_argument("action", choices=["run", "list", "status", "cancel"])
+    background.add_argument("value", nargs="?")
     args = parser.parse_args(argv)
 
     if args.command == "onboard":
@@ -166,6 +174,31 @@ def main(argv: list[str] | None = None) -> int:
         import subprocess
         result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-NonInteractive"], check=False)
         return result.returncode
+    if args.command in {"schedule", "background"}:
+        service = TaskService(load_settings(), workspace=os.getcwd(), approver=_approve)
+        try:
+            if args.command == "schedule" and args.action == "add":
+                if not args.prompt or not args.when:
+                    parser.error("schedule add requires PROMPT and ISO_TIMESTAMP or INTERVAL")
+                print(f"Scheduled: {service.schedule(args.prompt, args.when)}")
+            elif args.command == "schedule":
+                for row in service.store.db.execute("SELECT id,prompt,schedule,next_run_at,enabled,missed_runs FROM schedules ORDER BY next_run_at"):
+                    print(dict(row))
+            elif args.action == "run":
+                if not args.value:
+                    parser.error("background run requires PROMPT")
+                print(f"Job: {service.enqueue(args.value)}")
+            elif args.action == "list":
+                for row in service.status(): print(row)
+            elif args.action == "status":
+                if not args.value: parser.error("background status requires JOB_ID")
+                print(service.status(args.value))
+            else:
+                if not args.value: parser.error("background cancel requires JOB_ID")
+                service.cancel(args.value); print(f"Cancelled: {args.value}")
+        finally:
+            service.close()
+        return 0
     settings = load_settings()
     if args.command in {"run", "chat"} and not (get_secret({"openai":"OPENAI_API_KEY","groq":"GROQ_API_KEY","cerebras":"CEREBRAS_API_KEY","gemini":"GEMINI_API_KEY","mistral":"MISTRAL_API_KEY","openrouter":"OPENROUTER_API_KEY","together":"TOGETHER_API_KEY","deepseek":"DEEPSEEK_API_KEY","anthropic":"ANTHROPIC_API_KEY","omniroute":"OMNIROUTE_API_KEY"}.get(settings.provider, "")) or __import__("os").environ.get({"openai":"OPENAI_API_KEY","groq":"GROQ_API_KEY","cerebras":"CEREBRAS_API_KEY","gemini":"GEMINI_API_KEY","mistral":"MISTRAL_API_KEY","openrouter":"OPENROUTER_API_KEY","together":"TOGETHER_API_KEY","deepseek":"DEEPSEEK_API_KEY","anthropic":"ANTHROPIC_API_KEY"}.get(settings.provider, ""))):
         candidate = replace(settings, mode="FREE", provider="omniroute")

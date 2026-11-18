@@ -63,3 +63,11 @@ The installed Hermes browser live test also passed on Windows: the actual
 `example.com` to IANA's example page, returned page metadata, captured a
 screenshot into Hermes's managed browser workspace, shut down all sessions via
 `tools/browser_session_lifecycle.py`, and successfully restarted the browser.
+## Task service Stage 1 — 2026-11-18
+
+- Windows 11: `py -m pytest tests/test_task_service.py` — 3 passed.
+- A recurring interval schedule created and completed a persisted job using the OMNI-X task service.
+- Restart recovery converted an abandoned running job back to queued; cancellation persisted as cancelled.
+- Delegated child records completed independently under the same service.
+- These tests use a deterministic local executor and are lifecycle evidence, not live model-inference evidence.
+

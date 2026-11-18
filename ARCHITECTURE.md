@@ -24,8 +24,8 @@ providers, and delegated worker backends.
 | Skills | **Reused directly:** Hermes `skills/` and allowlisted `optional-skills/` `SKILL.md` trees through OMNI-X loader | Explicit source path and optional-skill allowlist preserve review controls. |
 | Terminal execution | Retain OMNI-X containment/approval tools behind the Hermes executor boundary | Hermes execution semantics are reused without bypassing OMNI-X approvals. |
 | Browser automation | **Thin adapter added:** invokes Hermes `tools/browser_use_cli.py` from the installer-managed source | Reuses Hermes browser-harness/CDP lifecycle; unavailable rather than emulated when dependencies or source are absent. |
-| Scheduling/background tasks | Deferred adapter | Requires lifecycle and persistence migration design. |
-| Multi-agent delegation | Deferred adapter | Must map Hermes worker isolation to OMNI-X approval/audit boundaries. |
+| Scheduling/background tasks | Stage 1 `TaskService` adapter | OMNI-X SQLite owns definitions/history; Hermes `cron.jobs.parse_schedule` is reused when available, while OMNI-X executes jobs. Durable detached workers are Stage 2. |
+| Multi-agent delegation | Stage 3 `TaskService` child-job adapter | Hermes worker ledger semantics are the reference; children will inherit OMNI-X policy and use the unified runtime. |
 | Error recovery | Adapt incrementally | Current bounded retry/health tracking is compatible; Hermes recovery is a later slice. |
 | Provider interface | Reuse compatible wire contract now | OmniRoute already speaks OpenAI-compatible chat completions; no provider replacement needed. |
 
@@ -42,10 +42,10 @@ The current reuse boundary is explicit: the execution loop and tool dispatch are
 adapted into `HermesExecutionBackend`; session/memory state remains OMNI-X SQLite;
 skills are directly loaded from an operator-selected Hermes source tree; browser
 automation is delegated to Hermes `browser_use_cli` through a thin approved
-subprocess adapter. Hermes cron/scheduler, background review, and delegated
-workers require their own durable lifecycle and identity model and remain
-incomplete. Terminal execution is retained in OMNI-X because its containment and
-approval policy is a security boundary.
+subprocess adapter. Stage 1 reuses Hermes `cron.jobs.parse_schedule` through
+`TaskService`, while OMNI-X retains the scheduler store and executor. Terminal
+execution is retained in OMNI-X because its containment and approval policy is a
+security boundary.
 
 The reproducible Windows installer pins Hermes to
 `4ae451d4126327c871fd084e60c045dec0c85911` and uses Hermes's own

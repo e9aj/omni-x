@@ -61,6 +61,10 @@ def choose_free_model(discovery: Discovery, task: str = "general") -> dict[str, 
         model_id = str(model.get("id", "")).lower()
         capabilities = model.get("capabilities") or {}
         capability_score = sum(2 for word in terms if word in model_id)
+        if capabilities.get("tool_calling"):
+            capability_score += 5
+        if capabilities.get("reasoning"):
+            capability_score += 1
         if "code" in terms and capabilities.get("tool_calling"):
             capability_score += 3
         context = int(model.get("context_length", 0) or 0)

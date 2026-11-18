@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "onboard":
         settings = replace(load_settings(), mode="FREE", provider="omniroute")
         discovery = discover_omniroute(settings)
-        selected = choose_free_model(discovery)
+        selected = choose_free_model(discovery, "agent tool calling")
         if selected is None:
             if discovery.error:
                 print(f"OmniRoute unavailable at {discovery.gateway}: {discovery.error}")
@@ -153,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in {"run", "chat"} and not (get_secret({"openai":"OPENAI_API_KEY","groq":"GROQ_API_KEY","cerebras":"CEREBRAS_API_KEY","gemini":"GEMINI_API_KEY","mistral":"MISTRAL_API_KEY","openrouter":"OPENROUTER_API_KEY","together":"TOGETHER_API_KEY","deepseek":"DEEPSEEK_API_KEY","anthropic":"ANTHROPIC_API_KEY","omniroute":"OMNIROUTE_API_KEY"}.get(settings.provider, "")) or __import__("os").environ.get({"openai":"OPENAI_API_KEY","groq":"GROQ_API_KEY","cerebras":"CEREBRAS_API_KEY","gemini":"GEMINI_API_KEY","mistral":"MISTRAL_API_KEY","openrouter":"OPENROUTER_API_KEY","together":"TOGETHER_API_KEY","deepseek":"DEEPSEEK_API_KEY","anthropic":"ANTHROPIC_API_KEY"}.get(settings.provider, ""))):
         candidate = replace(settings, mode="FREE", provider="omniroute")
         discovery = discover_omniroute(candidate)
-        selected = choose_free_model(discovery)
+        selected = choose_free_model(discovery, "agent tool calling")
         if selected:
             settings = replace(candidate, model=str(selected.get("id")), base_url=discovery.gateway, free_models=[str(model.get("id")) for model in discovery.free_models])
             save_settings(settings)

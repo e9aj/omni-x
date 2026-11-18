@@ -28,6 +28,6 @@ def test_discovery_only_selects_explicitly_free_models():
         result = discover_omniroute(settings)
         assert result.reachable is True
         assert [model["id"] for model in result.free_models] == ["free-coder"]
-        assert choose_free_model(result)["id"] == "free-coder"
+        assert choose_free_model(result, "agent tool calling")["id"] == "free-coder"
     finally:
         server.shutdown()

@@ -10,6 +10,7 @@ bootstrap and tests.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import re
 import threading
 import time
@@ -80,6 +81,8 @@ class TaskService:
         self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="omnix-worker")
         self._stop = threading.Event(); self._wake = threading.Event(); self._thread: threading.Thread | None = None
         self._cancel: dict[str, threading.Event] = {}
+        self._inflight: set[str] = set()
+        self._inflight_lock = threading.Lock()
         self.store.recover_orphaned_jobs()
 
     def start(self) -> None:
@@ -116,6 +119,27 @@ class TaskService:
     def status(self, job_id: str | None = None) -> dict | list[dict] | None:
         return self.store.job(job_id) if job_id else self.store.jobs()
 
+    def run_worker_forever(self, idle_seconds: float = 3.0) -> None:
+        """Run the managed worker host until idle and no future schedule exists.
+
+        This is the detached Windows entry point.  State is always in SQLite;
+        a new process can reclaim rows after a crash without inheriting a live
+        Hermes process or session.
+        """
+        self.start(); idle_since = time.monotonic()
+        try:
+            while not self._stop.is_set():
+                rows = self.store.jobs(100)
+                schedules = self.store.db.execute("SELECT 1 FROM schedules WHERE enabled=1 LIMIT 1").fetchone()
+                active = any(row["state"] in {"queued", "running"} for row in rows)
+                if active or schedules:
+                    idle_since = time.monotonic()
+                elif time.monotonic() - idle_since >= idle_seconds:
+                    break
+                time.sleep(.25)
+        finally:
+            self.close()
+
     def _loop(self) -> None:
         while not self._stop.is_set():
             now = time.time()
@@ -130,13 +154,19 @@ class TaskService:
                     self.store.advance_schedule(row["id"], None, now)
             for row in self.store.jobs(100):
                 if row["state"] == "queued":
+                    with self._inflight_lock:
+                        if row["id"] in self._inflight:
+                            continue
+                        self._inflight.add(row["id"])
                     self._pool.submit(self._run, row["id"])
             self._wake.wait(0.25); self._wake.clear()
 
     def _run(self, job_id: str) -> None:
         # Multiple pollers may see a row; the atomic claim ensures one owner.
         db = Store(self.store.path)
-        if not db.claim_job(job_id): return
+        if not db.claim_job(job_id):
+            with self._inflight_lock: self._inflight.discard(job_id)
+            return
         row = db.job(job_id) or {}; cancel = self._cancel.setdefault(job_id, threading.Event())
         try:
             if cancel.is_set(): raise RuntimeError("Task cancelled")
@@ -155,6 +185,8 @@ class TaskService:
             db.finish_job(job_id, state, error=str(exc))
             if row.get("parent_job_id"):
                 self._settle_child(db, row["parent_job_id"], job_id, state, None, str(exc))
+        finally:
+            with self._inflight_lock: self._inflight.discard(job_id)
 
     def _settle_child(self, db: Store, parent: str, child: str, state: str, result: str | None, error: str | None) -> None:
         db.db.execute("UPDATE delegations SET state=?, result=?, error=?, updated=? WHERE parent_job_id=? AND child_job_id=?", (state, result, error, time.time(), parent, child)); db.db.commit()

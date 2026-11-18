@@ -71,3 +71,10 @@ screenshot into Hermes's managed browser workspace, shut down all sessions via
 - Delegated child records completed independently under the same service.
 - These tests use a deterministic local executor and are lifecycle evidence, not live model-inference evidence.
 
+## Background worker Stage 2 — 2026-11-18
+
+- Windows 11 task-service suite: 4 passed.
+- A fresh worker host reclaimed a queued SQLite job after the first host closed and completed it with the second host's executor.
+- The detached CLI worker is policy-safe by default: it cannot prompt for approval, so sensitive tools remain denied unless an embedding host supplies an explicit approval boundary.
+- Cooperative cancellation is validated; hard termination of an in-flight provider request remains a limitation.
+

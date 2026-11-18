@@ -35,6 +35,14 @@ Last reviewed: 2026-11-18
 - Evidence: Windows `py -m pytest tests/test_task_service.py` passed 3/3, covering scheduled execution, restart recovery, child lifecycle records and cancellation persistence.
 - Hermes reuse: managed `cron/jobs.py::parse_schedule` is used when available. Hermes `cron/scheduler.py` is not allowed to launch a second agent runtime.
 
+### Background workers Stage 2
+
+- `omnix worker` runs the durable SQLite queue in a separate Windows process; `omnix background run` starts it detached.
+- Atomic job claiming, bounded concurrency, cancellation state, idle shutdown and restart recovery are implemented.
+- Evidence: the task-service suite is now 4/4, including a second worker host reclaiming queued work after the first host closes.
+- Hermes reference modules: `persistence/workers/executions.py` for registered/running/terminal lifecycle semantics and `agent/managed_worker.py` for bounded worker supervision. OMNI-X does not start Hermes's gateway worker or a second agent runtime.
+- Hard process termination of a currently executing external tool is not yet exposed; cancellation is persisted and runtime cancellation is cooperative.
+
 - No direct provider credentials were used. The live inference used OmniRoute's available free route; upstream availability and quotas remain subject to change.
 - The first live request exercised fallback failures (missing Chromium and a closed UncloseAI public beta), then succeeded after installing OmniRoute's supported Chromium dependency.
 - Provider pricing and free-tier metadata are not yet persisted in a model registry; estimated cost is currently recorded as zero until verified pricing is added.

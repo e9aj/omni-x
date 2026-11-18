@@ -24,7 +24,7 @@ providers, and delegated worker backends.
 | Skills | **Reused directly:** Hermes `skills/` and allowlisted `optional-skills/` `SKILL.md` trees through OMNI-X loader | Explicit source path and optional-skill allowlist preserve review controls. |
 | Terminal execution | Retain OMNI-X containment/approval tools behind the Hermes executor boundary | Hermes execution semantics are reused without bypassing OMNI-X approvals. |
 | Browser automation | **Thin adapter added:** invokes Hermes `tools/browser_use_cli.py` from the installer-managed source | Reuses Hermes browser-harness/CDP lifecycle; unavailable rather than emulated when dependencies or source are absent. |
-| Scheduling/background tasks | Stage 1 `TaskService` adapter | OMNI-X SQLite owns definitions/history; Hermes `cron.jobs.parse_schedule` is reused when available, while OMNI-X executes jobs. Durable detached workers are Stage 2. |
+| Scheduling/background tasks | `TaskService` adapter + managed worker host | OMNI-X SQLite owns definitions/history; Hermes `cron.jobs.parse_schedule` is reused when available, while OMNI-X executes jobs. `omnix worker` is a detached, bounded host that reclaims queued work after restart. |
 | Multi-agent delegation | Stage 3 `TaskService` child-job adapter | Hermes worker ledger semantics are the reference; children will inherit OMNI-X policy and use the unified runtime. |
 | Error recovery | Adapt incrementally | Current bounded retry/health tracking is compatible; Hermes recovery is a later slice. |
 | Provider interface | Reuse compatible wire contract now | OmniRoute already speaks OpenAI-compatible chat completions; no provider replacement needed. |
@@ -53,3 +53,10 @@ The reproducible Windows installer pins Hermes to
 artifacts. The installed source is discovered under `%LOCALAPPDATA%\hermes`;
 normal OMNI-X operation does not require a manual clone or source environment
 variable.
+
+Stage 2 adds a durable OMNI-X worker host rather than Hermes's gateway worker
+process: the queue is claimed atomically in SQLite, concurrency is bounded by
+`ThreadPoolExecutor`, cancellation is persisted, and the detached host exits
+cleanly when no jobs or enabled schedules remain. Hermes
+`persistence/workers/executions.py` and `agent/managed_worker.py` remain the
+lifecycle reference; their Hermes-owned identity and storage are not imported.

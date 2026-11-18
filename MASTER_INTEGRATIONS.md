@@ -21,7 +21,7 @@ This is the decision record for repositories considered for OMNI-X. It is intend
 
 | Area | Repository | Licence | Capabilities relevant to OMNI-X | Integration status | Decision and rationale |
 |---|---|---|---|---|---|
-| Agent framework | [hermes-agent](https://github.com/NousResearch/hermes-agent) | MIT | Autonomous agent foundation, tools, sessions, task execution, schedule grammar | **Accepted — staged unified-runtime reuse** | OMNI-X reuses verified execution/browser/skills boundaries and now adapts `cron.jobs.parse_schedule`; Hermes-owned scheduler/workers are not launched as a competing agent engine. |
+| Agent framework | [hermes-agent](https://github.com/NousResearch/hermes-agent) | MIT | Autonomous agent foundation, tools, sessions, task execution, schedule grammar, worker lifecycle patterns | **Accepted — staged unified-runtime reuse** | OMNI-X reuses verified execution/browser/skills boundaries and `cron.jobs.parse_schedule`; worker lifecycle semantics are adapted from `persistence/workers/executions.py` and `agent/managed_worker.py`. Hermes-owned scheduler/workers are not launched as a competing agent engine. |
 | Agent framework | [openclaw](https://github.com/openclaw/openclaw) | MIT | Cross-platform agent actions and integrations | **Accepted — selective patterns/adapters** | Useful integration patterns, but adopting its runtime wholesale would create a competing orchestrator. |
 | Agent framework | [OpenManus](https://github.com/FoundationAgents/OpenManus) | MIT | Open-ended autonomous workflows and browser-oriented execution | **Deferred — patterns only** | Good workflow ideas; defer code reuse until overlap and dependency boundaries with Hermes are proven. |
 | Agent framework | [MetaGPT](https://github.com/geekan/MetaGPT) | MIT | Role-based multi-agent collaboration and software workflows | **Rejected for core runtime** | A second orchestration engine would conflict with the unified-runtime requirement; inspect ideas selectively later. |
@@ -89,6 +89,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-18 | Inspected Hermes revision `4ae451d4126327c871fd084e60c045dec0c85911` and MIT licence. Reused Hermes `SKILL.md` trees through an explicit allowlisted source adapter and added a thin approved bridge to Hermes `tools/browser_use_cli.py`; the unified execution adapter remains behind OMNI-X routing, SQLite and permissions. Cron, background review and delegated workers remain incomplete. |
 | 2026-11-18 | Added a pinned Windows installer wrapper around Hermes `scripts/install.ps1`; validated managed Python/Chromium/browser-harness installation and live browser startup, navigation, screenshot, shutdown and restart recovery. |
 | 2026-11-18 | Stage 1 task lifecycle added SQLite-backed schedules, jobs and child records with restart recovery; Hermes schedule parsing is reused through an OMNI-X adapter. |
+| 2026-11-18 | Stage 2 durable worker host added: detached Windows worker, atomic SQLite claims, bounded concurrency, cancellation persistence and restart reclamation. Hermes worker modules remain references/adapters, not a second runtime. |
 
 ## OMNI-X implementation status
 

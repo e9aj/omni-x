@@ -4,6 +4,7 @@ import argparse
 import getpass
 import os
 import sys
+import subprocess
 from dataclasses import replace
 
 from . import __version__
@@ -53,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     background = sub.add_parser("background", help="manage durable background tasks")
     background.add_argument("action", choices=["run", "list", "status", "cancel"])
     background.add_argument("value", nargs="?")
+    sub.add_parser("worker", help="run the durable background worker host")
     args = parser.parse_args(argv)
 
     if args.command == "onboard":
@@ -187,7 +189,10 @@ def main(argv: list[str] | None = None) -> int:
             elif args.action == "run":
                 if not args.value:
                     parser.error("background run requires PROMPT")
-                print(f"Job: {service.enqueue(args.value)}")
+                job_id = service.enqueue(args.value)
+                flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+                subprocess.Popen([sys.executable, "-m", "omnix.cli", "worker"], creationflags=flags, close_fds=True)
+                print(f"Job: {job_id}")
             elif args.action == "list":
                 for row in service.status(): print(row)
             elif args.action == "status":
@@ -198,6 +203,11 @@ def main(argv: list[str] | None = None) -> int:
                 service.cancel(args.value); print(f"Cancelled: {args.value}")
         finally:
             service.close()
+        return 0
+    if args.command == "worker":
+        # Detached workers cannot prompt.  Tool approval remains denied unless
+        # a host explicitly embeds TaskService with an approval callback.
+        TaskService(load_settings(), workspace=os.getcwd(), approver=lambda _: False).run_worker_forever()
         return 0
     settings = load_settings()
     if args.command in {"run", "chat"} and not (get_secret({"openai":"OPENAI_API_KEY","groq":"GROQ_API_KEY","cerebras":"CEREBRAS_API_KEY","gemini":"GEMINI_API_KEY","mistral":"MISTRAL_API_KEY","openrouter":"OPENROUTER_API_KEY","together":"TOGETHER_API_KEY","deepseek":"DEEPSEEK_API_KEY","anthropic":"ANTHROPIC_API_KEY","omniroute":"OMNIROUTE_API_KEY"}.get(settings.provider, "")) or __import__("os").environ.get({"openai":"OPENAI_API_KEY","groq":"GROQ_API_KEY","cerebras":"CEREBRAS_API_KEY","gemini":"GEMINI_API_KEY","mistral":"MISTRAL_API_KEY","openrouter":"OPENROUTER_API_KEY","together":"TOGETHER_API_KEY","deepseek":"DEEPSEEK_API_KEY","anthropic":"ANTHROPIC_API_KEY"}.get(settings.provider, ""))):

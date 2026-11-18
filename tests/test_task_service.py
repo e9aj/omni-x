@@ -60,3 +60,14 @@ def test_cancellation_is_persistent(tmp_path: Path):
     service.cancel(job)
     assert service.store.job(job)["state"] == "cancelled"
     service.close()
+
+
+def test_durable_worker_reclaims_queue_after_host_restart(tmp_path: Path):
+    db = tmp_path / "worker.sqlite3"
+    first = TaskService(Settings(), Store(db), tmp_path, executor=lambda prompt, session: "host-one")
+    job = first.store.create_job("queued work")
+    first.close()
+    second = TaskService(Settings(), Store(db), tmp_path, executor=lambda prompt, session: "host-two")
+    second.run_worker_forever(idle_seconds=.2)
+    assert Store(db).job(job)["state"] == "completed"
+    assert Store(db).job(job)["result"] == "host-two"

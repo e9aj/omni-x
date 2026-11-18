@@ -1,6 +1,7 @@
 from pathlib import Path
 import threading
 import time
+import sys
 
 from omnix.tools import PermissionDenied, ToolRegistry
 
@@ -32,7 +33,7 @@ def test_hanging_command_is_gracefully_then_hard_cancelled(tmp_path: Path):
 
     def run():
         try:
-            result.append(registry.run_command("py -c \"import time; time.sleep(30)\""))
+            result.append(registry.run_command(f'"{sys.executable}" -c "import time; time.sleep(30)"'))
         except RuntimeError as exc:
             result.append(str(exc))
 

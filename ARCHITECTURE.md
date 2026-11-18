@@ -60,3 +60,8 @@ process: the queue is claimed atomically in SQLite, concurrency is bounded by
 cleanly when no jobs or enabled schedules remain. Hermes
 `persistence/workers/executions.py` and `agent/managed_worker.py` remain the
 lifecycle reference; their Hermes-owned identity and storage are not imported.
+
+Owned cancellation is process-scoped: command and Hermes-browser subprocesses
+are created as OMNI-X-owned process groups, receive graceful cancellation first,
+and are force-terminated only by their captured PID/tree. OmniRoute is never
+matched by name and is therefore outside the cancellation boundary.

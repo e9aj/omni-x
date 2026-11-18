@@ -194,7 +194,7 @@ class TaskService:
             if self._executor:
                 result = self._executor(row["prompt"], session_id)
             else:
-                runtime = AgentRuntime(self.settings, Store(self.store.path), self.workspace, self.approver)
+                runtime = AgentRuntime(self.settings, Store(self.store.path), self.workspace, self.approver, cancel_event=cancel, delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
                 result, session_id = runtime.run(row["prompt"], session_id)
             db.finish_job(job_id, "completed", result=result)
             if row.get("parent_job_id"):
@@ -206,6 +206,23 @@ class TaskService:
                 self._settle_child(db, row["parent_job_id"], job_id, state, None, str(exc))
         finally:
             with self._inflight_lock: self._inflight.discard(job_id)
+
+    def _delegate_for_job(self, parent_job_id: str, cancel: threading.Event, prompt: str, role: str = "specialist") -> str:
+        if cancel.is_set():
+            raise RuntimeError("Task cancelled")
+        child = self.delegate(parent_job_id, [{"role": role, "prompt": prompt}])[0]
+        deadline = time.monotonic() + self.settings.request_timeout_seconds
+        while time.monotonic() < deadline:
+            if cancel.is_set():
+                self.cancel(child); raise RuntimeError("Task cancelled")
+            row = Store(self.store.path).job(child)
+            if row and row["state"] in {"completed", "failed", "cancelled"}:
+                if row["state"] != "completed":
+                    raise RuntimeError(f"delegated child {child} {row['state']}: {row.get('error')}")
+                return json.dumps({"child_job_id": child, "role": role, "result": row.get("result")}, sort_keys=True)
+            time.sleep(.1)
+        self.cancel(child)
+        raise TimeoutError(f"delegated child {child} timed out")
 
     def _settle_child(self, db: Store, parent: str, child: str, state: str, result: str | None, error: str | None) -> None:
         with db._lock:

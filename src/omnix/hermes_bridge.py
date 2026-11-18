@@ -28,6 +28,8 @@ FUNCTION_INVOKE_RE = re.compile(r"<invoke\s+name=\"mcp__[^_]+__(?P<name>[a-z_]+)
 GENERIC_TOOL_RE = re.compile(r"<tool_call>\s*tool_call\s*(?P<args>\{.*?\})\s*</tool_call>", re.DOTALL)
 NAMESPACE_CALL_RE = re.compile(r"<tool_call>\s*mcp__[a-z_]+__(?P<name>[a-z_]+)\((?P<args>.*?)\)", re.DOTALL)
 DIRECT_CALL_RE = re.compile(r"<tool_call>\s*(?P<name>[a-z_]+)\s*(?P<args>\{.*?\})", re.DOTALL)
+PYTHON_CALL_RE = re.compile(r"<tool_call>\s*(?P<name>[a-z_]+)\s*\((?P<args>.*?)\)", re.DOTALL)
+SINGLE_NAMESPACE_CALL_RE = re.compile(r"<tool_call>\s*mcp__(?P<name>[a-z_]+)\((?P<args>.*?)\)", re.DOTALL)
 
 
 def _parse(raw: str, ordinal: int) -> dict[str, Any] | None:
@@ -117,6 +119,22 @@ def extract_tool_calls(text: str) -> tuple[list[dict[str, Any]], str]:
             name = aliases.get(match.group("name"), match.group("name"))
             calls.append({"id": f"hermes_call_{len(calls) + 1}", "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}})
             spans.append((match.start(), match.end()))
+    if not calls:
+        for pattern in (PYTHON_CALL_RE, SINGLE_NAMESPACE_CALL_RE):
+            for match in pattern.finditer(text):
+                try:
+                    expression = ast.parse(f"f({match.group('args')})", mode="eval").body
+                    arguments = {item.arg: ast.literal_eval(item.value) for item in expression.keywords if item.arg}
+                except (SyntaxError, ValueError):
+                    continue
+                for alias in ("file_path", "filename"):
+                    if alias in arguments and "path" not in arguments:
+                        arguments["path"] = arguments.pop(alias)
+                name = match.group("name")
+                calls.append({"id": f"hermes_call_{len(calls) + 1}", "type": "function", "function": {"name": name, "arguments": json.dumps(arguments)}})
+                spans.append((match.start(), match.end()))
+            if calls:
+                break
     if not spans:
         return [], text.strip()
     parts: list[str] = []

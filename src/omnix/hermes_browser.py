@@ -13,15 +13,19 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from .hermes_runtime import hermes_python, installed_hermes_source
+from .process_control import terminate_process_tree, wait_owned_process
 
 
 class HermesBrowserAdapter:
-    def __init__(self, source: Path | None = None, approver=None):
+    def __init__(self, source: Path | None = None, approver=None, cancel_event=None):
         self.source = Path(source).expanduser().resolve() if source else installed_hermes_source()
         self.approver = approver or (lambda _: False)
+        self.cancel_event = cancel_event or threading.Event()
+        self._active: set[subprocess.Popen] = set()
 
     @property
     def available(self) -> bool:
@@ -44,15 +48,20 @@ class HermesBrowserAdapter:
             "print(browser_exec(sys.argv[1], timeout_s=int(sys.argv[2])))"
         )
         try:
-            result = subprocess.run(
-                [str(python), "-c", launcher, code, str(max(1, min(int(timeout_s), 600)))],
-                capture_output=True, text=True, timeout=max(5, min(int(timeout_s) + 15, 615)),
-                env=env,
-            )
+            process = subprocess.Popen([str(python), "-c", launcher, code, str(max(1, min(int(timeout_s), 600)))], capture_output=True, text=True, env=env, creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0), start_new_session=(os.name != "nt"))
+            self._active.add(process)
+            _, stopped = wait_owned_process(process, self.cancel_event, max(5, min(int(timeout_s) + 15, 615)))
+            stdout, stderr = process.communicate(timeout=10)
+            if stopped and self.cancel_event.is_set():
+                return "Browser cancelled; owned browser process tree terminated"
+            if stopped:
+                return "Browser error: timeout; owned browser process tree terminated"
+            output = (stdout + stderr).strip()
+            return output[-20_000:] or "Browser completed without output"
         except (OSError, subprocess.SubprocessError) as exc:
             return f"Browser error: {exc}"
-        output = (result.stdout + result.stderr).strip()
-        return output[-20_000:] or "Browser completed without output"
+        finally:
+            if 'process' in locals(): self._active.discard(process)
 
     def shutdown(self) -> str:
         """Use Hermes' lifecycle cleanup to close managed browser sessions."""

@@ -1,4 +1,6 @@
 from pathlib import Path
+import threading
+import time
 
 from omnix.tools import PermissionDenied, ToolRegistry
 
@@ -21,3 +23,20 @@ def test_approved_write(tmp_path: Path):
 def test_dangerous_command_is_rejected(tmp_path: Path):
     registry = ToolRegistry(tmp_path, approver=lambda _: True)
     assert "dangerous command rejected" in registry.call("run_command", {"command": "git reset --hard HEAD"})
+
+
+def test_hanging_command_is_gracefully_then_hard_cancelled(tmp_path: Path):
+    cancel = threading.Event()
+    registry = ToolRegistry(tmp_path, approver=lambda _: True, cancel_event=cancel)
+    result = []
+
+    def run():
+        try:
+            result.append(registry.run_command("py -c \"import time; time.sleep(30)\""))
+        except RuntimeError as exc:
+            result.append(str(exc))
+
+    thread = threading.Thread(target=run)
+    thread.start(); time.sleep(.3); cancel.set(); thread.join(8)
+    assert not thread.is_alive()
+    assert "terminated" in result[0]

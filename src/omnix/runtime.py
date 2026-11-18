@@ -16,7 +16,7 @@ from .hermes_bridge import TOOL_CALL_CONTRACT
 from .hermes_backend import HermesExecutionBackend
 
 
-SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this Hermes-compatible contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
+SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. When a task asks for a specialist, invoke the supplied delegate_task function immediately; do not merely narrate that you will delegate. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this Hermes-compatible contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
 
 
 _PSEUDO_TOOLS = {
@@ -26,11 +26,12 @@ _PSEUDO_TOOLS = {
     "search_text": "search_text",
     "write_file": "write_file",
     "run_command": "run_command",
+    "delegate_task": "delegate_task",
 }
 
 
 class AgentRuntime:
-    def __init__(self, settings: Settings, store: Store | None = None, workspace: Path | None = None, approver: Callable[[str], bool] | None = None):
+    def __init__(self, settings: Settings, store: Store | None = None, workspace: Path | None = None, approver: Callable[[str], bool] | None = None, cancel_event: threading.Event | None = None, delegate_handler=None):
         self.store = store or Store()
         self.workspace = Path(workspace or Path.cwd()).resolve()
         try:
@@ -39,9 +40,9 @@ class AgentRuntime:
             # Preserve the small Router seam used by embedders and tests written
             # against the original one-argument constructor.
             self.router = Router(settings)
-        self.tools = ToolRegistry(self.workspace, approver)
+        self.cancel_event = cancel_event or threading.Event()
+        self.tools = ToolRegistry(self.workspace, approver, self.cancel_event, delegate_handler)
         self.max_steps = settings.max_steps
-        self.cancel_event = threading.Event()
         self.timeout_seconds = settings.request_timeout_seconds * max(1, settings.max_steps)
 
     def cancel(self) -> None:

@@ -4,10 +4,12 @@ import json
 import os
 import subprocess
 import re
+import threading
 from pathlib import Path
 from typing import Any, Callable
 
 from .hermes_browser import HermesBrowserAdapter
+from .process_control import terminate_process_tree, wait_owned_process
 
 
 class PermissionDenied(RuntimeError):
@@ -15,14 +17,20 @@ class PermissionDenied(RuntimeError):
 
 
 class ToolRegistry:
-    def __init__(self, workspace: Path | None = None, approver: Callable[[str], bool] | None = None):
+    def __init__(self, workspace: Path | None = None, approver: Callable[[str], bool] | None = None, cancel_event=None, delegate_handler: Callable[..., str] | None = None):
         self.workspace = (workspace or Path.cwd()).resolve()
         self.approver = approver or (lambda _: False)
+        self.cancel_event = cancel_event or threading.Event()
+        self.delegate_handler = delegate_handler
+        self._active: set[subprocess.Popen] = set()
+        self._active_lock = threading.Lock()
         self.tools: dict[str, Callable[..., str]] = {"read_file": self.read_file, "list_directory": self.list_directory, "search_text": self.search_text, "write_file": self.write_file, "run_command": self.run_command}
-        self.browser = HermesBrowserAdapter(approver=self.approver)
+        self.browser = HermesBrowserAdapter(approver=self.approver, cancel_event=self.cancel_event)
         if self.browser.available:
             self.tools["browser_exec"] = self.browser_exec
             self.tools["browser_shutdown"] = self.browser_shutdown
+        if self.delegate_handler:
+            self.tools["delegate_task"] = self.delegate_task
 
     def schemas(self) -> list[dict[str, Any]]:
         return [{"type": "function", "function": {"name": name, "description": getattr(fn, "description", "OMNI-X tool"), "parameters": getattr(fn, "parameters", {"type": "object", "properties": {}})}} for name, fn in self.tools.items()]
@@ -74,14 +82,38 @@ class ToolRegistry:
             raise PermissionDenied("dangerous command rejected")
         if not self.approver(f"run command: {command}"):
             raise PermissionDenied("command execution requires explicit approval")
-        result = subprocess.run(command, cwd=self.workspace, shell=True, capture_output=True, text=True, timeout=120, env=os.environ.copy())
-        return (result.stdout + result.stderr)[-20_000:]
+        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        process = subprocess.Popen(command, cwd=self.workspace, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=os.environ.copy(), creationflags=flags, start_new_session=(os.name != "nt"))
+        with self._active_lock: self._active.add(process)
+        try:
+            _, stopped = wait_owned_process(process, self.cancel_event, 120)
+            stdout, stderr = process.communicate(timeout=10)
+            if stopped and self.cancel_event.is_set():
+                raise RuntimeError("Task cancelled; owned command process tree terminated")
+            if stopped:
+                raise subprocess.TimeoutExpired(command, 120)
+            return (stdout + stderr)[-20_000:]
+        finally:
+            with self._active_lock: self._active.discard(process)
+
+    def cancel_active_processes(self) -> None:
+        with self._active_lock:
+            processes = list(self._active)
+        for process in processes:
+            terminate_process_tree(process)
 
     def browser_exec(self, code: str, timeout_s: int = 120) -> str:
         return self.browser.execute(code, timeout_s)
 
     def browser_shutdown(self) -> str:
         return self.browser.shutdown()
+
+    def delegate_task(self, prompt: str, role: str = "specialist") -> str:
+        if not self.delegate_handler:
+            raise PermissionDenied("delegation is unavailable in this runtime")
+        if not prompt.strip():
+            raise ValueError("delegation prompt is required")
+        return self.delegate_handler(prompt=prompt, role=role)
 
 
 ToolRegistry.read_file.parameters = {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}
@@ -91,3 +123,4 @@ ToolRegistry.write_file.parameters = {"type": "object", "properties": {"path": {
 ToolRegistry.run_command.parameters = {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}
 ToolRegistry.browser_exec.parameters = {"type": "object", "properties": {"code": {"type": "string"}, "timeout_s": {"type": "integer"}}, "required": ["code"]}
 ToolRegistry.browser_shutdown.parameters = {"type": "object", "properties": {}}
+ToolRegistry.delegate_task.parameters = {"type": "object", "properties": {"prompt": {"type": "string"}, "role": {"type": "string"}}, "required": ["prompt"]}

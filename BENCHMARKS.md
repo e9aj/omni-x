@@ -80,8 +80,14 @@ screenshot into Hermes's managed browser workspace, shut down all sessions via
 
 ## Delegation Stage 3 and end-to-end lifecycle — 2026-11-18
 
-- Full Windows task-service suite: 5 task-service tests passed; repository suite: 30 passed, 1 skipped.
+- Full Windows task-service suite: 5 task-service tests passed; repository suite: 33 passed, 2 skipped.
 - End-to-end evidence: persistent schedule fired, background job executed an approval-gated real file tool, specialist child completed, parent aggregation completed, and a reopened SQLite store retained the parent/child history.
 - Child policy assertion passed for `mode=FREE`, `allow_paid=false`, zero spending limit and inherited tool policy.
 - This proves task lifecycle and permission inheritance with a local executor; it does not replace the separate live OmniRoute inference evidence already recorded above.
+
+## Final backend validation — 2026-11-18
+
+- Owned-process cancellation passed on Windows: an OMNI-X-owned command process was stopped and an unrelated process remained alive until independently cleaned up.
+- `ToolRegistry.run_command` now polls owned processes, gives graceful cancellation first, then uses Windows `taskkill /PID <owned-pid> /T /F` only for that process tree. Hermes browser subprocesses use the same ownership boundary.
+- Live multi-agent attempts through OmniRoute `auto/best-free` did not complete successfully: the gateway returned free-route 502/401 failures on two attempts, and one later attempt created real specialist child jobs and made independent child model calls but did not produce verifiable write-tool evidence before the parent timed out. Phase 2 live multi-agent validation remains incomplete.
 

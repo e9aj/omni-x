@@ -43,6 +43,13 @@ Last reviewed: 2026-11-18
 - Hermes reference modules: `persistence/workers/executions.py` for registered/running/terminal lifecycle semantics and `agent/managed_worker.py` for bounded worker supervision. OMNI-X does not start Hermes's gateway worker or a second agent runtime.
 - Hard process termination of a currently executing external tool is not yet exposed; cancellation is persisted and runtime cancellation is cooperative.
 
+### Delegation Stage 3
+
+- Parent/child jobs, specialist roles, concurrent isolated children, failure propagation and result aggregation are implemented in `TaskService`.
+- Child jobs inherit the parent's persisted `FREE`, paid-route, spending-limit and tool-policy snapshot; a child cannot select a broader policy.
+- Evidence: the task-service suite is 5/5, including a Windows end-to-end schedule → background job → delegated specialist → approved file tool → persisted history → reopened SQLite check.
+- Hermes reuse boundary: `tools/delegate_tool.py` and `persistence/workers/delegations.py` were inspected for lifecycle semantics, but direct invocation would construct Hermes `AIAgent` children and violate the unified-runtime requirement. OMNI-X adapts the ledger shape while executing every child through `AgentRuntime`/`TaskService`.
+
 - No direct provider credentials were used. The live inference used OmniRoute's available free route; upstream availability and quotas remain subject to change.
 - The first live request exercised fallback failures (missing Chromium and a closed UncloseAI public beta), then succeeded after installing OmniRoute's supported Chromium dependency.
 - Provider pricing and free-tier metadata are not yet persisted in a model registry; estimated cost is currently recorded as zero until verified pricing is added.

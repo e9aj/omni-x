@@ -4,6 +4,7 @@ from pathlib import Path
 from omnix.config import Settings
 from omnix.store import Store
 from omnix.task_service import TaskService
+from omnix.tools import ToolRegistry
 
 
 def wait_for(service, job_id, state, timeout=4):
@@ -71,3 +72,51 @@ def test_durable_worker_reclaims_queue_after_host_restart(tmp_path: Path):
     second.run_worker_forever(idle_seconds=.2)
     assert Store(db).job(job)["state"] == "completed"
     assert Store(db).job(job)["result"] == "host-two"
+
+
+def test_delegation_inherits_policy_and_aggregates_results(tmp_path: Path):
+    db = tmp_path / "aggregate.sqlite3"
+    settings = Settings(mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="deny")
+    service = TaskService(settings, Store(db), tmp_path, executor=lambda prompt, session: "tool-result:" + prompt)
+    parent = service.store.create_job("parent", policy={"mode": "FREE", "allow_paid": False, "max_cost_usd": 0.0, "tool_policy": "deny"})
+    service.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (parent,)); service.store.db.commit()
+    children = service.delegate(parent, [{"role": "research", "prompt": "approved read"}, {"role": "verify", "prompt": "verify"}])
+    for child in children:
+        wait_for(service, child, "completed")
+        assert service.store.job(child)["policy_json"] == '{"allow_paid": false, "max_cost_usd": 0.0, "mode": "FREE", "tool_policy": "deny"}'
+    result = service.aggregate(parent)
+    assert result["state"] == "completed"
+    assert service.store.job(parent)["state"] == "completed"
+    service.close()
+
+
+def test_end_to_end_schedule_background_delegate_tool_restart(tmp_path: Path):
+    db = tmp_path / "e2e.sqlite3"
+    workspace = tmp_path / "workspace"; workspace.mkdir()
+    tools = ToolRegistry(workspace, approver=lambda _: True)
+
+    def execute(prompt, session):
+        if prompt == "approved tool":
+            return tools.call("write_file", {"path": "result.txt", "content": "completed"})
+        return "delegated:" + prompt
+
+    service = TaskService(Settings(mode="FREE", allow_paid=False), Store(db), workspace, executor=execute)
+    schedule = service.schedule("approved tool", "every 0.1s")
+    end = time.time() + 4
+    scheduled = None
+    while time.time() < end and scheduled is None:
+        rows = service.store.jobs()
+        if rows:
+            scheduled = wait_for(service, rows[0]["id"], "completed")
+        else:
+            time.sleep(.05)
+    assert scheduled and (workspace / "result.txt").read_text() == "completed"
+    parent = service.store.create_job("parent", policy={"mode": "FREE", "allow_paid": False, "max_cost_usd": 0.0, "tool_policy": "ask"})
+    service.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (parent,)); service.store.db.commit()
+    child = service.delegate(parent, [{"role": "specialist", "prompt": "analysis"}])[0]
+    wait_for(service, child, "completed")
+    assert service.aggregate(parent)["state"] == "completed"
+    service.close()
+    restarted = Store(db)
+    assert restarted.job(parent)["state"] == "completed"
+    assert restarted.delegations(parent)[0]["state"] == "completed"

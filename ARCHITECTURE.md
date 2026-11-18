@@ -25,7 +25,7 @@ providers, and delegated worker backends.
 | Terminal execution | Retain OMNI-X containment/approval tools behind the Hermes executor boundary | Hermes execution semantics are reused without bypassing OMNI-X approvals. |
 | Browser automation | **Thin adapter added:** invokes Hermes `tools/browser_use_cli.py` from the installer-managed source | Reuses Hermes browser-harness/CDP lifecycle; unavailable rather than emulated when dependencies or source are absent. |
 | Scheduling/background tasks | `TaskService` adapter + managed worker host | OMNI-X SQLite owns definitions/history; Hermes `cron.jobs.parse_schedule` is reused when available, while OMNI-X executes jobs. `omnix worker` is a detached, bounded host that reclaims queued work after restart. |
-| Multi-agent delegation | Stage 3 `TaskService` child-job adapter | Hermes worker ledger semantics are the reference; children will inherit OMNI-X policy and use the unified runtime. |
+| Multi-agent delegation | `TaskService` child-job adapter | Hermes worker ledger/delegation semantics are the reference; children inherit a persisted OMNI-X policy snapshot and use the unified runtime. |
 | Error recovery | Adapt incrementally | Current bounded retry/health tracking is compatible; Hermes recovery is a later slice. |
 | Provider interface | Reuse compatible wire contract now | OmniRoute already speaks OpenAI-compatible chat completions; no provider replacement needed. |
 

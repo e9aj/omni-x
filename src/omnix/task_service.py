@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
+import json
 import re
 import threading
 import time
@@ -102,7 +103,12 @@ class TaskService:
 
     def enqueue(self, prompt: str, parent_job_id: str | None = None, deadline_seconds: float | None = None) -> str:
         deadline = time.time() + deadline_seconds if deadline_seconds else None
-        ident = self.store.create_job(prompt, parent_job_id=parent_job_id, deadline=deadline)
+        policy = {"mode": self.settings.mode, "allow_paid": self.settings.allow_paid, "max_cost_usd": self.settings.max_cost_usd, "tool_policy": self.settings.tool_policy}
+        if parent_job_id:
+            parent = self.store.job(parent_job_id)
+            if parent and parent.get("policy_json"):
+                policy = json.loads(parent["policy_json"])
+        ident = self.store.create_job(prompt, parent_job_id=parent_job_id, deadline=deadline, policy=policy)
         self.start(); self._wake.set(); return ident
 
     def delegate(self, parent_job_id: str, tasks: list[dict[str, str]]) -> list[str]:
@@ -112,6 +118,19 @@ class TaskService:
             child = self.enqueue(item["prompt"], parent_job_id=parent_job_id)
             self.store.create_delegation(parent_job_id, child, item.get("role", "generalist")); children.append(child)
         return children
+
+    def aggregate(self, parent_job_id: str) -> dict:
+        """Commit a parent result only after every child reaches a terminal state."""
+        rows = self.store.delegations(parent_job_id)
+        if not rows:
+            raise ValueError("parent has no delegated children")
+        if any(row["state"] in {"running"} for row in rows):
+            return {"state": "running", "children": rows}
+        failed = [row for row in rows if row["state"] != "completed"]
+        state = "failed" if failed else "completed"
+        payload = {"children": [{"role": row["role"], "state": row["state"], "result": row["result"], "error": row["error"]} for row in rows]}
+        self.store.finish_job(parent_job_id, state, result=json.dumps(payload, sort_keys=True), error=("child failure" if failed else None))
+        return {"state": state, **payload}
 
     def cancel(self, job_id: str) -> None:
         event = self._cancel.setdefault(job_id, threading.Event()); event.set(); self.store.cancel_job(job_id); self._wake.set()

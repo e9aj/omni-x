@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+import json
 import time
 import uuid
 from pathlib import Path
@@ -29,6 +30,9 @@ class Store:
         CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, schedule_id TEXT, parent_job_id TEXT, session_id TEXT, prompt TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, deadline REAL, created REAL NOT NULL, started REAL, finished REAL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS delegations (id TEXT PRIMARY KEY, parent_job_id TEXT NOT NULL, child_job_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
         """)
+        columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
+        if "policy_json" not in columns:
+            self.db.execute("ALTER TABLE jobs ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'" )
         self.db.commit()
 
     def recover_orphaned_jobs(self) -> int:
@@ -48,9 +52,9 @@ class Store:
     def advance_schedule(self, schedule_id: str, next_run_at: float | None, last_run_at: float, missed: int = 0) -> None:
         self.db.execute("UPDATE schedules SET next_run_at=?, last_run_at=?, missed_runs=missed_runs+?, enabled=CASE WHEN ? IS NULL THEN 0 ELSE enabled END, updated=? WHERE id=?", (next_run_at, last_run_at, missed, next_run_at, time.time(), schedule_id)); self.db.commit()
 
-    def create_job(self, prompt: str, schedule_id: str | None = None, parent_job_id: str | None = None, deadline: float | None = None) -> str:
+    def create_job(self, prompt: str, schedule_id: str | None = None, parent_job_id: str | None = None, deadline: float | None = None, policy: dict | None = None) -> str:
         ident = str(uuid.uuid4()); now = time.time()
-        self.db.execute("INSERT INTO jobs(id,schedule_id,parent_job_id,session_id,prompt,state,result,error,attempts,deadline,created,started,finished,updated) VALUES (?,?,?,?,?,'queued',NULL,NULL,0,?,?,NULL,NULL,?)", (ident, schedule_id, parent_job_id, None, prompt, deadline, now, now)); self.db.commit(); return ident
+        self.db.execute("INSERT INTO jobs(id,schedule_id,parent_job_id,session_id,prompt,state,result,error,attempts,deadline,created,started,finished,updated,policy_json) VALUES (?,?,?,?,?,'queued',NULL,NULL,0,?,?,NULL,NULL,?,?)", (ident, schedule_id, parent_job_id, None, prompt, deadline, now, now, json.dumps(policy or {}, sort_keys=True))); self.db.commit(); return ident
 
     def job(self, job_id: str) -> dict | None:
         row = self.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone(); return dict(row) if row else None

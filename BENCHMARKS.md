@@ -78,3 +78,10 @@ screenshot into Hermes's managed browser workspace, shut down all sessions via
 - The detached CLI worker is policy-safe by default: it cannot prompt for approval, so sensitive tools remain denied unless an embedding host supplies an explicit approval boundary.
 - Cooperative cancellation is validated; hard termination of an in-flight provider request remains a limitation.
 
+## Delegation Stage 3 and end-to-end lifecycle — 2026-11-18
+
+- Full Windows task-service suite: 5 task-service tests passed; repository suite: 30 passed, 1 skipped.
+- End-to-end evidence: persistent schedule fired, background job executed an approval-gated real file tool, specialist child completed, parent aggregation completed, and a reopened SQLite store retained the parent/child history.
+- Child policy assertion passed for `mode=FREE`, `allow_paid=false`, zero spending limit and inherited tool policy.
+- This proves task lifecycle and permission inheritance with a local executor; it does not replace the separate live OmniRoute inference evidence already recorded above.
+

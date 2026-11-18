@@ -54,6 +54,9 @@ def main(argv: list[str] | None = None) -> int:
     background = sub.add_parser("background", help="manage durable background tasks")
     background.add_argument("action", choices=["run", "list", "status", "cancel"])
     background.add_argument("value", nargs="?")
+    delegate = sub.add_parser("delegate", help="delegate isolated child jobs")
+    delegate.add_argument("parent_job_id")
+    delegate.add_argument("prompt", nargs="+")
     sub.add_parser("worker", help="run the durable background worker host")
     args = parser.parse_args(argv)
 
@@ -176,10 +179,13 @@ def main(argv: list[str] | None = None) -> int:
         import subprocess
         result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-NonInteractive"], check=False)
         return result.returncode
-    if args.command in {"schedule", "background"}:
+    if args.command in {"schedule", "background", "delegate"}:
         service = TaskService(load_settings(), workspace=os.getcwd(), approver=_approve)
         try:
-            if args.command == "schedule" and args.action == "add":
+            if args.command == "delegate":
+                child_ids = service.delegate(args.parent_job_id, [{"role": "specialist", "prompt": value} for value in args.prompt])
+                print("Children: " + ", ".join(child_ids))
+            elif args.command == "schedule" and args.action == "add":
                 if not args.prompt or not args.when:
                     parser.error("schedule add requires PROMPT and ISO_TIMESTAMP or INTERVAL")
                 print(f"Scheduled: {service.schedule(args.prompt, args.when)}")

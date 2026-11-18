@@ -65,3 +65,16 @@ Owned cancellation is process-scoped: command and Hermes-browser subprocesses
 are created as OMNI-X-owned process groups, receive graceful cancellation first,
 and are force-terminated only by their captured PID/tree. OmniRoute is never
 matched by name and is therefore outside the cancellation boundary.
+
+## Free-model evidence and routing
+
+`discovery.py` treats OmniRoute's `/v1/models` response as an advisory
+catalogue and only admits models with explicit free metadata (zero pricing,
+free flags, or an explicit free suffix). `model_probe.py` then performs a
+bounded real text probe and, when declared, a harmless read-only tool probe.
+The additive SQLite `model_health` table stores upstream identity, declared
+capabilities, availability, categorized failures, tool-call evidence, tokens,
+and latency samples. `Router` ranks tested tool-capable free models first,
+excludes tested-unavailable routes, and retains bounded free fallbacks. The
+policy is intentionally conservative: an advertised model is not considered
+reliable until it has been tested, and no paid route is eligible in FREE mode.

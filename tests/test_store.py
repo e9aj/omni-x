@@ -29,3 +29,18 @@ def test_provider_failure_categories_are_persistent(tmp_path: Path):
     store.record_provider_failure("omniroute", "401", "credential required", 20.0)
     rows = store.db.execute("SELECT category,latency_ms FROM provider_failures ORDER BY id").fetchall()
     assert [(row["category"], row["latency_ms"]) for row in rows] == [("502", 123.4), ("401", 20.0)]
+
+
+def test_model_health_records_probe_evidence_and_percentiles(tmp_path: Path):
+    store = Store(tmp_path / "models.sqlite3")
+    store.record_model_probe({"model": "free-a", "upstream": "gateway", "available": True, "tool_verified": True, "successes": 1, "latency_ms": 20, "input_tokens": 4, "output_tokens": 5})
+    store.record_model_probe({"model": "free-a", "upstream": "gateway", "available": True, "tool_verified": True, "successes": 1, "latency_ms": 40, "input_tokens": 6, "output_tokens": 7})
+    row = store.model_health("free-a")["free-a"]
+    assert row["tested"] == 1
+    assert row["available"] == 1
+    assert row["tool_verified"] == 1
+    assert row["successes"] == 2
+    assert row["input_tokens"] == 10
+    assert row["output_tokens"] == 12
+    assert row["p50_latency_ms"] == 40
+    assert row["p95_latency_ms"] == 40

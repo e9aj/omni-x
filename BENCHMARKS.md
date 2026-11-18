@@ -93,3 +93,17 @@ screenshot into Hermes's managed browser workspace, shut down all sessions via
 - Concrete partial live trace: parent job `aa2d285a-cbd3-4e1b-8769-65fbe676b108` created specialist job `5aa0011d-e51d-4334-81bf-808ffc802db7` through `delegate_task`; both used OmniRoute model `auto/best-free`, FREE mode, `allow_paid=false`, `$0` limit, and the approved tool policy. The child reached terminal `completed` after independent model calls, but its recorded result was only `Tool call: read_file(path="delegated_result.txt")`; the file was not created, so the parent was not credited with successful autonomous completion. A companion attempt created `bd8a2e57-408d-4921-9dce-060928eb699e`; its result was a textual `write_file` claim without tool evidence. Usage rows recorded prompt/completion pairs including `16064/167`, `15992/172`, `16132/823`, `16262/202`, `16362/462`, `15992/111`, `16169/168`, `16337/229`, and `16679/517` tokens; provider-call latencies ranged from 5.4s to 98.7s. These are real failure/partial results, not completion evidence.
 - The later single-agent probe failed before inference with a recorded OmniRoute timeout (`45,050.4ms`, no usage row); unavailable Groq/Cerebras credentials were excluded from fallback. This confirms the current live blocker is also upstream availability, distinct from the corrected parser/runtime defects.
 
+## Free-model catalogue and bounded health probes — 2026-11-18
+
+Using the authenticated local OmniRoute `/v1/models` endpoint, OMNI-X observed 453 catalogue entries and nine explicitly free entries. The explicitly free set was: `auto/best-free`, `auto/coding:free`, `ddgw/gpt-5.4-mini`, `ddgw/gpt-5.6-luna`, `ddgw/claude-haiku-4-5`, `ddgw/mistral-small-2603`, `ddgw/tinfoil/gpt-oss-120b`, `ddgw/tinfoil/gemma4-31b`, and `unc/turboderp/Qwen3.8-27B-exl3`. The gateway metadata declared `combo`/400000 context/tool calling for both auto routes, DDG zero pricing and no declared tool calling for the DDG routes, and `uncloseai`/65536 context/tool calling for the Qwen route. The local gateway credential was read from secure storage and was not written to logs or source.
+
+The bounded probe selected the two declared tool-capable auto routes plus the Qwen route (two concurrent workers; one minimal request per route). Results persisted in the local `model_health` table:
+
+| Model | Upstream | Result | Tokens | Latency | Tool probe |
+|---|---|---|---:|---:|---|
+| `auto/best-free` | `combo` | real response received | 110 / 112 | 9138ms | no executable call; unverified |
+| `auto/coding:free` | `combo` | real response received | 110 / 76 | 8517ms | no executable call; unverified |
+| `unc/turboderp/Qwen3.8-27B-exl3` | `uncloseai` | HTTP 401; public beta closed | 0 / 0 | 468ms | not attempted |
+
+No paid route was used. The two auto routes are usable for text inference, but this run does not provide evidence that either is reliable for autonomous tool execution. OMNI-X's FREE router consequently excludes the tested-unavailable Qwen route, records the auto routes as available but tool-unverified, and will not claim a verified live tool workflow from this probe alone.
+

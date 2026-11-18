@@ -35,7 +35,7 @@ class AgentRuntime:
         self.store = store or Store()
         self.workspace = Path(workspace or Path.cwd()).resolve()
         try:
-            self.router = Router(settings, self.store.provider_health, self.store.record_provider_health, self.store.record_provider_failure)
+            self.router = Router(settings, self.store.provider_health, self.store.record_provider_health, self.store.record_provider_failure, self.store.model_health)
         except TypeError:
             # Preserve the small Router seam used by embedders and tests written
             # against the original one-argument constructor.

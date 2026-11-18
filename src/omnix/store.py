@@ -5,6 +5,7 @@ import threading
 import json
 import time
 import uuid
+import math
 from pathlib import Path
 
 from .config import data_dir
@@ -32,6 +33,7 @@ class Store:
         CREATE TABLE IF NOT EXISTS usage (id INTEGER PRIMARY KEY, task_id TEXT, provider TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, estimated_cost REAL NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS provider_health (provider TEXT PRIMARY KEY, healthy INTEGER NOT NULL, latency_ms REAL NOT NULL, failures INTEGER NOT NULL DEFAULT 0, successes INTEGER NOT NULL DEFAULT 0, last_error TEXT, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS provider_failures (id INTEGER PRIMARY KEY, provider TEXT NOT NULL, category TEXT NOT NULL, error TEXT NOT NULL, latency_ms REAL NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS model_health (model TEXT PRIMARY KEY, upstream TEXT, free INTEGER NOT NULL, context_length INTEGER NOT NULL DEFAULT 0, declared_tool_calling INTEGER NOT NULL DEFAULT 0, tested INTEGER NOT NULL DEFAULT 0, available INTEGER NOT NULL DEFAULT 0, tool_verified INTEGER NOT NULL DEFAULT 0, successes INTEGER NOT NULL DEFAULT 0, timeouts INTEGER NOT NULL DEFAULT 0, auth_failures INTEGER NOT NULL DEFAULT 0, rate_limits INTEGER NOT NULL DEFAULT 0, provider_errors INTEGER NOT NULL DEFAULT 0, tool_successes INTEGER NOT NULL DEFAULT 0, tool_failures INTEGER NOT NULL DEFAULT 0, avg_latency_ms REAL NOT NULL DEFAULT 0, p50_latency_ms REAL NOT NULL DEFAULT 0, p95_latency_ms REAL NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, latency_samples TEXT NOT NULL DEFAULT '[]', last_error TEXT, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS schedules (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, schedule TEXT NOT NULL, kind TEXT NOT NULL, next_run_at REAL NOT NULL, last_run_at REAL, enabled INTEGER NOT NULL DEFAULT 1, missed_runs INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, schedule_id TEXT, parent_job_id TEXT, session_id TEXT, prompt TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, deadline REAL, created REAL NOT NULL, started REAL, finished REAL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS delegations (id TEXT PRIMARY KEY, parent_job_id TEXT NOT NULL, child_job_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
@@ -160,3 +162,35 @@ class Store:
         with self._lock:
             self.db.execute("INSERT INTO provider_failures(provider,category,error,latency_ms,created) VALUES (?,?,?,?,?)", (provider, category, error[:2000], float(latency_ms), time.time()))
             self.db.commit()
+
+    def record_model_probe(self, result: dict) -> None:
+        with self._lock:
+            old = self.db.execute("SELECT * FROM model_health WHERE model=?", (result["model"],)).fetchone()
+            samples = []
+            if old:
+                try: samples = json.loads(old["latency_samples"] or "[]")
+                except (TypeError, ValueError): samples = []
+            samples = (samples + [float(result.get("latency_ms", 0))])[-100:]
+            samples_sorted = sorted(samples)
+            p50 = samples_sorted[len(samples_sorted) // 2]
+            p95 = samples_sorted[min(len(samples_sorted) - 1, max(0, math.ceil(len(samples) * .95) - 1))]
+            values = {
+                "model": result["model"], "upstream": result.get("upstream"), "free": int(result.get("free", True)),
+                "context_length": int(result.get("context_length", 0) or 0), "declared_tool_calling": int(result.get("declared_tool_calling", False)),
+                "tested": 1, "available": int(result.get("available", False)), "tool_verified": int(result.get("tool_verified", False)),
+                "successes": int(result.get("successes", 0)), "timeouts": int(result.get("timeouts", 0)), "auth_failures": int(result.get("auth_failures", 0)),
+                "rate_limits": int(result.get("rate_limits", 0)), "provider_errors": int(result.get("provider_errors", 0)),
+                "tool_successes": int(result.get("tool_successes", 0)), "tool_failures": int(result.get("tool_failures", 0)),
+                "avg_latency_ms": sum(samples) / len(samples), "p50_latency_ms": p50, "p95_latency_ms": p95,
+                "input_tokens": int(result.get("input_tokens", 0)), "output_tokens": int(result.get("output_tokens", 0)),
+                "latency_samples": json.dumps(samples), "last_error": result.get("last_error"), "updated": time.time(),
+            }
+            self.db.execute("""INSERT INTO model_health(model,upstream,free,context_length,declared_tool_calling,tested,available,tool_verified,successes,timeouts,auth_failures,rate_limits,provider_errors,tool_successes,tool_failures,avg_latency_ms,p50_latency_ms,p95_latency_ms,input_tokens,output_tokens,latency_samples,last_error,updated)
+                VALUES (:model,:upstream,:free,:context_length,:declared_tool_calling,:tested,:available,:tool_verified,:successes,:timeouts,:auth_failures,:rate_limits,:provider_errors,:tool_successes,:tool_failures,:avg_latency_ms,:p50_latency_ms,:p95_latency_ms,:input_tokens,:output_tokens,:latency_samples,:last_error,:updated)
+                ON CONFLICT(model) DO UPDATE SET upstream=excluded.upstream,free=excluded.free,context_length=excluded.context_length,declared_tool_calling=excluded.declared_tool_calling,tested=1,available=excluded.available,tool_verified=MAX(model_health.tool_verified,excluded.tool_verified),successes=model_health.successes+excluded.successes,timeouts=model_health.timeouts+excluded.timeouts,auth_failures=model_health.auth_failures+excluded.auth_failures,rate_limits=model_health.rate_limits+excluded.rate_limits,provider_errors=model_health.provider_errors+excluded.provider_errors,tool_successes=model_health.tool_successes+excluded.tool_successes,tool_failures=model_health.tool_failures+excluded.tool_failures,avg_latency_ms=excluded.avg_latency_ms,p50_latency_ms=excluded.p50_latency_ms,p95_latency_ms=excluded.p95_latency_ms,input_tokens=model_health.input_tokens+excluded.input_tokens,output_tokens=model_health.output_tokens+excluded.output_tokens,latency_samples=excluded.latency_samples,last_error=excluded.last_error,updated=excluded.updated""", values)
+            self.db.commit()
+
+    def model_health(self, model: str | None = None) -> dict[str, dict[str, object]]:
+        query = "SELECT * FROM model_health" + (" WHERE model=?" if model else "")
+        rows = self.db.execute(query, (model,) if model else ()).fetchall()
+        return {row["model"]: dict(row) for row in rows}

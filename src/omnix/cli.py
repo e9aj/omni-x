@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("skills", help="list discovered skills")
     sub.add_parser("tools", help="list built-in tools")
     models = sub.add_parser("models", help="discover models or check provider health")
-    models.add_argument("action", choices=["list", "health"], nargs="?", default="health")
+    models.add_argument("action", choices=["list", "health", "probe"], nargs="?", default="health")
     sub.add_parser("onboard", help="discover and configure a verified free OmniRoute model")
     sub.add_parser("discover", help="show provider and free-model availability without exposing credentials")
     sub.add_parser("doctor", help="check local runtime readiness")
@@ -86,7 +86,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  status: {discovery.error}")
         print(f"  explicitly verified free models: {len(discovery.free_models)}")
         for model in discovery.free_models:
-            print(f"  usable in FREE mode: {model.get('id')}")
+            caps = model.get("capabilities") or {}
+            pricing = model.get("pricing") or {}
+            auth = model.get("authentication") or model.get("auth") or "gateway credential"
+            print(f"  usable in FREE mode: {model.get('id')} | upstream={model.get('owned_by', 'unknown')} | tools={bool(caps.get('tool_calling'))} | context={model.get('context_length', 'unknown')} | pricing={pricing or 'free catalogue'} | auth={auth}")
         for name, provider in PROVIDERS.items():
             if name == "omniroute":
                 continue
@@ -146,9 +149,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "models":
         from .providers import ModelClient
         try:
+            if args.action == "probe":
+                from .model_probe import ModelProbe
+                probe = ModelProbe(load_settings())
+                discovery = probe.discover()
+                if not discovery.reachable:
+                    print(f"OmniRoute unavailable: {discovery.error}", file=sys.stderr)
+                    return 1
+                print(f"Catalogue: {len(discovery.models)} models; explicitly free: {len(discovery.free_models)}")
+                for row in probe.probe_models(discovery.free_models):
+                    status = "usable" if row["available"] else "unavailable"
+                    tool = "tool-verified" if row.get("tool_verified") else "tool-unverified"
+                    error = f"; {row['last_error']}" if row.get("last_error") else ""
+                    print(f"{row['model']}: {status}, {tool}, {row['latency_ms']:.0f}ms{error}")
+                return 0
             client = ModelClient(load_settings())
             if args.action == "health":
-                print(client.health_check())
+                print({**client.health_check(), "model_health": Store().model_health()})
             else:
                 for model in client.list_models():
                     print(model.get("id", model))

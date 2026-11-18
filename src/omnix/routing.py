@@ -17,28 +17,50 @@ class Route:
 
 
 class Router:
-    def __init__(self, settings: Settings, health_provider=None, health_recorder=None, failure_recorder=None):
+    def __init__(self, settings: Settings, health_provider=None, health_recorder=None, failure_recorder=None, model_health_provider=None):
         self.settings = settings
         self.health_provider = health_provider or (lambda: {})
         self.health_recorder = health_recorder
         self.failure_recorder = failure_recorder
+        self.model_health_provider = model_health_provider or (lambda: {})
         self.routes = self._routes()
 
     def _routes(self) -> list[Route]:
         requested = Route(self.settings.provider, self.settings.model)
         candidates = [requested]
+        if self.settings.mode == "FREE" and self.settings.provider == "omniroute":
+            health = self.model_health_provider()
+            free_models = [model for model in self.settings.free_models if model]
+            verified = [model for model in free_models if int((health.get(model) or {}).get("tested", 0) or 0) and not int((health.get(model) or {}).get("available", 0) or 0)]
+            if len(verified) < len(free_models):
+                free_models = [model for model in free_models if model not in verified]
+            free_models.sort(key=lambda model: self._model_rank(model, health), reverse=True)
+            candidates = [Route("omniroute", model) for model in free_models if model != requested.model]
+            requested_row = health.get(requested.model) or {}
+            if not (int(requested_row.get("tested", 0) or 0) and not int(requested_row.get("available", 0) or 0)):
+                candidates.insert(0, requested)
         if self.settings.mode in {"FREE", "SMART"}:
             for name in ("groq", "cerebras", "gemini", "omniroute"):
-                if name != requested.provider and PROVIDERS[name].free_eligible:
+                if name != requested.provider and name != "omniroute" and PROVIDERS[name].free_eligible:
                     candidates.append(Route(name, self.settings.model))
         requested, *fallbacks = candidates
         health = self.health_provider()
         fallbacks.sort(key=lambda route: (not health.get(route.provider, {}).get("healthy", True), health.get(route.provider, {}).get("latency_ms", float("inf"))))
         return [requested, *fallbacks]
 
+    @staticmethod
+    def _model_rank(model: str, health: dict[str, dict[str, object]]) -> tuple[int, int, float]:
+        row = health.get(model, {})
+        tested = int(row.get("tested", 0) or 0)
+        available = int(row.get("available", 0) or 0)
+        tool_verified = int(row.get("tool_verified", 0) or 0)
+        failures = int(row.get("auth_failures", 0) or 0) + int(row.get("timeouts", 0) or 0) + int(row.get("provider_errors", 0) or 0)
+        latency = float(row.get("p95_latency_ms", 999999) or 999999)
+        return (tool_verified * 100 + available * 20 + tested * 5 - min(failures, 20) * 10, int(row.get("successes", 0) or 0), -latency)
+
     def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, record=None) -> tuple[dict[str, Any], Route]:
         errors = []
-        for route in self.routes[:3]:
+        for route in self.routes[:5]:
             provider = PROVIDERS[route.provider]
             if not provider.free_eligible and not self.settings.allow_paid:
                 errors.append(f"{route.provider}: paid inference requires allow_paid=true")

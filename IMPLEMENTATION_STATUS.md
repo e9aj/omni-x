@@ -24,6 +24,7 @@ Last reviewed: 2026-11-18
 - Live agent tool execution succeeded in an isolated workspace with an explicit test approver; default CLI approval gating remains enabled.
 - Hermes Agent execution adapter integrated from the MIT-licensed conversation-loop/tool-executor boundaries, plus the ACP/OpenAI tool-call contract, with attribution and architecture plan.
 - Additive SQLite provider-health tracking records success/failure, latency, error, and counts; routing orders fallback candidates using observed health.
+- Model-level free-route health is now persisted in SQLite (`model_health`): catalogue upstream, context and declared tool capability are retained alongside tested/available state, auth/rate-limit/timeout/provider-error counts, tool-call verification, token totals, and latency samples with average/p50/p95 values. FREE routing prefers verified tool-capable models and excludes tested-unavailable models.
 - A real `auto/best-free` autonomous repair completed: read project files, wrote the fix, ran tests, inspected output, retried/corrected, reran tests, and finished with all five tests passing.
 
 ## Not yet verified or complete
@@ -55,6 +56,7 @@ Last reviewed: 2026-11-18
 - Provider pricing and free-tier metadata are not yet persisted in a model registry; estimated cost is currently recorded as zero until verified pricing is added.
 - SMART routing is a bounded provider-order fallback with bounded transient retries, not yet a quota/latency/success-rate optimizer.
 - Tool-result caching, prompt caching, semantic context deduplication, and reusable task-result storage are not implemented.
+- The bounded `omnix models probe` command performs real minimal inference and read-only tool probes against a small subset of explicitly free OmniRoute models. It does not mark a model reliable merely because it is advertised.
 - MCP lifecycle management, durable detached worker supervision, full delegated aggregation, marketplace, desktop application, and research citation workflow remain incomplete.
 - Hermes browser execution and skills loading are integrated through the managed install; OMNI-X scheduling, background workers and delegated child jobs are implemented through the unified `TaskService` adapter. Hermes-owned cron/worker processes are intentionally not embedded. Live model-backed parent/child validation remains incomplete.
 - Hermes skills are now directly reusable from an explicitly configured source checkout with an allowlist for optional skills. Browser automation has a thin adapter to Hermes `tools/browser_use_cli.py`; it reports unavailable when the Hermes browser runtime or dependencies are not installed.
@@ -66,6 +68,7 @@ Last reviewed: 2026-11-18
 - Hermes source remains an external inspection checkout; the adapted execution boundary is attributed in `THIRD_PARTY_NOTICES.md` and is not presented as the full Hermes backend.
 - Final validation status: hard cancellation is implemented and tested for owned command trees; browser lifecycle is live-tested, but live browser cancellation and a fully successful live parent/child OmniRoute workflow remain outstanding. Do not mark PR #2 fully integrated or merge-ready on simulated lifecycle tests.
 - Tool reliability status: native calls, Hermes XML/JSON calls, explicit `Tool call: name(...)` calls and exact bare function-call text are normalized into the existing ToolRegistry; schema-invalid calls and children without tool-result events cannot be treated as successful execution.
+- Latest bounded live probe (2026-11-18) found `auto/best-free` and `auto/coding:free` available for text inference through OmniRoute (`owned_by=combo`, 400000 context), but neither emitted an executable `list_directory` call in the lightweight tool probe. `unc/turboderp/Qwen3.8-27B-exl3` returned HTTP 401 because UncloseAI's public beta is closed and key registration is closed. These routes are therefore not recorded as verified tool-capable; no paid fallback is permitted.
 
 ## Evidence policy
 

@@ -11,3 +11,15 @@ def test_free_mode_rejects_paid_requested_provider():
         assert "paid inference requires allow_paid=true" in str(exc)
     else:
         raise AssertionError("FREE mode accepted a paid-only route")
+
+
+def test_free_omniroute_prefers_verified_tool_model_and_excludes_failed_model():
+    settings = Settings(provider="omniroute", mode="FREE", model="auto/best-free", free_models=["auto/best-free", "ddgw/gpt-5.4-mini", "auto/coding:free"])
+    health = {
+        "auto/best-free": {"tested": 1, "available": 1, "tool_verified": 1, "successes": 1, "p95_latency_ms": 100},
+        "ddgw/gpt-5.4-mini": {"tested": 1, "available": 0, "tool_verified": 0},
+        "auto/coding:free": {"tested": 0, "available": 0, "tool_verified": 0},
+    }
+    router = Router(settings, model_health_provider=lambda: health)
+    assert [route.model for route in router.routes[:2]] == ["auto/best-free", "auto/coding:free"]
+    assert "ddgw/gpt-5.4-mini" not in [route.model for route in router.routes]

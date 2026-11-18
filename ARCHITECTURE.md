@@ -18,11 +18,11 @@ providers, and delegated worker backends.
 
 | Hermes capability | OMNI-X disposition | Rationale |
 |---|---|---|
-| Agent loop | Retain OMNI-X loop; adapt Hermes message/tool contract | Avoid two engines; preserve existing FREE policy and CLI behavior. |
-| Tool calling | **Integrated now:** Hermes-compatible XML/JSON bridge | Proven smallest functional integration for OmniRoute text tool calls. |
-| Sessions and memory | Retain OMNI-X SQLite; migration boundary documented | Existing schema is stable and security-scoped; Hermes persistence is broader than needed yet. |
+| Agent loop | **Integrated now:** `HermesExecutionBackend` adapted from Hermes `conversation_loop` and tool-executor boundaries | One unified loop; OMNI-X injects its Router, SQLite task/session store, and permission boundary. |
+| Tool calling | **Integrated now:** Hermes-compatible XML/JSON bridge inside the execution adapter | Supports native OpenAI calls and Hermes text-call responses from OmniRoute. |
+| Sessions and memory | Retain OMNI-X SQLite behind the Hermes backend | Existing schema is stable and security-scoped; Hermes persistence is broader than needed yet. |
 | Skills | Retain OMNI-X reviewed `SKILL.md` loader; map to Hermes conventions later | Prevent unreviewed skill installation. |
-| Terminal execution | Retain OMNI-X containment/approval tools | Hermes backends are a future optional adapter behind the same permission interface. |
+| Terminal execution | Retain OMNI-X containment/approval tools behind the Hermes executor boundary | Hermes execution semantics are reused without bypassing OMNI-X approvals. |
 | Browser automation | Deferred adapter | Requires Playwright/session policy review and adds significant dependencies. |
 | Scheduling/background tasks | Deferred adapter | Requires lifecycle and persistence migration design. |
 | Multi-agent delegation | Deferred adapter | Must map Hermes worker isolation to OMNI-X approval/audit boundaries. |

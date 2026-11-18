@@ -86,7 +86,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-17 | Phase 2 review added provider health/model discovery methods, bounded retry and routing policy, task/event/usage state, dangerous-command rejection, Windows CI coverage, and documented live-provider limitations. |
 | 2026-11-17 | OmniRoute review verified the MIT local gateway, npm/source/Docker installation paths, OpenAI-compatible `/v1` API, `/v1/models` discovery, `/v1/models/query` documentation, third-party free-tier/account requirements, and RTK→Caveman gateway compression. OMNI-X added fail-closed onboarding and avoids duplicate local compression when routed through OmniRoute. |
 | 2026-11-18 | Windows 11 validation installed OmniRoute 3.8.53 project-scoped with Node 26/npm 11, started the loopback gateway, discovered 465 models/9 explicit free entries, and verified live free inference plus a permission-approved OMNI-X write-tool execution. No direct provider credential or paid route was used. |
-| 2026-11-18 | Inspected the current Hermes Agent source and MIT licence. Integrated the smallest functional slice from `agent/acp_openai_bridge.py`—Hermes-compatible text tool-call parsing—behind the existing OMNI-X runtime, with attribution in `THIRD_PARTY_NOTICES.md`; documented retained, adapted, and deferred components in `ARCHITECTURE.md`. |
+| 2026-11-18 | Inspected the current Hermes Agent source and MIT licence. Integrated an attributed execution adapter based on Hermes `conversation_loop`/tool-executor boundaries plus the ACP/OpenAI text tool-call contract, behind the unified OMNI-X runtime; documented retained, adapted, and deferred components in `ARCHITECTURE.md`. |
 
 ## OMNI-X implementation status
 

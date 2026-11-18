@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-import json
 import ast
+import json
 import re
 import threading
-import time
 from pathlib import Path
 from typing import Callable
 
 from .config import Settings
-from .providers import ProviderError
 from .routing import Router, Route
 from .store import Store
 from .tools import ToolRegistry
 from .skills import discover_skills, relevant_instructions
-from .optimize import compress_terminal_output
-from .hermes_bridge import TOOL_CALL_CONTRACT, extract_tool_calls
+from .hermes_bridge import TOOL_CALL_CONTRACT
+from .hermes_backend import HermesExecutionBackend
 
 
 SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this Hermes-compatible contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
@@ -52,70 +50,23 @@ class AgentRuntime:
     def run(self, prompt: str, session_id: str | None = None, on_text: Callable[[str], None] | None = None) -> tuple[str, str]:
         session_id = session_id or self.store.new_session(prompt[:80])
         task_id = self.store.start_task(session_id)
-        deadline = time.monotonic() + self.timeout_seconds
         if not self.store.messages(session_id):
             skills = relevant_instructions(discover_skills(self.workspace), prompt)
             self.store.add_message(session_id, "system", SYSTEM + (f"\n\n{skills}" if skills else ""))
         self.store.add_message(session_id, "user", prompt)
         messages = self.store.messages(session_id)
-        executed_tools: set[str] = set()
-        command_calls = 0
         try:
-            for step in range(self.max_steps):
-                if self.cancel_event.is_set():
-                    raise RuntimeError("Task cancelled")
-                if time.monotonic() > deadline:
-                    raise RuntimeError("Task timeout exceeded")
-                self.store.event(task_id, "step_started", str(step + 1))
-                response, route = self.router.complete(messages, self.tools.schemas(), lambda r, u, latency: self._record_usage(task_id, r, u, latency))
-                message = response["choices"][0]["message"]
-                text = message.get("content") or ""
-                hermes_calls, cleaned_text = extract_tool_calls(text)
-                calls = message.get("tool_calls") or hermes_calls or self._pseudo_tool_calls(text)
-                native_tool_calls = bool(message.get("tool_calls"))
-                if calls and not message.get("tool_calls"):
-                    text = cleaned_text
-                if calls:
-                    text = ""
-                if text:
-                    self.store.add_message(session_id, "assistant", text)
-                    if on_text:
-                        on_text(text)
-                if not calls:
-                    # Some OpenAI-compatible free models describe the next action
-                    # instead of emitting a function call. Give them one corrective
-                    # turn, but never treat the narrative as completed work.
-                    repair_incomplete = self._repair_required(prompt) and ("write_file" not in executed_tools or command_calls < 2)
-                    if step < self.max_steps - 1 and (repair_incomplete or (not any(item.get("role") == "tool" for item in messages) and self._looks_actionable(text))):
-                        messages.append({"role": "assistant", "content": text})
-                        instruction = "You have not completed the requested repair. Use the next required tool now; do not narrate. Required sequence: read the broken files, write the corrected source, run the exact tests, inspect the output, fix failures, and rerun the tests."
-                        messages.append({"role": "user", "content": instruction})
-                        self.store.event(task_id, "tool_call_retry", "provider returned narrative without an executable call")
-                        continue
-                    self.store.update_task(task_id, "completed")
-                    self.store.event(task_id, "completed", route.provider)
-                    return text, session_id
-                messages.append({"role": "assistant", "content": text, "tool_calls": calls})
-                for call in calls:
-                    try:
-                        args = json.loads(call["function"].get("arguments") or "{}")
-                    except (KeyError, TypeError, json.JSONDecodeError) as exc:
-                        raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
-                    name = call["function"].get("name")
-                    raw_result = self.tools.call(name, args)
-                    executed_tools.add(name)
-                    if name == "run_command":
-                        command_calls += 1
-                    # OmniRoute may already apply its RTK → Caveman pipeline. Avoid stacking
-                    # OMNI-X compression on top of a gateway-compressed tool result.
-                    result = raw_result if route.provider == "omniroute" else compress_terminal_output(raw_result)
-                    if native_tool_calls:
-                        messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "name": name, "content": result})
-                    else:
-                        messages.append({"role": "user", "content": f"Hermes tool result ({name}):\n{result}"})
-                    self.store.add_message(session_id, "tool", f"{name}: {result}")
-                    self.store.event(task_id, "tool_result", name)
-            raise RuntimeError(f"Agent stopped after {self.max_steps} steps without completing")
+            backend = HermesExecutionBackend(
+                router=self.router,
+                tools=self.tools,
+                store=self.store,
+                max_steps=self.max_steps,
+                cancel_event=self.cancel_event,
+                timeout_seconds=self.timeout_seconds,
+                pseudo_tool_calls=self._pseudo_tool_calls,
+                record_usage=self._record_usage,
+            )
+            return backend.execute(task_id=task_id, session_id=session_id, messages=messages, on_text=on_text), session_id
         except Exception as exc:
             self.store.update_task(task_id, "cancelled" if str(exc) == "Task cancelled" else "failed", str(exc))
             self.store.event(task_id, "failed", str(exc))
@@ -124,16 +75,6 @@ class AgentRuntime:
     def _record_usage(self, task_id: str, route: Route, usage: dict, latency_ms: float) -> None:
         self.store.record_usage(task_id, route.provider, route.model, int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0)), 0.0)
         self.store.event(task_id, "provider_call", f"{route.provider}/{route.model} latency_ms={latency_ms:.1f}")
-
-    @staticmethod
-    def _looks_actionable(text: str) -> bool:
-        lowered = (text or "").lower()
-        return any(marker in lowered for marker in ("i'll create", "i will create", "create the file", "run the test", "use the tool", "tool_call", "tool_params"))
-
-    @staticmethod
-    def _repair_required(prompt: str) -> bool:
-        lowered = prompt.lower()
-        return "broken" in lowered and "write" in lowered and "unittest" in lowered
 
     @staticmethod
     def _pseudo_tool_calls(text: str) -> list[dict]:

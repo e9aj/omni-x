@@ -37,3 +37,13 @@ Temporary workspace: ignored `.omnix-phase2-repair/`; write and command permissi
 - Measured provider-call latency ranged from 5.9 seconds to 136.8 seconds; the 136.8-second call was a real provider delay, not a fabricated benchmark.
 
 The preceding failed attempts are also evidence: repeated non-executable model prose and a transient OmniRoute fallback ending in an UncloseAI HTTP 401 were recorded as retries/failures. They were not counted as successful autonomous completion.
+
+## Backend integration verification — 2026-11-18
+
+The unified runtime now delegates its task loop to `HermesExecutionBackend`, an
+adaptation of Hermes Agent's conversation-loop and tool-executor boundaries.
+Two previously unseen deterministic tasks passed through that backend: workspace
+inspection (directory listing followed by an evidence-based response) and a
+write/read task (approval-gated file creation followed by read-back verification).
+No prompt-word or benchmark-specific task detection is used. The full automated
+suite passed with 22 tests on Windows.

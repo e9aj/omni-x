@@ -22,9 +22,9 @@ Last reviewed: 2026-11-18
 - Live `/v1/models` discovery returned 465 models, including nine explicitly free models; onboarding selected `auto/best-free` in FREE mode.
 - Real free inference succeeded through OmniRoute and returned provider usage metadata (199 total tokens, estimated cost $0).
 - Live agent tool execution succeeded in an isolated workspace with an explicit test approver; default CLI approval gating remains enabled.
-- Hermes Agent compatibility bridge integrated from the MIT-licensed ACP/OpenAI tool-call contract, with attribution and architecture plan.
+- Hermes Agent execution adapter integrated from the MIT-licensed conversation-loop/tool-executor boundaries, plus the ACP/OpenAI tool-call contract, with attribution and architecture plan.
 - Additive SQLite provider-health tracking records success/failure, latency, error, and counts; routing orders fallback candidates using observed health.
-- A real `auto/best-free` autonomous repair completed: read broken files, wrote the fix, ran tests, inspected output, retried/corrected, reran tests, and finished with all five tests passing.
+- A real `auto/best-free` autonomous repair completed: read project files, wrote the fix, ran tests, inspected output, retried/corrected, reran tests, and finished with all five tests passing.
 
 ## Not yet verified or complete
 
@@ -34,10 +34,10 @@ Last reviewed: 2026-11-18
 - SMART routing is a bounded provider-order fallback with bounded transient retries, not yet a quota/latency/success-rate optimizer.
 - Tool-result caching, prompt caching, semantic context deduplication, and reusable task-result storage are not implemented.
 - MCP lifecycle management, browser automation, scheduling, multi-agent collaboration, marketplace, desktop application, and research citation workflow remain incomplete.
-- Hermes's full execution backend, browser, scheduler, background-worker, and multi-agent subsystems are assessed but not yet embedded; the current integration is intentionally limited to the proven tool-call bridge.
-- Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; 20 automated tests currently pass after this integration.
+- Hermes's optional browser, scheduler, background-worker, and multi-agent subsystems are assessed but not yet embedded; the current integration includes the actual execution-loop boundary and tool dispatch, while preserving OMNI-X's security-scoped equivalents.
+- Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; 22 automated tests currently pass after this integration, including varied non-benchmark backend tasks.
 - OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.
-- Hermes is used as an architectural reference; no Hermes source code is copied into OMNI-X.
+- Hermes source remains an external inspection checkout; the adapted execution boundary is attributed in `THIRD_PARTY_NOTICES.md` and is not presented as the full Hermes backend.
 
 ## Evidence policy
 

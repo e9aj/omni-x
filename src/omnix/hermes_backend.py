@@ -1,0 +1,143 @@
+"""Hermes-shaped execution backend for the unified OMNI-X runtime.
+
+This module adapts the actual Hermes Agent execution boundary: a bounded
+conversation loop, assistant tool-call dispatch, tool-result continuation, and
+terminal finalisation.  The upstream implementation is ``agent.conversation_loop``
+and ``agent.tool_executor`` in NousResearch/hermes-agent (MIT); OMNI-X injects
+its own Router, SQLite session store, reviewed skills, and permission-gated
+ToolRegistry so there is one engine and one security boundary.
+
+This is an execution adapter, not a claim that Hermes' optional browser,
+scheduler, and delegated-worker services are embedded.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from typing import Any, Callable
+
+from .hermes_bridge import extract_tool_calls
+from .optimize import compress_terminal_output
+
+
+class HermesExecutionBackend:
+    """Run one task using the Hermes execution-loop contract and OMNI-X services."""
+
+    def __init__(
+        self,
+        *,
+        router: Any,
+        tools: Any,
+        store: Any,
+        max_steps: int,
+        cancel_event: Any,
+        timeout_seconds: float,
+        pseudo_tool_calls: Callable[[str], list[dict[str, Any]]],
+        record_usage: Callable[[str, Any, dict[str, Any], float], None],
+    ) -> None:
+        self.router = router
+        self.tools = tools
+        self.store = store
+        self.max_steps = max_steps
+        self.cancel_event = cancel_event
+        self.timeout_seconds = timeout_seconds
+        self.pseudo_tool_calls = pseudo_tool_calls
+        self.record_usage = record_usage
+
+    def execute(
+        self,
+        *,
+        task_id: str,
+        session_id: str,
+        messages: list[dict[str, Any]],
+        on_text: Callable[[str], None] | None = None,
+    ) -> str:
+        """Execute until the model returns a final turn or the bounded loop stops.
+
+        Completion is model- and evidence-driven: narrative alone is never
+        converted into a tool result, and every tool continuation contains the
+        actual result returned by the injected tool registry.
+        """
+        deadline = time.monotonic() + self.timeout_seconds
+        saw_tool_result = False
+        saw_assistant_turn = False
+
+        for step in range(self.max_steps):
+            if self.cancel_event.is_set():
+                raise RuntimeError("Task cancelled")
+            if time.monotonic() > deadline:
+                raise RuntimeError("Task timeout exceeded")
+
+            self.store.event(task_id, "step_started", str(step + 1))
+            response, route = self.router.complete(
+                messages,
+                self.tools.schemas(),
+                lambda r, u, latency: self.record_usage(task_id, r, u, latency),
+            )
+            message = response["choices"][0]["message"]
+            saw_assistant_turn = True
+            text = message.get("content") or ""
+            hermes_calls, cleaned_text = extract_tool_calls(text)
+            calls = message.get("tool_calls") or hermes_calls or self.pseudo_tool_calls(text)
+            native_tool_calls = bool(message.get("tool_calls"))
+
+            if calls and not native_tool_calls:
+                text = cleaned_text
+            if calls:
+                text = ""
+            if text:
+                self.store.add_message(session_id, "assistant", text)
+                if on_text:
+                    on_text(text)
+
+            if not calls:
+                # This is the general Hermes turn-finalisation rule. A model
+                # that narrated an intended action without emitting a call gets
+                # one bounded continuation; no task-specific prompt matching is
+                # used and no action is claimed without tool evidence.
+                if self._needs_continuation(text, saw_tool_result, step):
+                    messages.append({"role": "assistant", "content": text})
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "Continue the task using the available tools when work remains. "
+                            "Do not claim completion without inspecting the relevant tool output. "
+                            "If the task is complete, provide a concise evidence-based summary."
+                        ),
+                    })
+                    self.store.event(task_id, "tool_call_retry", "provider returned narrative without an executable call")
+                    continue
+                self.store.update_task(task_id, "completed")
+                self.store.event(task_id, "verified", "final model turn returned after execution loop")
+                self.store.event(task_id, "completed", route.provider)
+                return text
+
+            messages.append({"role": "assistant", "content": text, "tool_calls": calls})
+            for call in calls:
+                try:
+                    args = json.loads(call["function"].get("arguments") or "{}")
+                except (KeyError, TypeError, json.JSONDecodeError) as exc:
+                    raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
+                name = call["function"].get("name")
+                raw_result = self.tools.call(name, args)
+                saw_tool_result = True
+                result = raw_result if route.provider == "omniroute" else compress_terminal_output(raw_result)
+                if native_tool_calls:
+                    messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "name": name, "content": result})
+                else:
+                    messages.append({"role": "user", "content": f"Hermes tool result ({name}):\n{result}"})
+                self.store.add_message(session_id, "tool", f"{name}: {result}")
+                self.store.event(task_id, "tool_result", name)
+
+        raise RuntimeError(f"Agent stopped after {self.max_steps} steps without completing")
+
+    @staticmethod
+    def _needs_continuation(text: str, saw_tool_result: bool, step: int) -> bool:
+        """Continue only for an actionable-looking narrative, generically."""
+        if not text or saw_tool_result:
+            return False
+        lower = text.lower()
+        return step >= 0 and any(marker in lower for marker in (
+            "i'll ", "i will ", "next i", "let me ", "use the tool", "tool_call", "tool_params",
+        ))

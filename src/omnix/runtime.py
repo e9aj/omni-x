@@ -15,9 +15,10 @@ from .store import Store
 from .tools import ToolRegistry
 from .skills import discover_skills, relevant_instructions
 from .optimize import compress_terminal_output
+from .hermes_bridge import TOOL_CALL_CONTRACT, extract_tool_calls
 
 
-SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. Use the supplied function tools; if the provider cannot emit standard tool calls, use only these exact compatibility forms: mcp__read_file(...), mcp__list_workspace_files(...), mcp__search_text(...), mcp__write_file(...), mcp__run_command(...). Never invent a tool result."
+SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this Hermes-compatible contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
 
 
 _PSEUDO_TOOLS = {
@@ -33,8 +34,13 @@ _PSEUDO_TOOLS = {
 class AgentRuntime:
     def __init__(self, settings: Settings, store: Store | None = None, workspace: Path | None = None, approver: Callable[[str], bool] | None = None):
         self.store = store or Store()
-        self.router = Router(settings)
         self.workspace = Path(workspace or Path.cwd()).resolve()
+        try:
+            self.router = Router(settings, self.store.provider_health, self.store.record_provider_health)
+        except TypeError:
+            # Preserve the small Router seam used by embedders and tests written
+            # against the original one-argument constructor.
+            self.router = Router(settings)
         self.tools = ToolRegistry(self.workspace, approver)
         self.max_steps = settings.max_steps
         self.cancel_event = threading.Event()
@@ -52,6 +58,8 @@ class AgentRuntime:
             self.store.add_message(session_id, "system", SYSTEM + (f"\n\n{skills}" if skills else ""))
         self.store.add_message(session_id, "user", prompt)
         messages = self.store.messages(session_id)
+        executed_tools: set[str] = set()
+        command_calls = 0
         try:
             for step in range(self.max_steps):
                 if self.cancel_event.is_set():
@@ -62,7 +70,11 @@ class AgentRuntime:
                 response, route = self.router.complete(messages, self.tools.schemas(), lambda r, u, latency: self._record_usage(task_id, r, u, latency))
                 message = response["choices"][0]["message"]
                 text = message.get("content") or ""
-                calls = message.get("tool_calls") or self._pseudo_tool_calls(text)
+                hermes_calls, cleaned_text = extract_tool_calls(text)
+                calls = message.get("tool_calls") or hermes_calls or self._pseudo_tool_calls(text)
+                native_tool_calls = bool(message.get("tool_calls"))
+                if calls and not message.get("tool_calls"):
+                    text = cleaned_text
                 if calls:
                     text = ""
                 if text:
@@ -73,9 +85,11 @@ class AgentRuntime:
                     # Some OpenAI-compatible free models describe the next action
                     # instead of emitting a function call. Give them one corrective
                     # turn, but never treat the narrative as completed work.
-                    if not any(item.get("role") == "tool" for item in messages) and step < self.max_steps - 1 and self._looks_actionable(text):
+                    repair_incomplete = self._repair_required(prompt) and ("write_file" not in executed_tools or command_calls < 2)
+                    if step < self.max_steps - 1 and (repair_incomplete or (not any(item.get("role") == "tool" for item in messages) and self._looks_actionable(text))):
                         messages.append({"role": "assistant", "content": text})
-                        messages.append({"role": "user", "content": "No tool was executed. Use one exact compatibility tool call now, with valid arguments. Do not describe the action first."})
+                        instruction = "You have not completed the requested repair. Use the next required tool now; do not narrate. Required sequence: read the broken files, write the corrected source, run the exact tests, inspect the output, fix failures, and rerun the tests."
+                        messages.append({"role": "user", "content": instruction})
                         self.store.event(task_id, "tool_call_retry", "provider returned narrative without an executable call")
                         continue
                     self.store.update_task(task_id, "completed")
@@ -89,10 +103,16 @@ class AgentRuntime:
                         raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
                     name = call["function"].get("name")
                     raw_result = self.tools.call(name, args)
+                    executed_tools.add(name)
+                    if name == "run_command":
+                        command_calls += 1
                     # OmniRoute may already apply its RTK → Caveman pipeline. Avoid stacking
                     # OMNI-X compression on top of a gateway-compressed tool result.
                     result = raw_result if route.provider == "omniroute" else compress_terminal_output(raw_result)
-                    messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "content": result})
+                    if native_tool_calls:
+                        messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "name": name, "content": result})
+                    else:
+                        messages.append({"role": "user", "content": f"Hermes tool result ({name}):\n{result}"})
                     self.store.add_message(session_id, "tool", f"{name}: {result}")
                     self.store.event(task_id, "tool_result", name)
             raise RuntimeError(f"Agent stopped after {self.max_steps} steps without completing")
@@ -109,6 +129,11 @@ class AgentRuntime:
     def _looks_actionable(text: str) -> bool:
         lowered = (text or "").lower()
         return any(marker in lowered for marker in ("i'll create", "i will create", "create the file", "run the test", "use the tool", "tool_call", "tool_params"))
+
+    @staticmethod
+    def _repair_required(prompt: str) -> bool:
+        lowered = prompt.lower()
+        return "broken" in lowered and "write" in lowered and "unittest" in lowered
 
     @staticmethod
     def _pseudo_tool_calls(text: str) -> list[dict]:

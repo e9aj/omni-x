@@ -15,8 +15,10 @@ class Route:
 
 
 class Router:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, health_provider=None, health_recorder=None):
         self.settings = settings
+        self.health_provider = health_provider or (lambda: {})
+        self.health_recorder = health_recorder
         self.routes = self._routes()
 
     def _routes(self) -> list[Route]:
@@ -26,7 +28,10 @@ class Router:
             for name in ("groq", "cerebras", "gemini", "omniroute"):
                 if name != requested.provider and PROVIDERS[name].free_eligible:
                     candidates.append(Route(name, self.settings.model))
-        return candidates
+        requested, *fallbacks = candidates
+        health = self.health_provider()
+        fallbacks.sort(key=lambda route: (not health.get(route.provider, {}).get("healthy", True), health.get(route.provider, {}).get("latency_ms", float("inf"))))
+        return [requested, *fallbacks]
 
     def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, record=None) -> tuple[dict[str, Any], Route]:
         errors = []
@@ -48,9 +53,14 @@ class Router:
                 started = time.perf_counter()
                 result = client.complete(messages, tools)
                 usage = result.get("usage", {})
+                latency_ms = (time.perf_counter() - started) * 1000
+                if self.health_recorder:
+                    self.health_recorder(route.provider, True, latency_ms, None)
                 if record:
-                    record(route, usage, (time.perf_counter() - started) * 1000)
+                    record(route, usage, latency_ms)
                 return result, route
             except ProviderError as exc:
+                if self.health_recorder:
+                    self.health_recorder(route.provider, False, (time.perf_counter() - started) * 1000, str(exc))
                 errors.append(f"{route.provider}: {exc}")
         raise ProviderError("All eligible provider routes failed: " + " | ".join(errors))

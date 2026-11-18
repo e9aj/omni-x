@@ -8,6 +8,8 @@ build/
 .omnix/
 .omniroute-runtime/
 .omnix-live/
+.omnix-phase2-repair/
+.hermes-source/
 *.db
 *.sqlite3
 .env

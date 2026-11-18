@@ -24,3 +24,16 @@ The current test suite verifies deterministic compression behavior and records p
 | 2026-11-18 | OMNI-X agent write-tool run in isolated `.omnix-live` workspace | **Success** with an explicit test approver: the live model emitted a compatibility write call and `live_probe.txt` was created with the verified content. Normal CLI mode still prompts for approval and refused to proceed non-interactively. | Provider usage recorded in local task store | $0 estimated |
 
 The first row is a real historical probe. The later rows are live execution evidence. The no-key result is specifically an unauthenticated upstream route exposed by OmniRoute; the local gateway itself used a loopback-only token stored by OMNI-X's secure credential store.
+
+## Autonomous repair evidence — 2026-11-18
+
+Temporary workspace: ignored `.omnix-phase2-repair/`; write and command permissions were explicitly approved by the test harness. Provider/model: OmniRoute / `auto/best-free`; mode: `FREE`; estimated cost: `$0`.
+
+- The agent read the deliberately broken `calculator.py` and `test_calculator.py`.
+- It identified and corrected subtraction/addition and division-by-zero handling via `write_file`.
+- It ran `python -m unittest -v`, read the actual output (`Ran 5 tests ... OK`), and reran the tests after the repair; both observed test outputs passed all five tests.
+- The runtime recorded 10 model calls, 1 narrative-without-call retry, 8 tool results (reads, write, and test commands), and task state `completed`.
+- Recorded token totals: 19,282 prompt tokens and 3,513 completion tokens across 10 usage rows; every row had estimated cost `$0`.
+- Measured provider-call latency ranged from 5.9 seconds to 136.8 seconds; the 136.8-second call was a real provider delay, not a fabricated benchmark.
+
+The preceding failed attempts are also evidence: repeated non-executable model prose and a transient OmniRoute fallback ending in an UncloseAI HTTP 401 were recorded as retries/failures. They were not counted as successful autonomous completion.

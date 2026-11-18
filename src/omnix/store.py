@@ -22,6 +22,7 @@ class Store:
         CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, state TEXT NOT NULL, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS usage (id INTEGER PRIMARY KEY, task_id TEXT, provider TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, estimated_cost REAL NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS provider_health (provider TEXT PRIMARY KEY, healthy INTEGER NOT NULL, latency_ms REAL NOT NULL, failures INTEGER NOT NULL DEFAULT 0, successes INTEGER NOT NULL DEFAULT 0, last_error TEXT, updated REAL NOT NULL);
         """)
         self.db.commit()
 
@@ -68,3 +69,20 @@ class Store:
     def record_usage(self, task_id: str | None, provider: str, model: str, input_tokens: int, output_tokens: int, estimated_cost: float = 0.0) -> None:
         self.db.execute("INSERT INTO usage(task_id,provider,model,input_tokens,output_tokens,estimated_cost,created) VALUES (?,?,?,?,?,?,?)", (task_id, provider, model, input_tokens, output_tokens, estimated_cost, time.time()))
         self.db.commit()
+
+    def record_provider_health(self, provider: str, healthy: bool, latency_ms: float, error: str | None = None) -> None:
+        now = time.time()
+        self.db.execute(
+            """INSERT INTO provider_health(provider,healthy,latency_ms,failures,successes,last_error,updated)
+               VALUES (?,?,?,?,?,?,?)
+               ON CONFLICT(provider) DO UPDATE SET healthy=excluded.healthy, latency_ms=excluded.latency_ms,
+               failures=provider_health.failures + excluded.failures, successes=provider_health.successes + excluded.successes,
+               last_error=excluded.last_error, updated=excluded.updated""",
+            (provider, int(healthy), float(latency_ms), int(not healthy), int(healthy), error, now),
+        )
+        self.db.commit()
+
+    def provider_health(self, provider: str | None = None) -> dict[str, dict[str, object]]:
+        query = "SELECT * FROM provider_health" + (" WHERE provider=?" if provider else "")
+        rows = self.db.execute(query, (provider,) if provider else ()).fetchall()
+        return {row["provider"]: dict(row) for row in rows}

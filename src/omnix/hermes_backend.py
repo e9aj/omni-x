@@ -138,6 +138,10 @@ class HermesExecutionBackend:
         if not text or saw_tool_result:
             return False
         lower = text.lower()
-        return step >= 0 and any(marker in lower for marker in (
+        # A model can narrate an intended action instead of emitting its
+        # function call. Give it a bounded opportunity to correct that generic
+        # protocol error; this is not task/benchmark word matching.
+        return step < 2 and any(marker in lower for marker in (
             "i'll ", "i will ", "next i", "let me ", "use the tool", "tool_call", "tool_params",
+            "delegat", "specialist", "create", "write", "inspect", "run",
         ))

@@ -13,3 +13,8 @@ boundaries used by OMNI-X's `HermesExecutionBackend`; OMNI-X retains its own
 branded runtime, provider routing, SQLite store, tool registry, approval policy,
 and secure credential handling. Optional Hermes browser, scheduler, background
 review, and delegated-worker services are not represented as integrated.
+
+When `OMNIX_HERMES_SOURCE` is explicitly configured, OMNI-X also invokes
+Hermes's `tools/browser_use_cli.py` for browser tasks and reads selected Hermes
+`SKILL.md` trees. Those paths remain subject to OMNI-X approval and allowlist
+controls; the MIT copyright and licence above apply to the reused source.

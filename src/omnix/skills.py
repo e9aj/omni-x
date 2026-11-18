@@ -19,6 +19,13 @@ def skill_roots(workspace: Path | None = None) -> list[Path]:
         roots.append(Path(workspace) / ".omnix" / "skills")
         roots.append(Path(workspace) / "skills")
     roots.append(Path(os.environ.get("OMNIX_SKILLS_DIR", Path.home() / ".omnix" / "skills")))
+    # Hermes keeps skills as reviewed SKILL.md trees.  Reuse those trees only
+    # when the operator explicitly points OMNI-X at an inspected Hermes source
+    # checkout; never silently scan an arbitrary installation.
+    hermes_source = os.environ.get("OMNIX_HERMES_SOURCE")
+    if hermes_source:
+        source = Path(hermes_source).expanduser().resolve()
+        roots.extend((source / "skills", source / "optional-skills"))
     return roots
 
 
@@ -33,6 +40,14 @@ def discover_skills(workspace: Path | None = None) -> list[Skill]:
             if name in seen:
                 continue
             text = path.read_text(encoding="utf-8")
+            # A Hermes source checkout can contain a very large optional skill
+            # catalogue.  An explicit allowlist is required for those roots so
+            # installing OMNI-X never activates arbitrary third-party skill
+            # instructions by accident.
+            if "optional-skills" in root.parts:
+                allowed = {item.strip() for item in os.environ.get("OMNIX_HERMES_SKILLS", "").split(",") if item.strip()}
+                if name not in allowed:
+                    continue
             description = next((line.removeprefix("description:").strip() for line in text.splitlines() if line.lower().startswith("description:")), "")
             found.append(Skill(name, path, description, text[:20_000]))
             seen.add(name)

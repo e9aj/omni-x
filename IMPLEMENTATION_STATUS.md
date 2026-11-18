@@ -35,7 +35,9 @@ Last reviewed: 2026-11-18
 - Tool-result caching, prompt caching, semantic context deduplication, and reusable task-result storage are not implemented.
 - MCP lifecycle management, browser automation, scheduling, multi-agent collaboration, marketplace, desktop application, and research citation workflow remain incomplete.
 - Hermes's optional browser, scheduler, background-worker, and multi-agent subsystems are assessed but not yet embedded; the current integration includes the actual execution-loop boundary and tool dispatch, while preserving OMNI-X's security-scoped equivalents.
-- Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; 22 automated tests currently pass after this integration, including varied non-benchmark backend tasks.
+- Hermes skills are now directly reusable from an explicitly configured source checkout with an allowlist for optional skills. Browser automation has a thin adapter to Hermes `tools/browser_use_cli.py`; it reports unavailable when the Hermes browser runtime or dependencies are not installed.
+- Live `auto/best-free` inference through OmniRoute still succeeds after the adapter change: one completed call returned the recorded verification response at estimated cost `$0.00`.
+- Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; 24 automated tests currently pass after this integration, including varied non-benchmark backend tasks.
 - OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.
 - Hermes source remains an external inspection checkout; the adapted execution boundary is attributed in `THIRD_PARTY_NOTICES.md` and is not presented as the full Hermes backend.
 

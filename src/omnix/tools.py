@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any, Callable
 
+from .hermes_browser import HermesBrowserAdapter
+
 
 class PermissionDenied(RuntimeError):
     pass
@@ -17,6 +19,9 @@ class ToolRegistry:
         self.workspace = (workspace or Path.cwd()).resolve()
         self.approver = approver or (lambda _: False)
         self.tools: dict[str, Callable[..., str]] = {"read_file": self.read_file, "list_directory": self.list_directory, "search_text": self.search_text, "write_file": self.write_file, "run_command": self.run_command}
+        self.browser = HermesBrowserAdapter(approver=self.approver)
+        if self.browser.available:
+            self.tools["browser_exec"] = self.browser_exec
 
     def schemas(self) -> list[dict[str, Any]]:
         return [{"type": "function", "function": {"name": name, "description": getattr(fn, "description", "OMNI-X tool"), "parameters": getattr(fn, "parameters", {"type": "object", "properties": {}})}} for name, fn in self.tools.items()]
@@ -71,9 +76,13 @@ class ToolRegistry:
         result = subprocess.run(command, cwd=self.workspace, shell=True, capture_output=True, text=True, timeout=120, env=os.environ.copy())
         return (result.stdout + result.stderr)[-20_000:]
 
+    def browser_exec(self, code: str, timeout_s: int = 120) -> str:
+        return self.browser.execute(code, timeout_s)
+
 
 ToolRegistry.read_file.parameters = {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}
 ToolRegistry.list_directory.parameters = {"type": "object", "properties": {"path": {"type": "string"}}}
 ToolRegistry.search_text.parameters = {"type": "object", "properties": {"pattern": {"type": "string"}, "path": {"type": "string"}}, "required": ["pattern"]}
 ToolRegistry.write_file.parameters = {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}
 ToolRegistry.run_command.parameters = {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}
+ToolRegistry.browser_exec.parameters = {"type": "object", "properties": {"code": {"type": "string"}, "timeout_s": {"type": "integer"}}, "required": ["code"]}

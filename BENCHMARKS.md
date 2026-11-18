@@ -46,4 +46,14 @@ Two previously unseen deterministic tasks passed through that backend: workspace
 inspection (directory listing followed by an evidence-based response) and a
 write/read task (approval-gated file creation followed by read-back verification).
 No prompt-word or benchmark-specific task detection is used. The full automated
-suite passed with 22 tests on Windows.
+suite passed with 24 tests on Windows.
+
+## Hermes adapter live inference — 2026-11-18
+
+With the local gateway reachable, OMNI-X ran the unified Hermes execution
+adapter using OmniRoute `auto/best-free` in `FREE` mode (`allow_paid=false`).
+The actual response was `OMNI-X Hermes backend live inference verified.` The
+task completed with one provider call, 552 prompt tokens, 61 completion tokens,
+10.3 seconds measured latency, and estimated cost `$0.00`. The event trace
+recorded `verified` followed by `completed`; no direct provider credential was
+used.

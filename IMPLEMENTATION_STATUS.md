@@ -35,7 +35,7 @@ Last reviewed: 2026-11-18
 - Tool-result caching, prompt caching, semantic context deduplication, and reusable task-result storage are not implemented.
 - MCP lifecycle management, browser automation, scheduling, multi-agent collaboration, marketplace, desktop application, and research citation workflow remain incomplete.
 - Hermes's full execution backend, browser, scheduler, background-worker, and multi-agent subsystems are assessed but not yet embedded; the current integration is intentionally limited to the proven tool-call bridge.
-- Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; 19 automated tests currently pass after this integration.
+- Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; 20 automated tests currently pass after this integration.
 - OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.
 - Hermes is used as an architectural reference; no Hermes source code is copied into OMNI-X.
 

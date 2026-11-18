@@ -107,3 +107,24 @@ The bounded probe selected the two declared tool-capable auto routes plus the Qw
 
 No paid route was used. The two auto routes are usable for text inference, but this run does not provide evidence that either is reliable for autonomous tool execution. OMNI-X's FREE router consequently excludes the tested-unavailable Qwen route, records the auto routes as available but tool-unverified, and will not claim a verified live tool workflow from this probe alone.
 
+## Controlled tool-call investigation — 2026-11-18
+
+The same minimal native OpenAI-compatible request was sent directly to the local OmniRoute gateway and once through `ModelClient`. The direct response was sanitized to fields only and contained:
+
+`model=zai-org/glm-5.2`, `finish_reason=stop`, `tool_calls=null`, `content=tool_call({ "name": "list_directory", "arguments": { "path": "." } })`, usage `122 prompt / 99 completion`.
+
+The separate OMNI-X client request contained:
+
+`model=zai-org/glm-5.2`, `finish_reason=stop`, `tool_calls=null`, `content=list_directory(path=".")`, usage `122 prompt / 113 completion`.
+
+These were separate free-model calls, so the differing textual forms demonstrate nondeterministic/provider formatting rather than client-side loss of a native `tool_calls` field. In both cases OmniRoute returned no structured native tool call. A later real OMNI-X call returned `tool_calls: [{"name":"list_directory","arguments":"{}"}]` in assistant content; OMNI-X initially rejected it as narration. The compatibility bridge now strictly normalizes this anchored JSON-list form, as well as `tool_call({...})`, without parsing ordinary narrative.
+
+Evidence after the fix:
+
+- Real read-only task succeeded through `auto/best-free`: `list_directory` was invoked and returned `["probe.txt"]`; the task emitted a verified event. Two model calls recorded `15961/107` and `16122/127` tokens with observed latencies `5579.3ms` and `8293.6ms`.
+- Real isolated file task succeeded: `write_file` created `verified.txt` with `SINGLE-LIVE-VERIFIED`, then the agent issued `read_file(filename: "verified.txt")`; the file content was verified. This run used model `zai-org/glm-5.2` and recorded two provider calls (`6886.1ms`, `5230.5ms`).
+- One existing single-agent attempt failed to create the file, demonstrating free-model variability; it was not counted as success.
+- Parent/child live validation was attempted once after the read-only gate but OmniRoute timed out at 45 seconds before the first parent model response. The failure recorded no child job and no model usage; direct credentialed Groq, Cerebras and Gemini fallbacks were correctly excluded. No repeated delegation retries were made.
+
+Conclusion: the original defect was incomplete normalization of valid textual gateway formats, not evidence that OmniRoute strips structured calls in the client. Native structured function calling remains unverified for the selected free model; successful autonomous execution currently depends on the compatibility text formats.
+

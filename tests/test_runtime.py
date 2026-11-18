@@ -54,6 +54,29 @@ def test_integrated_backend_executes_unseen_directory_task(monkeypatch, tmp_path
     assert answer == "I verified alpha.txt is present."
 
 
+def test_integrated_backend_executes_gateway_textual_tool_list(monkeypatch, tmp_path: Path):
+    (tmp_path / "gateway.txt").write_text("gateway", encoding="utf-8")
+
+    class FakeRouter:
+        def __init__(self, _settings):
+            self.calls = 0
+
+        def complete(self, messages, tools, record=None):
+            self.calls += 1
+            route = type("Route", (), {"provider": "omniroute", "model": "test"})()
+            content = 'tool_calls: [{"name":"list_directory","arguments":"{}"}]' if self.calls == 1 else "The actual listing contained gateway.txt."
+            response = {"choices": [{"message": {"role": "assistant", "content": content}}], "usage": {"prompt_tokens": 2, "completion_tokens": 1}}
+            if record:
+                record(route, response["usage"], 1.0)
+            return response, route
+
+    monkeypatch.setattr("omnix.runtime.Router", FakeRouter)
+    runtime = AgentRuntime(Settings(), Store(tmp_path / "db.sqlite3"), tmp_path)
+    answer, _ = runtime.run("List the workspace and report the actual result.")
+    assert answer == "The actual listing contained gateway.txt."
+    assert Store(tmp_path / "db.sqlite3").db.execute("SELECT COUNT(*) FROM events WHERE kind='tool_result'").fetchone()[0] == 1
+
+
 def test_integrated_backend_executes_unseen_write_and_read_task(monkeypatch, tmp_path: Path):
     class FakeRouter:
         def __init__(self, _settings):

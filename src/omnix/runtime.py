@@ -32,6 +32,7 @@ _PSEUDO_TOOLS = {
 
 class AgentRuntime:
     def __init__(self, settings: Settings, store: Store | None = None, workspace: Path | None = None, approver: Callable[[str], bool] | None = None, cancel_event: threading.Event | None = None, delegate_handler=None):
+        self.settings = settings
         self.store = store or Store()
         self.workspace = Path(workspace or Path.cwd()).resolve()
         try:
@@ -67,6 +68,7 @@ class AgentRuntime:
                 timeout_seconds=self.timeout_seconds,
                 pseudo_tool_calls=self._pseudo_tool_calls,
                 record_usage=self._record_usage,
+                record_tool_result=lambda route, success: self._record_tool_result(self.settings, route, success),
             )
             return backend.execute(task_id=task_id, session_id=session_id, messages=messages, on_text=on_text), session_id
         except Exception as exc:
@@ -77,6 +79,11 @@ class AgentRuntime:
     def _record_usage(self, task_id: str, route: Route, usage: dict, latency_ms: float) -> None:
         self.store.record_usage(task_id, route.provider, route.model, int(usage.get("prompt_tokens", 0)), int(usage.get("completion_tokens", 0)), 0.0)
         self.store.event(task_id, "provider_call", f"{route.provider}/{route.model} latency_ms={latency_ms:.1f}")
+
+    def _record_tool_result(self, settings: Settings, route: Route, success: bool) -> None:
+        # Health is keyed by the configured route alias; the actual upstream
+        # model remains recorded separately in usage rows.
+        self.store.record_model_tool_result(settings.model, success)
 
     @staticmethod
     def _pseudo_tool_calls(text: str) -> list[dict]:

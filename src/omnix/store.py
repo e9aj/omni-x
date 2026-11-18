@@ -194,3 +194,15 @@ class Store:
         query = "SELECT * FROM model_health" + (" WHERE model=?" if model else "")
         rows = self.db.execute(query, (model,) if model else ()).fetchall()
         return {row["model"]: dict(row) for row in rows}
+
+    def record_model_tool_result(self, model: str, success: bool) -> None:
+        """Promote only an actually executed tool result to tool evidence."""
+        with self._lock:
+            row = self.db.execute("SELECT model FROM model_health WHERE model=?", (model,)).fetchone()
+            if not row:
+                return
+            self.db.execute(
+                "UPDATE model_health SET tool_successes=tool_successes+?, tool_failures=tool_failures+?, tool_verified=MAX(tool_verified,?), updated=? WHERE model=?",
+                (int(success), int(not success), int(success), time.time(), model),
+            )
+            self.db.commit()

@@ -23,3 +23,15 @@ def test_free_omniroute_prefers_verified_tool_model_and_excludes_failed_model():
     router = Router(settings, model_health_provider=lambda: health)
     assert [route.model for route in router.routes[:2]] == ["auto/best-free", "auto/coding:free"]
     assert "ddgw/gpt-5.4-mini" not in [route.model for route in router.routes]
+
+
+def test_free_omniroute_excludes_tool_unverified_route_for_tool_task():
+    settings = Settings(provider="omniroute", mode="FREE", model="auto/best-free", free_models=["auto/best-free"])
+    health = {"auto/best-free": {"tested": 1, "available": 1, "tool_verified": 0}}
+    router = Router(settings, model_health_provider=lambda: health)
+    try:
+        router.complete([], [], requires_tools=True)
+    except ProviderError as exc:
+        assert "tool calling is not verified" in str(exc)
+    else:
+        raise AssertionError("tool-unverified FREE route was selected for a tool task")

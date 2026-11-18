@@ -32,6 +32,8 @@ PYTHON_CALL_RE = re.compile(r"<tool_call>\s*(?P<name>[a-z_]+)\s*\((?P<args>.*?)\
 SINGLE_NAMESPACE_CALL_RE = re.compile(r"<tool_call>\s*mcp__(?P<name>[a-z_]+)\((?P<args>.*?)\)", re.DOTALL)
 PLAIN_TOOL_CALL_RE = re.compile(r"^\s*Tool\s+call:\s*(?P<name>[a-z_]+)\s*\((?P<args>.*?)\)\s*$", re.IGNORECASE | re.DOTALL)
 BARE_FUNCTION_CALL_RE = re.compile(r"^\s*(?P<name>[a-z_]+)\s*\((?P<args>.*?)\)\s*$", re.DOTALL)
+BARE_TOOL_CALL_JSON_RE = re.compile(r"^\s*tool_call\s*\(\s*(?P<args>\{.*\})\s*\)\s*$", re.IGNORECASE | re.DOTALL)
+TEXTUAL_TOOL_CALLS_RE = re.compile(r"^\s*tool_calls\s*:\s*(?P<args>\[.*\])\s*$", re.IGNORECASE | re.DOTALL)
 
 
 def _parse(raw: str, ordinal: int) -> dict[str, Any] | None:
@@ -79,6 +81,41 @@ def extract_tool_calls(text: str) -> tuple[list[dict[str, Any]], str]:
                     "function": {"name": match.group("name"), "arguments": json.dumps(arguments)},
                 })
                 spans.append((match.start(), match.end()))
+    if not calls:
+        match = TEXTUAL_TOOL_CALLS_RE.match(text)
+        if match:
+            try:
+                payload = json.loads(match.group("args"))
+                if isinstance(payload, list):
+                    for item in payload:
+                        name = item.get("name") if isinstance(item, dict) else None
+                        arguments = item.get("arguments", {}) if isinstance(item, dict) else {}
+                        if isinstance(arguments, str):
+                            json.loads(arguments)
+                        else:
+                            arguments = json.dumps(arguments)
+                        if isinstance(name, str) and name:
+                            calls.append({"id": str(item.get("id") or f"hermes_call_{len(calls) + 1}"), "type": "function", "function": {"name": name, "arguments": arguments}})
+                    if calls:
+                        spans.append((match.start(), match.end()))
+            except (TypeError, ValueError):
+                calls = []
+    if not calls:
+        match = BARE_TOOL_CALL_JSON_RE.match(text)
+        if match:
+            try:
+                payload = json.loads(match.group("args"))
+                name = payload.get("name")
+                arguments = payload.get("arguments", {})
+                if isinstance(arguments, str):
+                    json.loads(arguments)
+                else:
+                    arguments = json.dumps(arguments)
+                if isinstance(name, str) and name:
+                    calls.append({"id": "hermes_call_1", "type": "function", "function": {"name": name, "arguments": arguments}})
+                    spans.append((match.start(), match.end()))
+            except (TypeError, ValueError):
+                pass
     if not calls:
         match = BARE_FUNCTION_CALL_RE.match(text)
         if match:

@@ -44,3 +44,5 @@ def test_model_health_records_probe_evidence_and_percentiles(tmp_path: Path):
     assert row["output_tokens"] == 12
     assert row["p50_latency_ms"] == 40
     assert row["p95_latency_ms"] == 40
+    store.record_model_tool_result("free-a", True)
+    assert store.model_health("free-a")["free-a"]["tool_successes"] == 1

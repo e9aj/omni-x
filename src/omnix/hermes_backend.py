@@ -35,6 +35,7 @@ class HermesExecutionBackend:
         timeout_seconds: float,
         pseudo_tool_calls: Callable[[str], list[dict[str, Any]]],
         record_usage: Callable[[str, Any, dict[str, Any], float], None],
+        record_tool_result: Callable[[Any, bool], None] | None = None,
     ) -> None:
         self.router = router
         self.tools = tools
@@ -44,6 +45,7 @@ class HermesExecutionBackend:
         self.timeout_seconds = timeout_seconds
         self.pseudo_tool_calls = pseudo_tool_calls
         self.record_usage = record_usage
+        self.record_tool_result = record_tool_result
 
     def execute(
         self,
@@ -71,11 +73,17 @@ class HermesExecutionBackend:
                 raise RuntimeError("Task timeout exceeded")
 
             self.store.event(task_id, "step_started", str(step + 1))
-            response, route = self.router.complete(
-                messages,
-                self.tools.schemas(),
-                lambda r, u, latency: self.record_usage(task_id, r, u, latency),
-            )
+            try:
+                response, route = self.router.complete(
+                    messages,
+                    self.tools.schemas(),
+                    lambda r, u, latency: self.record_usage(task_id, r, u, latency),
+                    requires_tools=True,
+                )
+            except TypeError as exc:
+                if "requires_tools" not in str(exc):
+                    raise
+                response, route = self.router.complete(messages, self.tools.schemas(), lambda r, u, latency: self.record_usage(task_id, r, u, latency))
             message = response["choices"][0]["message"]
             saw_assistant_turn = True
             text = message.get("content") or ""
@@ -129,6 +137,8 @@ class HermesExecutionBackend:
                 raw_result = self.tools.call(name, args)
                 saw_tool_result = True
                 saw_tool_error = saw_tool_error or raw_result.startswith("Tool error:")
+                if self.record_tool_result:
+                    self.record_tool_result(route, not raw_result.startswith("Tool error:"))
                 result = raw_result if route.provider == "omniroute" else compress_terminal_output(raw_result)
                 if native_tool_calls:
                     messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "name": name, "content": result})

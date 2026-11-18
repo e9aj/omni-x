@@ -58,10 +58,15 @@ class Router:
         latency = float(row.get("p95_latency_ms", 999999) or 999999)
         return (tool_verified * 100 + available * 20 + tested * 5 - min(failures, 20) * 10, int(row.get("successes", 0) or 0), -latency)
 
-    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, record=None) -> tuple[dict[str, Any], Route]:
+    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, record=None, requires_tools: bool = False) -> tuple[dict[str, Any], Route]:
         errors = []
         for route in self.routes[:5]:
             provider = PROVIDERS[route.provider]
+            if requires_tools and route.provider == "omniroute":
+                model_row = self.model_health_provider().get(route.model, {})
+                if int(model_row.get("tested", 0) or 0) and not int(model_row.get("tool_verified", 0) or 0):
+                    errors.append(f"{route.model}: tool calling is not verified")
+                    continue
             if not provider.free_eligible and not self.settings.allow_paid:
                 errors.append(f"{route.provider}: paid inference requires allow_paid=true")
                 continue

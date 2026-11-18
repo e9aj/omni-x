@@ -19,3 +19,17 @@ def test_bare_function_calls_are_normalized_without_parsing_narrative():
     calls, _ = extract_tool_calls('write_file("x.txt", "ok")')
     assert calls and calls[0]["function"]["name"] == "write_file"
     assert extract_tool_calls('I will write_file("x.txt", "ok")')[0] == []
+
+
+def test_bare_json_tool_call_from_gateway_is_normalized():
+    calls, cleaned = extract_tool_calls('tool_call({ "name": "list_directory", "arguments": { "path": "." } })')
+    assert calls[0]["function"]["name"] == "list_directory"
+    assert calls[0]["function"]["arguments"] == '{"path": "."}'
+    assert cleaned == ""
+
+
+def test_textual_tool_calls_json_list_is_normalized():
+    calls, cleaned = extract_tool_calls('tool_calls: [{"name":"list_directory","arguments":"{}"}]')
+    assert calls[0]["function"]["name"] == "list_directory"
+    assert calls[0]["function"]["arguments"] == "{}"
+    assert cleaned == ""

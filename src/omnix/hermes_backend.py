@@ -61,6 +61,7 @@ class HermesExecutionBackend:
         """
         deadline = time.monotonic() + self.timeout_seconds
         saw_tool_result = False
+        saw_tool_error = False
         saw_assistant_turn = False
 
         for step in range(self.max_steps):
@@ -96,7 +97,7 @@ class HermesExecutionBackend:
                 # that narrated an intended action without emitting a call gets
                 # one bounded continuation; no task-specific prompt matching is
                 # used and no action is claimed without tool evidence.
-                if self._needs_continuation(text, saw_tool_result, step):
+                if self._needs_continuation(text, saw_tool_result, step) or (saw_tool_error and step < self.max_steps - 1):
                     messages.append({"role": "assistant", "content": text})
                     messages.append({
                         "role": "user",
@@ -108,6 +109,8 @@ class HermesExecutionBackend:
                     })
                     self.store.event(task_id, "tool_call_retry", "provider returned narrative without an executable call")
                     continue
+                if saw_tool_error:
+                    raise RuntimeError("Agent stopped after a tool error without verified recovery")
                 self.store.update_task(task_id, "completed")
                 self.store.event(task_id, "verified", "final model turn returned after execution loop")
                 self.store.event(task_id, "completed", route.provider)
@@ -116,12 +119,16 @@ class HermesExecutionBackend:
             messages.append({"role": "assistant", "content": text, "tool_calls": calls})
             for call in calls:
                 try:
-                    args = json.loads(call["function"].get("arguments") or "{}")
+                    raw_args = json.loads(call["function"].get("arguments") or "{}")
+                    name = call["function"].get("name")
+                    args = self.tools.normalize_arguments(name, raw_args) if hasattr(self.tools, "normalize_arguments") else raw_args
                 except (KeyError, TypeError, json.JSONDecodeError) as exc:
                     raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
-                name = call["function"].get("name")
+                except ValueError as exc:
+                    raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
                 raw_result = self.tools.call(name, args)
                 saw_tool_result = True
+                saw_tool_error = saw_tool_error or raw_result.startswith("Tool error:")
                 result = raw_result if route.provider == "omniroute" else compress_terminal_output(raw_result)
                 if native_tool_calls:
                     messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "name": name, "content": result})

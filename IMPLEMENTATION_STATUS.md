@@ -41,7 +41,7 @@ Last reviewed: 2026-11-18
 - Atomic job claiming, bounded concurrency, cancellation state, idle shutdown and restart recovery are implemented.
 - Evidence: the task-service suite is now 4/4, including a second worker host reclaiming queued work after the first host closes.
 - Hermes reference modules: `persistence/workers/executions.py` for registered/running/terminal lifecycle semantics and `agent/managed_worker.py` for bounded worker supervision. OMNI-X does not start Hermes's gateway worker or a second agent runtime.
-- Hard process termination of a currently executing external tool is not yet exposed; cancellation is persisted and runtime cancellation is cooperative.
+- Hard process termination is implemented for owned command/browser trees; graceful cancellation is attempted first and unrelated processes/OmniRoute are outside the scope.
 
 ### Delegation Stage 3
 
@@ -65,6 +65,7 @@ Last reviewed: 2026-11-18
 - OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.
 - Hermes source remains an external inspection checkout; the adapted execution boundary is attributed in `THIRD_PARTY_NOTICES.md` and is not presented as the full Hermes backend.
 - Final validation status: hard cancellation is implemented and tested for owned command trees; browser lifecycle is live-tested, but live browser cancellation and a fully successful live parent/child OmniRoute workflow remain outstanding. Do not mark PR #2 fully integrated or merge-ready on simulated lifecycle tests.
+- Tool reliability status: native calls, Hermes XML/JSON calls, explicit `Tool call: name(...)` calls and exact bare function-call text are normalized into the existing ToolRegistry; schema-invalid calls and children without tool-result events cannot be treated as successful execution.
 
 ## Evidence policy
 

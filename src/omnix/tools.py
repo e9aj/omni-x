@@ -39,9 +39,36 @@ class ToolRegistry:
         if name not in self.tools:
             return f"Tool error: unknown tool {name}"
         try:
+            self._validate(name, arguments)
             return self.tools[name](**arguments)
-        except (OSError, ValueError, PermissionDenied, subprocess.SubprocessError) as exc:
+        except (OSError, ValueError, TypeError, PermissionDenied, subprocess.SubprocessError) as exc:
             return f"Tool error: {exc}"
+
+    def _validate(self, name: str, arguments: dict[str, Any]) -> None:
+        if not isinstance(arguments, dict):
+            raise ValueError("tool arguments must be a JSON object")
+        schema = getattr(self.tools[name], "parameters", {})
+        properties = schema.get("properties", {})
+        missing = [key for key in schema.get("required", []) if key not in arguments]
+        unknown = [key for key in arguments if key not in properties]
+        if missing or unknown:
+            raise ValueError(f"invalid arguments for {name}: missing={missing}, unknown={unknown}")
+        for key, value in arguments.items():
+            expected = properties.get(key, {}).get("type")
+            if expected == "string" and not isinstance(value, str):
+                raise ValueError(f"argument {key} must be a string")
+            if expected == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
+                raise ValueError(f"argument {key} must be an integer")
+
+    def normalize_arguments(self, name: str, arguments: Any) -> dict[str, Any]:
+        if isinstance(arguments, dict):
+            return arguments
+        if isinstance(arguments, list):
+            properties = list(getattr(self.tools[name], "parameters", {}).get("properties", {}))
+            if len(arguments) > len(properties):
+                raise ValueError(f"too many positional arguments for {name}")
+            return dict(zip(properties, arguments))
+        raise ValueError("tool arguments must be an object or supported positional list")
 
     def _inside(self, raw: str) -> Path:
         path = (self.workspace / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()

@@ -30,6 +30,8 @@ NAMESPACE_CALL_RE = re.compile(r"<tool_call>\s*mcp__[a-z_]+__(?P<name>[a-z_]+)\(
 DIRECT_CALL_RE = re.compile(r"<tool_call>\s*(?P<name>[a-z_]+)\s*(?P<args>\{.*?\})", re.DOTALL)
 PYTHON_CALL_RE = re.compile(r"<tool_call>\s*(?P<name>[a-z_]+)\s*\((?P<args>.*?)\)", re.DOTALL)
 SINGLE_NAMESPACE_CALL_RE = re.compile(r"<tool_call>\s*mcp__(?P<name>[a-z_]+)\((?P<args>.*?)\)", re.DOTALL)
+PLAIN_TOOL_CALL_RE = re.compile(r"^\s*Tool\s+call:\s*(?P<name>[a-z_]+)\s*\((?P<args>.*?)\)\s*$", re.IGNORECASE | re.DOTALL)
+BARE_FUNCTION_CALL_RE = re.compile(r"^\s*(?P<name>[a-z_]+)\s*\((?P<args>.*?)\)\s*$", re.DOTALL)
 
 
 def _parse(raw: str, ordinal: int) -> dict[str, Any] | None:
@@ -77,8 +79,34 @@ def extract_tool_calls(text: str) -> tuple[list[dict[str, Any]], str]:
                     "function": {"name": match.group("name"), "arguments": json.dumps(arguments)},
                 })
                 spans.append((match.start(), match.end()))
-            if calls:
-                break
+    if not calls:
+        match = BARE_FUNCTION_CALL_RE.match(text)
+        if match:
+            try:
+                expression = ast.parse(f"f({match.group('args')})", mode="eval").body
+                if not isinstance(expression, ast.Call):
+                    raise ValueError("not a call")
+                arguments = [ast.literal_eval(item) for item in expression.args]
+                arguments.extend({item.arg: ast.literal_eval(item.value) for item in expression.keywords if item.arg}.items())
+            except (SyntaxError, ValueError):
+                arguments = None
+            if arguments is not None:
+                calls.append({"id": "hermes_call_1", "type": "function", "function": {"name": match.group("name"), "arguments": json.dumps(arguments)}})
+                spans.append((match.start(), match.end()))
+    if not calls:
+        match = PLAIN_TOOL_CALL_RE.match(text)
+        if match:
+            try:
+                expression = ast.parse(f"f({match.group('args')})", mode="eval").body
+                arguments = {item.arg: ast.literal_eval(item.value) for item in expression.keywords if item.arg}
+            except (SyntaxError, ValueError):
+                arguments = None
+            if arguments is not None:
+                for alias in ("file_path", "filename"):
+                    if alias in arguments and "path" not in arguments:
+                        arguments["path"] = arguments.pop(alias)
+                calls.append({"id": "hermes_call_1", "type": "function", "function": {"name": match.group("name"), "arguments": json.dumps(arguments)}})
+                spans.append((match.start(), match.end()))
     if not calls:
         for match in GENERIC_TOOL_RE.finditer(text):
             try:

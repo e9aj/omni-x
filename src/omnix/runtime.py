@@ -35,7 +35,7 @@ class AgentRuntime:
         self.store = store or Store()
         self.workspace = Path(workspace or Path.cwd()).resolve()
         try:
-            self.router = Router(settings, self.store.provider_health, self.store.record_provider_health)
+            self.router = Router(settings, self.store.provider_health, self.store.record_provider_health, self.store.record_provider_failure)
         except TypeError:
             # Preserve the small Router seam used by embedders and tests written
             # against the original one-argument constructor.
@@ -51,6 +51,7 @@ class AgentRuntime:
     def run(self, prompt: str, session_id: str | None = None, on_text: Callable[[str], None] | None = None) -> tuple[str, str]:
         session_id = session_id or self.store.new_session(prompt[:80])
         task_id = self.store.start_task(session_id)
+        self.last_task_id = task_id
         if not self.store.messages(session_id):
             skills = relevant_instructions(discover_skills(self.workspace), prompt)
             self.store.add_message(session_id, "system", SYSTEM + (f"\n\n{skills}" if skills else ""))

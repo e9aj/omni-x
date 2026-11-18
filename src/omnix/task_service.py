@@ -196,6 +196,10 @@ class TaskService:
             else:
                 runtime = AgentRuntime(self.settings, Store(self.store.path), self.workspace, self.approver, cancel_event=cancel, delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
                 result, session_id = runtime.run(row["prompt"], session_id)
+                if row.get("parent_job_id"):
+                    tool_events = Store(self.store.path).db.execute("SELECT 1 FROM events WHERE task_id=? AND kind='tool_result' LIMIT 1", (runtime.last_task_id,)).fetchone()
+                    if not tool_events:
+                        raise RuntimeError("delegated child completed without a verified tool result")
             db.finish_job(job_id, "completed", result=result)
             if row.get("parent_job_id"):
                 self._settle_child(db, row["parent_job_id"], job_id, "completed", result, None)

@@ -31,6 +31,7 @@ class Store:
         CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, task_id TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS usage (id INTEGER PRIMARY KEY, task_id TEXT, provider TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, estimated_cost REAL NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS provider_health (provider TEXT PRIMARY KEY, healthy INTEGER NOT NULL, latency_ms REAL NOT NULL, failures INTEGER NOT NULL DEFAULT 0, successes INTEGER NOT NULL DEFAULT 0, last_error TEXT, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS provider_failures (id INTEGER PRIMARY KEY, provider TEXT NOT NULL, category TEXT NOT NULL, error TEXT NOT NULL, latency_ms REAL NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS schedules (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, schedule TEXT NOT NULL, kind TEXT NOT NULL, next_run_at REAL NOT NULL, last_run_at REAL, enabled INTEGER NOT NULL DEFAULT 1, missed_runs INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, schedule_id TEXT, parent_job_id TEXT, session_id TEXT, prompt TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, deadline REAL, created REAL NOT NULL, started REAL, finished REAL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS delegations (id TEXT PRIMARY KEY, parent_job_id TEXT NOT NULL, child_job_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
@@ -154,3 +155,8 @@ class Store:
         query = "SELECT * FROM provider_health" + (" WHERE provider=?" if provider else "")
         rows = self.db.execute(query, (provider,) if provider else ()).fetchall()
         return {row["provider"]: dict(row) for row in rows}
+
+    def record_provider_failure(self, provider: str, category: str, error: str, latency_ms: float) -> None:
+        with self._lock:
+            self.db.execute("INSERT INTO provider_failures(provider,category,error,latency_ms,created) VALUES (?,?,?,?,?)", (provider, category, error[:2000], float(latency_ms), time.time()))
+            self.db.commit()

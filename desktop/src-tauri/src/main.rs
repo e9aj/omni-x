@@ -44,6 +44,7 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         resource_dir.join("binaries").join("omnix-backend-x86_64-pc-windows-msvc.exe"),
     ]
         .into_iter().find(|path| path.is_file());
+    eprintln!("OMNI-X backend sidecar discovery: {}", bundled.as_ref().map(|path| path.display().to_string()).unwrap_or_else(|| "not found".into()));
     let mut command;
     if let Some(bundled) = bundled.as_ref() {
         command = Command::new(bundled);
@@ -59,13 +60,15 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         command.env("PYTHONPATH", std::env::var("OMNIX_PYTHONPATH").unwrap_or_else(|_| "../src".into()));
     }
     let child = command.env("OMNIX_IPC_TOKEN", &state.token).spawn().map_err(|e| format!("backend start failed: {e}"))?;
+    eprintln!("OMNI-X backend sidecar spawned with pid {}", child.id());
     *state.child.lock().map_err(|_| "backend lock poisoned".to_string())? = Some(child);
     for _ in 0..30 {
         if request(state, "GET", "/v1/health", None).is_ok() { return Ok(()); }
-        let exited = state.child.lock().ok().and_then(|mut guard| guard.as_mut().map(|value| value.try_wait().ok().flatten().is_some())).unwrap_or(true);
-        if exited { return Err("backend exited before authenticated health check".into()); }
+        let exit_status = state.child.lock().ok().and_then(|mut guard| guard.as_mut().and_then(|value| value.try_wait().ok().flatten()));
+        if let Some(status) = exit_status { eprintln!("OMNI-X backend sidecar exited before health check with status {status}"); return Err("backend exited before authenticated health check".into()); }
         thread::sleep(Duration::from_millis(500));
     }
+    eprintln!("OMNI-X backend authenticated health check timed out");
     Err("backend did not pass authenticated health check within 15 seconds".into())
 }
 

@@ -48,6 +48,26 @@ jobs:
       - name: Build Windows NSIS installer
         working-directory: desktop
         run: npm run tauri build
+      - name: Smoke install and launch on hosted Windows runner
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'NSIS installer was not produced' }
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "NSIS installer failed with exit code $($install.ExitCode)" }
+          $app = Get-ChildItem "$env:LOCALAPPDATA/Programs" -Recurse -Filter 'OMNI-X.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $app) { throw 'Installed OMNI-X executable was not found' }
+          $desktop = Start-Process -FilePath $app.FullName -PassThru
+          Start-Sleep -Seconds 8
+          if ($desktop.HasExited) { throw "OMNI-X exited during startup with code $($desktop.ExitCode)" }
+          $backend = Get-Process -Name 'omnix-backend' -ErrorAction SilentlyContinue
+          if (-not $backend) { throw 'Managed omnix-backend sidecar was not observed' }
+          $desktop.CloseMainWindow() | Out-Null
+          if (-not $desktop.WaitForExit(15000)) { $desktop.Kill(); throw 'OMNI-X did not shut down gracefully' }
+          Start-Sleep -Seconds 2
+          if (Get-Process -Name 'omnix-backend' -ErrorAction SilentlyContinue) { throw 'Backend sidecar remained after application shutdown' }
+          $uninstaller = Get-ChildItem (Split-Path $app.FullName) -Filter 'uninstall*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($uninstaller) { $removed = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -Wait -PassThru; if ($removed.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($removed.ExitCode)" } }
       - name: Upload Windows development installer
         uses: actions/upload-artifact@v4
         with:

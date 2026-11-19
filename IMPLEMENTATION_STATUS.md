@@ -25,6 +25,12 @@ Last reviewed: 2026-11-19
   disabled, modified or bypassed. Approved validation routes are an enterprise
   allowlisting decision by the device owner for the exact signed build, or an
   isolated Windows 11 test VM governed by an equivalent approved policy.
+- No local VM or secondary Windows test machine is available. WSL is present but
+  is not a Windows desktop environment. The Windows Actions workflow now runs a
+  clean install, launches the installed OMNI-X executable, verifies the managed
+  `omnix-backend.exe` process, closes the app, checks the sidecar exits, and
+  performs a silent uninstall on the hosted runner. This validates packaging
+  and lifecycle only; it does not provide live OmniRoute inference.
 
 ## Phase 3 desktop foundation
 

@@ -202,4 +202,10 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   unsigned generated Rust build scripts. No installer, Tauri process, Python
   sidecar or live desktop chat was observed. Testing must proceed only through
   approved enterprise allowlisting or an authorised Windows 11 test VM.
+- The local host has no discoverable Hyper-V VM or secondary Windows machine;
+  Windows Sandbox requires elevation. A hosted Windows Actions smoke test was
+  added to install the NSIS artifact, launch OMNI-X, observe the managed
+  backend, close the app, verify the sidecar exits and uninstall. Its result is
+  the next permitted installation evidence; no real AI chat is claimed from
+  this smoke test.
 

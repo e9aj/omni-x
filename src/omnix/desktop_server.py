@@ -65,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
         expected = os.environ.get("OMNIX_IPC_TOKEN", "")
         supplied = self.headers.get("Authorization", "").removeprefix("Bearer ")
         origin = self.headers.get("Origin", "")
-        allowed = {"", "tauri://localhost", "https://tauri.localhost", "http://tauri.localhost"}
+        allowed = {"tauri://localhost", "https://tauri.localhost", "http://tauri.localhost"}
         if origin not in allowed or not expected or not hmac.compare_digest(supplied, expected):
             self._json(401, {"error": "authenticated loopback request required"})
             return False

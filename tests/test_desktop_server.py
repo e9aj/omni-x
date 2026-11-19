@@ -29,6 +29,17 @@ def test_desktop_server_requires_loopback_token(monkeypatch):
         with urllib.request.urlopen(request, timeout=2) as response:
             payload = json.loads(response.read())
         assert payload["status"] == "ok"
+
+        missing_origin = urllib.request.Request(
+            f"http://127.0.0.1:{port}/v1/health",
+            headers={"Authorization": "Bearer unit-test-token"},
+        )
+        try:
+            urllib.request.urlopen(missing_origin, timeout=2)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 401
+        else:
+            raise AssertionError("authenticated request without an allowed origin was accepted")
     finally:
         server.shutdown()
         thread.join(timeout=2)

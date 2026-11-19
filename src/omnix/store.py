@@ -74,7 +74,9 @@ class Store:
 
     def jobs(self, limit: int = 50) -> list[dict]:
         safe_limit = max(1, min(int(limit), 1000))
-        return [dict(r) for r in self.db.execute("SELECT * FROM jobs ORDER BY created DESC LIMIT ?", (safe_limit,)).fetchall()]
+        # safe_limit is an internal bounded integer, never caller-supplied SQL.
+        # Parameterised LIMIT has triggered sqlite API misuse on worker restart.
+        return [dict(r) for r in self.db.execute(f"SELECT * FROM jobs ORDER BY created DESC LIMIT {safe_limit}").fetchall()]  # nosec B608
 
     def claim_job(self, job_id: str) -> bool:
         with self._lock:

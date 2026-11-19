@@ -90,3 +90,12 @@ calls an unauthenticated local HTTP endpoint. The server binds only to
 model and settings panels remain presentation foundations until connected to
 the existing SQLite/runtime APIs. Packaging the Python/Hermes/OmniRoute
 dependencies as signed Windows sidecars is a later installer milestone.
+
+The current bridge now exposes authenticated chat, stop and shutdown operations
+through Tauri native commands. Chat calls the existing `AgentRuntime` with the
+existing SQLite store and an approval callback that denies sensitive actions by
+default; the frontend cannot grant permissions or access credentials. The
+native layer owns the child process, monitors unexpected exit and restarts only
+that captured process. The single-instance plugin and fixed loopback port
+prevent duplicate desktop hosts; packaged sidecar discovery and an interactive
+approval surface remain incomplete.

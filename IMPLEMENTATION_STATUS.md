@@ -12,6 +12,13 @@ Last reviewed: 2026-11-19
 - This foundation does not yet claim complete lifecycle supervision: crash
   restart, shutdown-on-window-exit, duplicate-instance locking and packaged
   Python/Hermes/OmniRoute sidecars remain installer milestone work.
+- Authenticated chat, stop and shutdown bridge commands now call the real
+  `AgentRuntime`; deterministic endpoint tests prove session/result forwarding,
+  but no new live desktop inference run is claimed. Sensitive tools remain
+  denied until a native approval-request UI is implemented.
+- Tauri single-instance protection, owned-child monitoring/restart and
+  shutdown-on-window-close are implemented in the native layer, pending the
+  Windows runner build for compilation validation.
 - `npm install`, `npm run typecheck` and `npm run build` pass from `desktop/`.
 - Python desktop bridge test passes as part of the full suite.
 - Rust/Tauri compilation is not yet validated because Windows Application

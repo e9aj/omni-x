@@ -25,10 +25,39 @@ def test_desktop_server_requires_loopback_token(monkeypatch):
             assert exc.code == 401
         else:
             raise AssertionError("unauthenticated desktop request was accepted")
-        request = urllib.request.Request(f"http://127.0.0.1:{port}/v1/health", headers={"Authorization": "Bearer unit-test-token"})
+        request = urllib.request.Request(f"http://127.0.0.1:{port}/v1/health", headers={"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost"})
         with urllib.request.urlopen(request, timeout=2) as response:
             payload = json.loads(response.read())
         assert payload["status"] == "ok"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+
+
+def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch):
+    class FakeRuntime:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def run(self, prompt, session_id=None):
+            assert prompt == "hello"
+            return "real-runtime-result", session_id or "session-1"
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setattr("omnix.desktop_server.AgentRuntime", FakeRuntime)
+    with closing(socket()) as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.state = type("State", (), {"lock": threading.Lock(), "cancel_event": None})()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = urllib.request.Request(f"http://127.0.0.1:{port}/v1/chat", data=json.dumps({"prompt": "hello"}).encode(), headers={"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["answer"] == "real-runtime-result"
+        assert payload["session_id"] == "session-1"
     finally:
         server.shutdown()
         thread.join(timeout=2)

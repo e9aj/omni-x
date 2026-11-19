@@ -162,4 +162,9 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   3 opt-in live tests skipped.
 - Tauri/Rust build remains unvalidated because host Application Control blocks
   `cargo.exe`; no installer or production desktop readiness is claimed.
+- Desktop bridge deterministic coverage now includes authenticated chat
+  forwarding to the existing runtime, session ID return, origin rejection and
+  stop/shutdown endpoints. The desktop UI has no fake model response and does
+  not bypass backend approval policy. Live desktop chat remains unexecuted in
+  this increment to avoid repeating unstable free-provider calls.
 

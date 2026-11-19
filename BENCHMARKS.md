@@ -309,6 +309,16 @@ conversation-persistence-after-live-chat result is claimed.
   existing deterministic textual-parser tests remain the evidence for that
   compatibility path.
 
+### Integration management validation — 2026-11-19
+
+- Deterministic tests passed for unified skill browsing, explicit reviewed local
+  installation, disabled-by-default activation, permission/credential metadata,
+  credential integration scoping and revocation without exposing secret values.
+- The local CLI inventory identified Hermes bundled and optional skill trees;
+  optional entries are visible for review but are not enabled automatically.
+- Direct provider adapters remain credential-gated. No new external API, OAuth
+  or MCP service was contacted in this milestone.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before

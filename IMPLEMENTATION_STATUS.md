@@ -286,6 +286,26 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - `HermesToolAdapter` maps OMNI-X schemas and calls to Hermes-compatible function contracts while retaining OMNI-X validation, workspace containment and approval gates. Deterministic tests cover schema parity, read-only execution, unknown calls and denied writes.
 - Live Hermes tool dispatch through this adapter, Hermes session/memory migration, direct primary-runtime browser/skills execution, scheduling, background workers and delegated agents remain incomplete. Existing OMNI-X CLI/desktop runtime remains the default and fallback.
 - The managed Hermes probe is connected at the pinned runtime's actual `model_tools.get_tool_definitions` and `model_tools.handle_function_call` boundaries, and reuses `omnix.hermes_bridge.extract_tool_calls` during Hermes response normalization for anchored textual formats. Deterministic tests prove OMNI-X schema, validation, workspace and approval enforcement. Live tool execution remains unverified: the route previously narrated a call without dispatch and bounded retries produced no verified tool event. No narrated action was counted as execution.
+
+### Unified integrations and skills management — 2026-11-19
+
+- Added `SkillsManager` for read-only browsing of Hermes bundled/optional and
+  OMNI-X custom `SKILL.md` sources, explicit reviewed local installation,
+  disabled-by-default activation, metadata inspection and CLI enable/disable.
+  Unreviewed or automatically downloaded skills are not installed or executed.
+- Added `CredentialManager` over the existing Windows DPAPI secret store. It
+  scopes credentials by integration, supports revocation and returns metadata
+  without values; child callers can be restricted to an integration allowlist.
+- Current inventory: OmniRoute and direct provider adapters are implemented;
+  OmniRoute free discovery is usable with the local gateway credential; direct
+  providers require their own API keys/accounts. Hermes browser and bundled
+  skills are installed and selectively discoverable; optional skills remain
+  disabled unless explicitly allowlisted/reviewed. SQLite sessions/memory and
+  task lifecycle remain OMNI-X-owned. RTK/Caveman is represented by the tested
+  deterministic compressor; no external RTK/Caveman binary is bundled.
+- Not yet integrated: MCP server lifecycle, OAuth flows, external API service
+  adapters, Hermes-native session/memory persistence, and Hermes-primary
+  scheduling/delegation. No integration is described as live without evidence.
 - Controlled raw-response evidence (2026-11-19) shows one direct free-route request returned `tool_calls=null`, `finish_reason=stop`, empty content, model `deepseek-ai/deepseek-r1-distill-qwen-32b`, and 406 total tokens. There was no valid call for Hermes to lose or reject; this is recorded as a provider/model limitation. No additional parser formats were added.
 - Current catalogue sweep tested four free `combo` auto routes with native tools requested. All served `deepseek-ai/deepseek-r1-distill-qwen-32b` and returned no `tool_calls`; the declared-tool UncloseAI route returned 401 because registration is closed. No reliable free tool route is currently available, so live Hermes tool execution remains unverified and testing has stopped rather than consuming repeated tokens.
 

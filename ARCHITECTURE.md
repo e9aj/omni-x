@@ -190,6 +190,22 @@ and empty content from the selected free model. Hermes therefore correctly had
 no executable call to validate or dispatch; this is not evidence of a lost call
 inside OMNI-X.
 
+### Integration management — 2026-11-19
+
+`SkillsManager` provides one inventory for Hermes bundled skills, Hermes optional
+skills and OMNI-X custom skills. It reads `SKILL.md` metadata, requires explicit
+review before copying a local skill, defaults new installs to disabled, and
+never executes skill code. The existing runtime loader remains the execution
+path; manager enablement is recorded for controlled adoption.
+
+`CredentialManager` adds scoped integration metadata and revocation over the
+existing DPAPI-backed secret store. Secret values are not stored in metadata or
+returned by listings; child access can be restricted by integration scope.
+Provider adapters remain optional and credential-gated. RTK/Caveman support is
+currently deterministic terminal-output compression, not a bundled external
+binary. MCP lifecycle management, OAuth flows and external-service adapters
+remain incomplete.
+
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the

@@ -167,4 +167,8 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   stop/shutdown endpoints. The desktop UI has no fake model response and does
   not bypass backend approval policy. Live desktop chat remains unexecuted in
   this increment to avoid repeating unstable free-provider calls.
+- Local `npm run tauri build` now passes Tauri configuration/version validation
+  but cannot execute Rust build scripts because Code Integrity blocks unsigned
+  generated executables. The hosted Windows build is the required compilation
+  evidence; no installer is claimed until that run succeeds.
 

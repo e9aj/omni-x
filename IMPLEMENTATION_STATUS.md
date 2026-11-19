@@ -24,6 +24,12 @@ Last reviewed: 2026-11-19
 - Rust/Tauri compilation is not yet validated because Windows Application
   Control blocks `cargo.exe` in this environment. The installer and packaged
   backend are not complete.
+- The first hosted Tauri run reached the Windows build step but failed schema
+  validation; that NSIS configuration and the Tauri package-version mismatch
+  are fixed in the current branch. Local compilation then reached Rust
+  dependency build scripts and was blocked by the same enterprise Code
+  Integrity policy (`thiserror`/`proc-macro2`, event 3077). The next hosted run
+  is the authoritative compilation result.
 
 ## Phase 2 release-candidate classification
 

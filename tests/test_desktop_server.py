@@ -8,6 +8,7 @@ from http.server import ThreadingHTTPServer
 from socket import socket
 
 from omnix.desktop_server import DesktopServer, Handler
+from omnix.config import Settings, save_settings
 
 
 def test_desktop_server_requires_loopback_token(monkeypatch):
@@ -106,6 +107,37 @@ def test_desktop_content_preference_is_backend_owned(monkeypatch, tmp_path):
         request = urllib.request.Request(base + "/v1/settings", headers=headers)
         with urllib.request.urlopen(request, timeout=2) as response:
             assert json.loads(response.read())["content_preference"] == "standard"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_runtime_selection_uses_hermes_boundary(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    save_settings(Settings(runtime="hermes", provider="omniroute", model="auto/best-free",
+                            base_url="http://127.0.0.1:20128/v1", mode="FREE",
+                            allow_paid=False, max_cost_usd=0.0))
+    monkeypatch.setattr("omnix.desktop_server.run_hermes_primary_probe", lambda *args, **kwargs: {
+        "answer": "hermes desktop result", "model": "auto/best-free",
+        "omnix_session_id": "hermes-session", "usage": {
+            "provider": "omniroute", "input_tokens": 2, "output_tokens": 3,
+            "estimated_cost_usd": 0.0,
+        },
+    })
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        base = f"http://127.0.0.1:{server.server_port}"
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(base + "/v1/chat", data=json.dumps({"prompt": "hello"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["answer"] == "hermes desktop result"
+        assert payload["runtime"] == "hermes"
+        assert payload["usage"][0]["estimated_cost"] == 0.0
     finally:
         server.shutdown()
         thread.join(timeout=2)

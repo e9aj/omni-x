@@ -4,6 +4,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import Any
 
@@ -42,7 +43,10 @@ def discover_omniroute(settings: Settings) -> Discovery:
     started = time.perf_counter()
     request = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(request, timeout=min(settings.request_timeout_seconds, 10)) as response:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc or (parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}):
+            raise ValueError("gateway URL must be HTTPS or authenticated loopback HTTP")
+        with urllib.request.urlopen(request, timeout=min(getattr(settings, "provider_request_timeout_seconds", settings.request_timeout_seconds), 10)) as response:  # nosec B310
             payload = json.loads(response.read())
         models = payload.get("data", []) if isinstance(payload, dict) else []
         free = [model for model in models if isinstance(model, dict) and _is_explicitly_free(model)]

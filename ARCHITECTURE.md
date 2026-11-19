@@ -156,3 +156,114 @@ Recommended sequence:
 
 The Hermes source remains an implementation dependency under evaluation, not a
 public OMNI-X brand claim and not yet the active OMNI-X execution engine.
+
+## Hermes-primary migration branch — initial slice
+
+Branch `feat/hermes-primary-runtime` begins the migration without changing the
+working desktop runtime. `omnix hermes probe` is an explicit opt-in command
+(`OMNIX_HERMES_PRIMARY=1`) that invokes the installed Hermes `run_agent.AIAgent`
+through its managed Python environment and OMNI-X's configured OmniRoute URL.
+The probe is restricted to explicitly free models, zero spending and no Hermes
+tools, memory or persistence. It proves the actual Hermes execution loop can be
+called safely through the provider boundary, while the existing OMNI-X runtime
+continues to own tools, permissions and SQLite.
+
+The next adapter must inject OMNI-X's ToolRegistry, approval callback, router
+policy and SQLite session interface into Hermes before any tool-enabled primary
+execution is enabled. Until that work is proven, the probe is not a replacement
+engine and must not be used to claim full Hermes integration.
+
+### Live primary-runtime evidence — 2026-11-19
+
+The opt-in probe invoked the real installer-managed `run_agent.AIAgent` through local OmniRoute. `auto/coding:free` returned `HERMES-PRIMARY-OK` in 24,361 ms with 1,425 input, 58 output and 1,483 total tokens at estimated cost `$0`. Hermes exposed `served_model=None`, so OMNI-X records that limitation. The probe is text-only. `HermesToolAdapter` is the next compatibility boundary: Hermes-compatible schemas and calls route back into OMNI-X's existing permission-gated `ToolRegistry`. Live wiring and Hermes persistence/services remain separate validation steps.
+
+The tool probe now implements that boundary in the managed process by replacing
+only Hermes's model-facing schema and dispatch functions with the adapter. The
+Hermes `AIAgent` loop remains the sole engine; OMNI-X still owns validation,
+workspace containment and approvals. Deterministic execution passes, but the
+available free routes have not yet produced a verified live tool call. Textual
+normalization reuses `omnix.hermes_bridge.extract_tool_calls` and only accepts
+its anchored, syntactically valid contracts; narrative prose is left untouched.
+
+The controlled raw-response trace found `tool_calls=null`, `finish_reason=stop`
+and empty content from the selected free model. Hermes therefore correctly had
+no executable call to validate or dispatch; this is not evidence of a lost call
+inside OMNI-X.
+
+### Integration management — 2026-11-19
+
+`SkillsManager` provides one inventory for Hermes bundled skills, Hermes optional
+skills and OMNI-X custom skills. It reads `SKILL.md` metadata, requires explicit
+review before copying a local skill, defaults new installs to disabled, and
+never executes skill code. The existing runtime loader remains the execution
+path; manager enablement is recorded for controlled adoption.
+
+`CredentialManager` adds scoped integration metadata and revocation over the
+existing DPAPI-backed secret store. Secret values are not stored in metadata or
+returned by listings; child access can be restricted by integration scope.
+Provider adapters remain optional and credential-gated. RTK/Caveman support is
+currently deterministic terminal-output compression, not a bundled external
+binary. MCP lifecycle management, OAuth flows and external-service adapters
+remain incomplete.
+
+The Hermes primary probe now supplies the `SkillsManager`'s relevant reviewed
+instructions through Hermes `AIAgent(ephemeral_system_prompt=...)`, while
+enforcing enabled state, declared permissions, credential presence and external
+dependency checks before injection. Completed Hermes turns are also copied
+additively into OMNI-X SQLite through `HermesSessionBridge`; Hermes's own
+session database is not substituted for OMNI-X history.
+
+`HermesMemoryAdapter` maps the small memory contract to OMNI-X's existing
+SQLite `memories` table. The `hermes_session_map` and `skill_events` tables are
+additive migrations and support recovery/audit without changing desktop IPC.
+
+The 2026-11-19 capability sweep confirmed the same boundary across all currently
+declared free tool routes: OmniRoute served one upstream DeepSeek model and
+returned no native calls. The only other declared-tool route rejected the
+request with 401. Routing must therefore exclude these routes for autonomous
+tool execution until a future catalogue refresh verifies a real call.
+
+### Hermes task-lifecycle boundary — 2026-11-19
+
+The pinned Hermes revision (`edd11438db3b99558f71ca58f2b93e6c804cf20b`) was
+inspected at `cron.jobs.parse_schedule`, `cron.scheduler`,
+`agent.managed_worker`, `gateway.session_managed_worker`,
+`persistence.workers.executions`, `persistence.workers.delegations` and
+`tools.delegate_tool`. OMNI-X reuses the pure schedule parser through
+`omnix.hermes_task_bridge` when the managed environment can import it. Hermes
+cron syntax is never silently downgraded to a one-shot; cron fails closed when
+the optional `croniter` dependency is unavailable.
+
+Hermes's scheduler and worker processes are not embedded: they own Hermes
+profile files and would create a second runtime. The inspected worker and
+delegation modules provide lifecycle references for bounded supervision,
+terminal states and child ledgers. OMNI-X `TaskService` remains the sole
+scheduler, worker host, delegated-job executor, SQLite owner and policy
+authority. Native Hermes scheduling, worker IPC and delegated-agent execution
+remain incomplete pending identity, credential, approval and migration proof.
+
+### Hermes runtime selection and delegated jobs — 2026-11-19
+
+`TaskService` is now the single runtime selector for queued, background and
+child jobs. `runtime=omnix` is the default; `runtime=hermes` invokes the actual
+installer-managed Hermes `AIAgent` probe; `runtime=auto` attempts Hermes and
+records a bounded fallback to OMNI-X when Hermes or its provider is unavailable.
+Child jobs inherit the persisted parent policy snapshot, and Hermes usage,
+runtime selection and fallback events are recorded against the child job.
+
+This proves the dispatch boundary and policy inheritance deterministically. It
+does not claim live child inference, tool execution or Hermes-native delegation:
+the available free route has not supplied reliable executable tool calls, and
+Hermes's own `delegate_tool` remains intentionally unembedded.
+
+The desktop loopback API now exposes and persists the same runtime selector.
+`omnix` uses the existing engine, `hermes` invokes the Hermes probe, and `auto`
+falls back to OMNI-X after a Hermes failure. The frontend contract remains the
+same and responses include the selected runtime and usage metadata.
+
+Timeout ownership is explicit: provider clients use
+`provider_request_timeout_seconds`; Hermes/AIAgent and OMNI-X turns use
+`agent_execution_timeout_seconds`; queued children use
+`child_task_timeout_seconds`; parent waits use
+`parent_orchestration_timeout_seconds`. Cancellation still terminates only the
+owned Hermes subprocess tree.

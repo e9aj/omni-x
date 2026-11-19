@@ -7,6 +7,11 @@ from [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent),
 specifically the XML/bare-JSON tool-call contract from
 `agent/acp_openai_bridge.py`.
 
+The migration branch also invokes the unmodified Hermes `run_agent.AIAgent`
+from the installer-managed source at runtime for an opt-in text-only probe.
+This does not enable Hermes tools, memory or persistence and does not replace
+the OMNI-X runtime.
+
 Hermes Agent is licensed under the MIT License, copyright © 2025 Nous Research.
 The adaptation includes the bounded conversation-loop and tool-executor
 boundaries used by OMNI-X's `HermesExecutionBackend`; OMNI-X retains its own
@@ -26,3 +31,10 @@ React (MIT), Vite (MIT), and Tailwind CSS (MIT). Their notices are supplied by
 the package distributions under `desktop/node_modules` during development and
 must be included in any packaged distribution according to the final lockfile
 and installer build.
+
+## Security handbook reference
+
+`docs/security/SOFTWARE_SECURITY_LEGAL_COMPLIANCE_HANDBOOK.pdf` is a
+user-supplied project policy reference copied byte-for-byte from the supplied
+source. It is not an OMNI-X dependency and is not represented as legal advice,
+a certification, or a third-party licence grant.

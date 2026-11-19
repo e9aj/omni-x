@@ -189,3 +189,9 @@ The controlled raw-response trace found `tool_calls=null`, `finish_reason=stop`
 and empty content from the selected free model. Hermes therefore correctly had
 no executable call to validate or dispatch; this is not evidence of a lost call
 inside OMNI-X.
+
+The 2026-11-19 capability sweep confirmed the same boundary across all currently
+declared free tool routes: OmniRoute served one upstream DeepSeek model and
+returned no native calls. The only other declared-tool route rejected the
+request with 401. Routing must therefore exclude these routes for autonomous
+tool execution until a future catalogue refresh verifies a real call.

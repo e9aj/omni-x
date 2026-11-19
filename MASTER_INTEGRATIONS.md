@@ -95,6 +95,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-19 | Connected the pinned Hermes process's actual `model_tools.get_tool_definitions` and `handle_function_call` boundaries to `HermesToolAdapter`. Deterministic read/write/rejection tests pass. Live tool execution is not accepted yet: one free route narrated a call without dispatch and one bounded retry timed out. |
 | 2026-11-19 | Reused OMNI-X's existing anchored textual-call parser at Hermes response normalization, allowing only unambiguous valid formats to enter Hermes's native tool round. A bounded live rerun still yielded no verified dispatch event, so live tool execution remains unaccepted. |
 | 2026-11-19 | Controlled raw OmniRoute trace returned `tool_calls=null`, `finish_reason=stop` and empty content from `deepseek-ai/deepseek-r1-distill-qwen-32b`; Hermes had no executable call to lose or reject. No speculative parser formats were added; live Hermes tool execution remains unaccepted. |
+| 2026-11-19 | Bounded native capability sweep tested four free `combo` routes; all served DeepSeek without `tool_calls`. The UncloseAI tool route returned 401 with registration closed. No reliable free tool route was accepted and further live retries were stopped. |
 | 2026-11-18 | Stage 3 delegation added parent/child policy inheritance, specialist roles, concurrent child jobs, aggregation and failure propagation; actual child execution remains OMNI-X `AgentRuntime`. |
 
 ## OMNI-X implementation status

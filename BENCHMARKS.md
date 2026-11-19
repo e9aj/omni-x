@@ -292,6 +292,23 @@ conversation-persistence-after-live-chat result is claimed.
 - Deterministic normalization tests confirm valid anchored textual calls enter
   the Hermes tool-round shape while narrative and empty responses do not.
 
+### Current free-model capability sweep — 2026-11-19
+
+- OmniRoute discovery reported four free `combo` routes with declared tool
+  support: `auto/best-coding`, `auto/best-fast`, `auto/best-reasoning` and
+  `auto/best-chat`. One bounded native-function request was sent to each.
+- All four served `deepseek-ai/deepseek-r1-distill-qwen-32b`, returned
+  `finish_reason=stop` and `tool_calls=null`; three returned empty content and
+  one returned a clarification fragment. Usage was 432–479 total tokens and
+  latency was 10,735–16,068 ms. No dispatch event occurred.
+- The other declared-tool route, `unc/turboderp/Qwen3.8-27B-exl3`, returned
+  HTTP 401 in 390 ms: UncloseAI's public beta is closed and key registration is
+  unavailable. It was excluded without retry.
+- No free route passed native tool capability testing. No live textual retry was
+  attempted because the provider responses did not establish a usable route;
+  existing deterministic textual-parser tests remain the evidence for that
+  compatibility path.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before

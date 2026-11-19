@@ -14,6 +14,7 @@ scheduler, and delegated-worker services are embedded.
 from __future__ import annotations
 
 import json
+import math
 import time
 from typing import Any, Callable
 
@@ -73,6 +74,8 @@ class HermesExecutionBackend:
                 raise RuntimeError("Task timeout exceeded")
 
             self.store.event(task_id, "step_started", str(step + 1))
+            role_chars = {role: sum(len(str(item.get("content") or "")) for item in messages if item.get("role") == role) for role in ("system", "user", "assistant", "tool")}
+            self.store.event(task_id, "prompt_metrics", json.dumps({**role_chars, "tool_schema_chars": len(json.dumps(self.tools.schemas(), sort_keys=True)), "message_count": len(messages), "estimated_prompt_tokens": math.ceil(sum(role_chars.values()) / 4)}, sort_keys=True))
             try:
                 response, route = self.router.complete(
                     messages,

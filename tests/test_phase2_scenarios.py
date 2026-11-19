@@ -2,7 +2,7 @@ from pathlib import Path
 
 from omnix.store import Store
 from omnix.tools import ToolRegistry
-from omnix.skills import discover_skills
+from omnix.skills import discover_skills, relevant_instructions
 from omnix.hermes_browser import HermesBrowserAdapter
 
 
@@ -43,6 +43,15 @@ def test_hermes_skill_tree_is_reused_only_with_explicit_allowlist(monkeypatch, t
     discovered = discover_skills(tmp_path / "workspace")
     assert [item.name for item in discovered] == ["review-code"]
     assert discovered[0].description == "Review code safely"
+
+
+def test_generic_prompt_does_not_match_common_words_in_skill_body(tmp_path: Path):
+    skill = tmp_path / "skills" / "specialist-review"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("description: specialist review\nThis is a large body about the current workspace and the tool.", encoding="utf-8")
+    discovered = discover_skills(tmp_path)
+    assert relevant_instructions(discovered, "Use the list_directory tool on the current workspace.") == ""
+    assert "specialist-review" in relevant_instructions(discovered, "Perform a specialist review.")
 
 
 def test_hermes_browser_adapter_reports_unavailable_without_hermes_checkout(tmp_path: Path):

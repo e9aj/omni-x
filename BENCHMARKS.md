@@ -128,3 +128,19 @@ Evidence after the fix:
 
 Conclusion: the original defect was incomplete normalization of valid textual gateway formats, not evidence that OmniRoute strips structured calls in the client. Native structured function calling remains unverified for the selected free model; successful autonomous execution currently depends on the compatibility text formats.
 
+## Parent/child timeout and prompt-size investigation — 2026-11-19
+
+The previous live parent/child attempt failed before creating a child because OmniRoute timed out on the first parent request at approximately 45 seconds. The persisted job state was `failed`, with no child delegation row and no usage row. This is an upstream availability failure, not a child-result verification failure; no repeated expensive delegation retry was made.
+
+The parent and child code paths already create separate sessions and do not copy the parent's SQLite message history into a child. The child receives its own system policy, relevant skills, full approved tool schema and only the delegated prompt. Parent waiting is now bounded separately from child execution: child jobs receive a persisted 2-request-window deadline (60–180 seconds), while the parent waits at most 3 request windows (45–180 seconds) before cancelling only that child.
+
+Prompt telemetry identified the local cause of the approximately 32,000-token simple-task total. `relevant_instructions()` searched every skill body for any prompt token, so common words selected five large skills. For a comparable read-only fixture, OMNI-X measured:
+
+| Fixture | OMNI-X estimated prompt | Provider prompt tokens | Tool schema chars | Outcome |
+|---|---:|---:|---:|---|
+| Before optimization | ~1,321 local chars/4 estimate; provider calls 15,961 and 16,091 | 15,965 and 16,091 in the earlier trace | 1,375 | tool execution was intermittent |
+| After meaningful-token filtering | 1,321 and 1,333 estimated local tokens | 2,004 and 2,165 | 1,375 | read-only tool succeeded once |
+| After skill-name-only filtering | 215 local estimated tokens | 524 in the bounded rerun | 1,375 | upstream returned `[list_directory]` text without an executable call; not counted as success |
+
+The final reduction leaves the 712-character security/system policy and all seven approved tool schemas intact. Skills are still available when explicitly named by skill name (for example `review-code`), but unrelated skill bodies and duplicated conversation history are not injected.
+

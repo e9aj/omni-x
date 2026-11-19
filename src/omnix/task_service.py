@@ -214,8 +214,11 @@ class TaskService:
     def _delegate_for_job(self, parent_job_id: str, cancel: threading.Event, prompt: str, role: str = "specialist") -> str:
         if cancel.is_set():
             raise RuntimeError("Task cancelled")
-        child = self.delegate(parent_job_id, [{"role": role, "prompt": prompt}])[0]
-        deadline = time.monotonic() + self.settings.request_timeout_seconds
+        child_budget = max(60.0, min(180.0, self.settings.request_timeout_seconds * 2))
+        child = self.enqueue(prompt, parent_job_id=parent_job_id, deadline_seconds=child_budget)
+        self.store.create_delegation(parent_job_id, child, role)
+        # Parent waiting and child execution have independent bounded budgets.
+        deadline = time.monotonic() + max(45.0, min(180.0, self.settings.request_timeout_seconds * 3))
         while time.monotonic() < deadline:
             if cancel.is_set():
                 self.cancel(child); raise RuntimeError("Task cancelled")

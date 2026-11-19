@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -57,6 +58,12 @@ def discover_skills(workspace: Path | None = None) -> list[Skill]:
 
 
 def relevant_instructions(skills: list[Skill], prompt: str) -> str:
-    tokens = {token.lower() for token in prompt.split() if len(token) > 3}
-    selected = [skill for skill in skills if skill.name.lower() in tokens or any(token in skill.instructions.lower() for token in tokens)]
-    return "\n\n".join(f"## Skill: {skill.name}\n{skill.instructions}" for skill in selected[:5])
+    stopwords = {"about", "after", "also", "because", "before", "being", "current", "does", "from", "have", "into", "just", "list", "only", "path", "read", "return", "that", "than", "then", "their", "there", "these", "this", "tool", "using", "with", "workspace", "your"}
+    tokens = {token.lower().strip(".,:;!?()[]{}\"") for token in prompt.split() if len(token) > 3}
+    tokens -= stopwords
+    selected: list[Skill] = []
+    for skill in skills:
+        skill_tokens = set(re.split(r"[-_ ]+", skill.name.lower()))
+        if skill.name.lower() in tokens or (tokens & skill_tokens):
+            selected.append(skill)
+    return "\n\n".join(f"## Skill: {skill.name}\n{skill.instructions}" for skill in selected[:3])

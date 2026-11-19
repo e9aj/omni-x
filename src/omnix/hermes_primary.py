@@ -14,10 +14,34 @@ import subprocess
 import tempfile
 import time
 from typing import Any
+from types import SimpleNamespace
 
 from .config import Settings
 from .hermes_runtime import hermes_python, installed_hermes_source
 from .secrets import get_secret
+
+
+def inject_omnix_text_calls(message: Any) -> bool:
+    """Promote one of OMNI-X's existing anchored text contracts on a Hermes message.
+
+    Returns whether a call was injected. This is deliberately separate from
+    provider I/O so the boundary can be tested without a live model.
+    """
+    if message is None or getattr(message, "tool_calls", None):
+        return False
+    from .hermes_bridge import extract_tool_calls
+    calls, cleaned = extract_tool_calls(getattr(message, "content", "") or "")
+    if not calls:
+        return False
+    message.tool_calls = [SimpleNamespace(
+        id=call["id"], type="function",
+        function=SimpleNamespace(
+            name=call["function"]["name"],
+            arguments=call["function"]["arguments"],
+        ),
+    ) for call in calls]
+    message.content = cleaned
+    return True
 
 _HERMES_PROBE = r'''
 import json, sys
@@ -63,9 +87,9 @@ from pathlib import Path
 
 payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
 sys.path.insert(0, payload["omnix_root"])
+from omnix.hermes_primary import inject_omnix_text_calls
 from omnix.tools import ToolRegistry
 from omnix.hermes_tool_adapter import HermesToolAdapter
-from omnix.hermes_bridge import extract_tool_calls
 
 registry = ToolRegistry(Path(payload["workspace"]))
 adapter = HermesToolAdapter(registry)
@@ -90,8 +114,6 @@ model_tools.get_tool_definitions = hermes_schemas
 model_tools.handle_function_call = hermes_dispatch
 from run_agent import AIAgent
 import agent.conversation_loop as conversation_loop
-from types import SimpleNamespace
-
 # Hermes normally receives native tool_calls. Some OmniRoute free routes return
 # one of OMNI-X's already-supported, anchored textual contracts instead. Reuse
 # that parser only at Hermes' response-normalization boundary; ordinary prose
@@ -100,18 +122,7 @@ _normalize_model_response = conversation_loop.normalize_model_response
 def normalize_with_omnix_text_calls(*args, **kwargs):
     verdict = _normalize_model_response(*args, **kwargs)
     message = getattr(verdict, "assistant_message", None)
-    if message is not None and not getattr(message, "tool_calls", None):
-        calls, cleaned = extract_tool_calls(getattr(message, "content", "") or "")
-        if calls:
-            tool_calls = [SimpleNamespace(
-                id=call["id"], type="function",
-                function=SimpleNamespace(
-                    name=call["function"]["name"],
-                    arguments=call["function"]["arguments"],
-                ),
-            ) for call in calls]
-            message.tool_calls = tool_calls
-            message.content = cleaned
+    inject_omnix_text_calls(message)
     return verdict
 conversation_loop.normalize_model_response = normalize_with_omnix_text_calls
 

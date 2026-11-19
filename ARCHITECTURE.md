@@ -184,3 +184,8 @@ workspace containment and approvals. Deterministic execution passes, but the
 available free routes have not yet produced a verified live tool call. Textual
 normalization reuses `omnix.hermes_bridge.extract_tool_calls` and only accepts
 its anchored, syntactically valid contracts; narrative prose is left untouched.
+
+The controlled raw-response trace found `tool_calls=null`, `finish_reason=stop`
+and empty content from the selected free model. Hermes therefore correctly had
+no executable call to validate or dispatch; this is not evidence of a lost call
+inside OMNI-X.

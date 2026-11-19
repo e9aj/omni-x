@@ -280,6 +280,18 @@ conversation-persistence-after-live-chat result is claimed.
 - The bounded live read test did **not** pass: `auto/coding:free` returned narrated `read_file(evidence.txt)` text with zero dispatch events. A single bounded `auto/best-free` retry timed out before a terminal result. Neither is counted as tool execution.
 - A further bounded live attempt after the parser bridge produced no verifiable tool-dispatch evidence and was not counted as success. Live Hermes tool execution remains unverified because the available free routes are text-only or unstable for this task.
 
+### Hermes tool-call boundary investigation — 2026-11-19
+
+- A single direct, sanitized OmniRoute request with the `read_file` schema
+  returned model `deepseek-ai/deepseek-r1-distill-qwen-32b`,
+  `finish_reason=stop`, `tool_calls=null`, empty `content`, and usage of 126
+  prompt / 280 completion / 406 total tokens in 10,135 ms.
+- This response contained no executable call for Hermes to normalize or
+  dispatch. The failure boundary is upstream model output, not OMNI-X loss or
+  rejection. The selected free route therefore remains unverified for tools.
+- Deterministic normalization tests confirm valid anchored textual calls enter
+  the Hermes tool-round shape while narrative and empty responses do not.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before

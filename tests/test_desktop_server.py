@@ -99,3 +99,24 @@ def test_desktop_content_preference_is_backend_owned(monkeypatch, tmp_path):
         server.shutdown()
         thread.join(timeout=2)
         server.server_close()
+
+
+def test_desktop_session_messages_are_available_after_restart(monkeypatch, tmp_path):
+    from omnix.store import Store
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    session_id = Store().new_session("persisted")
+    Store().add_message(session_id, "user", "remember this")
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/sessions/{session_id}", headers={"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost"})
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["messages"] == [{"role": "user", "content": "remember this"}]
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()

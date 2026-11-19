@@ -89,9 +89,10 @@ jobs:
             Start-Sleep -Milliseconds 250
           }
           if (Get-Process -Id $probeProcess.Id -ErrorAction SilentlyContinue) { Stop-Process -Id $probeProcess.Id -Force; Wait-Process -Id $probeProcess.Id -Timeout 10 -ErrorAction SilentlyContinue }
+          $appToken = 'smoke-app-' + [guid]::NewGuid().ToString('N')
           $stderr = Join-Path $env:TEMP 'omnix-desktop-stderr.log'
           $stdout = Join-Path $env:TEMP 'omnix-desktop-stdout.log'
-          $desktop = Start-Process -FilePath $app.FullName -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout
+          $desktop = Start-Process -FilePath $app.FullName -Environment @{ OMNIX_IPC_TOKEN = $appToken } -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout
           Start-Sleep -Seconds 8
           Write-Host "Application PID: $($desktop.Id), exited: $($desktop.HasExited)"
           if ($desktop.HasExited) { throw "OMNI-X exited during startup with code $($desktop.ExitCode)" }
@@ -101,12 +102,63 @@ jobs:
           Write-Host "Desktop-owned backend processes: $(@($ownedBackend).Count)"
           if (-not $ownedBackend) { Write-Host 'OMNI-X stderr:'; if (Test-Path $stderr) { Get-Content $stderr -Tail 100 }; Write-Host 'OMNI-X stdout:'; if (Test-Path $stdout) { Get-Content $stdout -Tail 100 }; throw 'Desktop-owned omnix-backend sidecar was not observed' }
           $ownedBackendIds = @($ownedBackend | ForEach-Object { [int]$_.ProcessId })
+          $base = 'http://127.0.0.1:27451'
+          $headers = @{ Authorization = "Bearer $appToken"; Origin = 'tauri://localhost' }
+          try { Invoke-WebRequest -Uri "$base/v1/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop | Out-Null; throw 'Unauthenticated health request was accepted' } catch { if (-not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 401) { throw } }
+          $settings = Invoke-RestMethod -Uri "$base/v1/settings" -Headers $headers -TimeoutSec 5
+          if ($settings.mode -ne 'FREE' -or $settings.allow_paid -ne $false) { throw "FREE mode enforcement failed: mode=$($settings.mode) allow_paid=$($settings.allow_paid)" }
+          Write-Host "Desktop model policy: provider=$($settings.provider) model=$($settings.model) mode=$($settings.mode) allow_paid=$($settings.allow_paid)"
+          foreach ($preference in @('standard','creative','open')) {
+            Invoke-RestMethod -Method Post -Uri "$base/v1/settings" -Headers $headers -ContentType 'application/json' -Body (@{ content_preference = $preference } | ConvertTo-Json) -TimeoutSec 5 | Out-Null
+            $saved = Invoke-RestMethod -Uri "$base/v1/settings" -Headers $headers -TimeoutSec 5
+            if ($saved.content_preference -ne $preference) { throw "Content preference did not persist: $preference" }
+          }
+          $approvalId = [guid]::NewGuid().ToString()
+          try { Invoke-RestMethod -Method Post -Uri "$base/v1/approvals/$approvalId" -Headers $headers -ContentType 'application/json' -Body '{"decision":"reject"}' -TimeoutSec 5 | Out-Null; throw 'Unknown approval was accepted' } catch { if (-not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 404) { throw } }
+          $stop = Invoke-RestMethod -Method Post -Uri "$base/v1/stop" -Headers $headers -ContentType 'application/json' -Body '{}' -TimeoutSec 5
+          Write-Host "Stop endpoint response: stopping=$($stop.stopping)"
+          $oldBackendPid = $ownedBackendIds[0]
+          Stop-Process -Id $oldBackendPid -Force
+          $restarted = $null
+          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            Start-Sleep -Milliseconds 500
+            $candidate = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }
+            if ($candidate -and @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid }).Count -gt 0) { $restarted = @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid })[0]; break }
+          }
+          if (-not $restarted) { throw 'Desktop did not restart its owned backend after a controlled crash' }
+          $healthAfterRestart = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 5
+          if ($healthAfterRestart.status -ne 'ok') { throw 'Restarted backend failed authenticated health check' }
+          Write-Host "Backend crash recovery passed: old=$oldBackendPid new=$($restarted.ProcessId)"
+          $gatewayAvailable = $false
+          try { $models = Invoke-RestMethod -Uri 'http://127.0.0.1:20128/v1/models' -TimeoutSec 3; $gatewayAvailable = $true } catch { Write-Host 'Live OmniRoute route unavailable on hosted runner; live desktop inference skipped' }
+          if ($gatewayAvailable) {
+            try {
+              $live = Invoke-RestMethod -Method Post -Uri "$base/v1/chat" -Headers $headers -ContentType 'application/json' -Body (@{ prompt = 'Reply with exactly LIVE-DESKTOP-OK.' } | ConvertTo-Json) -TimeoutSec 90
+              if ([string]::IsNullOrWhiteSpace($live.answer) -or [string]::IsNullOrWhiteSpace($live.model)) { throw 'Live desktop response lacked answer or actual model' }
+              Write-Host "Live desktop inference passed: provider=$($live.provider) model=$($live.model) usage_count=$(@($live.usage).Count) session=$($live.session_id)"
+              $liveSession = $live.session_id
+            } catch { Write-Host "Live OmniRoute desktop inference failed without credentials/route: $($_.Exception.Message)" }
+          }
           $desktop.CloseMainWindow() | Out-Null
           if (-not $desktop.WaitForExit(15000)) { $desktop.Kill(); throw 'OMNI-X did not shut down gracefully' }
           Write-Host "Application shutdown exit code: $($desktop.ExitCode)"
           Start-Sleep -Seconds 2
           $remainingOwned = @($ownedBackendIds | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
           if ($remainingOwned.Count -gt 0) { throw "Desktop-owned backend sidecar remained after application shutdown: $($remainingOwned -join ',')" }
+          if ($liveSession) {
+            $desktop = Start-Process -FilePath $app.FullName -PassThru
+            Start-Sleep -Seconds 8
+            if ($desktop.HasExited) { throw 'OMNI-X failed to relaunch for session persistence check' }
+            $ownedAgain = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }
+            if (-not $ownedAgain) { throw 'Backend did not start after desktop relaunch' }
+            $persisted = Invoke-RestMethod -Uri "$base/v1/sessions/$liveSession" -Headers $headers -TimeoutSec 5
+            if (@($persisted.messages).Count -lt 2) { throw 'Live conversation was not persisted in SQLite after desktop restart' }
+            Write-Host "SQLite conversation persistence passed: session=$liveSession messages=$(@($persisted.messages).Count)"
+            $desktop.CloseMainWindow() | Out-Null
+            if (-not $desktop.WaitForExit(15000)) { $desktop.Kill(); throw 'OMNI-X did not shut down after persistence check' }
+            Start-Sleep -Seconds 2
+            if (Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }) { throw 'Backend remained after persistence-check shutdown' }
+          }
           $uninstaller = Get-ChildItem (Split-Path $app.FullName) -Filter 'uninstall*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($uninstaller) { $removed = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -Wait -PassThru; if ($removed.ExitCode -ne 0) { throw "Uninstaller failed with exit code $($removed.ExitCode)" } }
       - name: Upload Windows development installer

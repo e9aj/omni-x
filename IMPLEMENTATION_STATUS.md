@@ -54,6 +54,14 @@ was still included in the global post-shutdown process check. Commit `702e69d`
 corrected probe cleanup and exact desktop-owned PID checks; hosted run
 `44541511158` passed the complete lifecycle.
 
+The desktop integration milestone now includes an authenticated session-read
+endpoint used by the Tauri shell to restore SQLite-backed conversation messages
+after restart. Hosted smoke coverage also checks unauthenticated rejection,
+FREE mode (`allow_paid=false`), model policy reporting, all three content
+preferences, unknown approval rejection, stop signaling and controlled
+owned-backend crash recovery. Live chat remains conditional on an eligible
+OmniRoute route being available on the hosted runner.
+
 ## Phase 3 desktop foundation
 
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.

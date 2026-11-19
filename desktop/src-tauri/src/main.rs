@@ -13,6 +13,9 @@ struct BackendState { child: Mutex<Option<Child>>, token: String, stopping: Atom
 struct BackendStatus { connected: bool, endpoint: String, version: Option<String>, error: Option<String> }
 
 fn token() -> String {
+    if let Ok(value) = std::env::var("OMNIX_IPC_TOKEN") {
+        if !value.trim().is_empty() { return value; }
+    }
     let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos();
     format!("omnix-{}-{}", std::process::id(), nanos)
 }
@@ -105,6 +108,12 @@ fn backend_approval_decide(id: String, decision: String, state: State<'_, Backen
 fn backend_settings(state: State<'_, BackendState>) -> Result<Value, String> { request(&state, "GET", "/v1/settings", None) }
 
 #[tauri::command]
+fn backend_session(session_id: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if session_id.trim().is_empty() || session_id.len() > 200 { return Err("session id is invalid".into()); }
+    request(&state, "GET", &format!("/v1/sessions/{session_id}"), None)
+}
+
+#[tauri::command]
 fn backend_set_content_preference(preference: String, state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "POST", "/v1/settings", Some(json!({"content_preference": preference})))
 }
@@ -127,7 +136,7 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| { if matches!(event, WindowEvent::CloseRequested { .. }) { let state = window.app_handle().state::<BackendState>(); shutdown_backend(&state); } })
-        .invoke_handler(tauri::generate_handler![backend_status, backend_chat, backend_stop, backend_approvals, backend_approval_decide, backend_settings, backend_set_content_preference])
+        .invoke_handler(tauri::generate_handler![backend_status, backend_chat, backend_stop, backend_approvals, backend_approval_decide, backend_settings, backend_session, backend_set_content_preference])
         .run(tauri::generate_context!())
         .expect("error while running OMNI-X");
 }

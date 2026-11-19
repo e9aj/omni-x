@@ -101,6 +101,13 @@ class Handler(BaseHTTPRequestHandler):
             if not config_path().exists() and settings.provider == "openai":
                 settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
             self._json(200, {"mode": settings.mode, "provider": settings.provider, "model": settings.model, "content_preference": settings.content_preference, "allow_paid": settings.allow_paid})
+        elif self.path.startswith("/v1/sessions/"):
+            session_id = self.path.rsplit("/", 1)[-1]
+            if not session_id or len(session_id) > 200 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in session_id):
+                self._json(400, {"error": "session_id is invalid"})
+                return
+            rows = Store().messages(session_id)
+            self._json(200, {"session_id": session_id, "messages": rows})
         else:
             self._json(404, {"error": "not found"})
 
@@ -166,7 +173,9 @@ class Handler(BaseHTTPRequestHandler):
             if task_id:
                 usage = [dict(row) for row in store.db.execute("SELECT provider, model, input_tokens, output_tokens, estimated_cost FROM usage WHERE task_id=? ORDER BY id", (task_id,)).fetchall()]
                 tool_events = [dict(row) for row in store.db.execute("SELECT kind, detail, created FROM events WHERE task_id=? AND kind LIKE 'tool_%' ORDER BY id", (task_id,)).fetchall()]
-            self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "allow_paid": settings.allow_paid, "model": settings.model, "usage": usage, "tool_events": tool_events})
+            actual_model = usage[-1]["model"] if usage else settings.model
+            actual_provider = usage[-1]["provider"] if usage else settings.provider
+            self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "allow_paid": settings.allow_paid, "model": actual_model, "provider": actual_provider, "usage": usage, "tool_events": tool_events})
         except Exception as exc:
             self._json(502, {"error": str(exc)})
         finally:

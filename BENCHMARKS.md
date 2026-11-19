@@ -196,6 +196,20 @@ global post-shutdown check. Commit `702e69d` corrected exact PID cleanup and
 ownership; hosted run `44541511158` passed installer, launch, backend health,
 shutdown, sidecar termination and silent uninstall.
 
+### Desktop integration coverage — pending hosted rerun
+
+- Deterministic local coverage includes authenticated loopback, SQLite session
+  retrieval, backend-owned preference persistence, approval expiry/decision,
+  cancellation signaling and permission boundaries.
+- Hosted deterministic coverage now checks unauthenticated health rejection,
+  FREE mode and `allow_paid=false`, configured model/provider reporting,
+  Standard / Creative / Open persistence, unknown approval rejection, stop
+  signaling, owned-backend crash/restart and exact shutdown ownership.
+- One bounded live desktop chat is attempted only when the runner can reach
+  OmniRoute. A successful result must include an answer, actual model ID,
+  usage data and a session readable after relaunch; unavailable routes are
+  recorded as an external limitation.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before

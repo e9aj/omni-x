@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 type BackendStatus = { connected: boolean; endpoint: string; version?: string; error?: string };
-type ChatResult = { answer: string; session_id: string; mode: string; allow_paid: boolean; model?: string; usage?: Array<{ provider: string; model: string; input_tokens: number; output_tokens: number }> };
+type ChatResult = { answer: string; session_id: string; mode: string; allow_paid: boolean; provider?: string; model?: string; usage?: Array<{ provider: string; model: string; input_tokens: number; output_tokens: number }> };
 type Message = { role: "user" | "assistant" | "error"; content: string };
 type Approval = { id: string; action: string; expires_at: number };
 const sections = ["Chat", "Agents", "Tasks", "Models", "Tools & Skills", "Memory", "Settings"];
@@ -11,7 +11,7 @@ export function App() {
   const [section, setSection] = useState("Chat");
   const [status, setStatus] = useState<BackendStatus>({ connected: false, endpoint: "loopback", error: "Checking backend" });
   const [prompt, setPrompt] = useState("");
-  const [sessionId, setSessionId] = useState<string>();
+  const [sessionId, setSessionId] = useState<string>(() => localStorage.getItem("omnix-session-id") ?? "");
   const [messages, setMessages] = useState<Message[]>([]);
   const [running, setRunning] = useState(false);
   const [usage, setUsage] = useState<string>();
@@ -24,6 +24,7 @@ export function App() {
     catch (error) { setStatus({ connected: false, endpoint: "loopback", error: String(error) }); }
   }
   useEffect(() => { void refreshStatus(); const timer = window.setInterval(() => void refreshStatus(), 5000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => { if (!sessionId) return; void invoke<{ messages: Array<{ role: string; content: string }> }>("backend_session", { sessionId }).then((result) => setMessages(result.messages.filter((item): item is Message => ["user", "assistant", "error"].includes(item.role)) as Message[])).catch(() => undefined); }, []);
   useEffect(() => { async function refresh() { try { const result = await invoke<{ approvals: Approval[] }>("backend_approvals"); setApprovals(result.approvals); } catch { /* backend status displays the connection error */ } } void refresh(); const timer = window.setInterval(() => void refresh(), 1000); return () => window.clearInterval(timer); }, []);
   useEffect(() => { void invoke<{ content_preference: string; model: string }>("backend_settings").then((result) => { setContentPreference(result.content_preference); setModel(result.model); }).catch(() => undefined); }, []);
 
@@ -34,7 +35,7 @@ export function App() {
     setPrompt(""); setMessages((items) => [...items, { role: "user", content: text }]); setRunning(true);
     try {
       const result = await invoke<ChatResult>("backend_chat", { prompt: text, sessionId });
-      setSessionId(result.session_id); setUsage(result.usage?.map((item) => `${item.provider}/${item.model}: ${item.input_tokens + item.output_tokens} tokens`).join(" · ")); setMessages((items) => [...items, { role: "assistant", content: result.answer }]);
+      setSessionId(result.session_id); localStorage.setItem("omnix-session-id", result.session_id); setModel(result.model ?? model); setUsage(result.usage?.map((item) => `${item.provider}/${item.model}: ${item.input_tokens + item.output_tokens} tokens`).join(" · ")); setMessages((items) => [...items, { role: "assistant", content: result.answer }]);
     } catch (error) { setMessages((items) => [...items, { role: "error", content: String(error) }]); }
     finally { setRunning(false); void refreshStatus(); }
   }

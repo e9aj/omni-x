@@ -228,6 +228,14 @@ pattern during crash recovery. The correction is exact-PID Windows process-tree
 cleanup for the captured backend, without terminating by process name or
 touching unrelated infrastructure.
 
+Follow-up hosted validation on `6140943` isolated the remaining defect: the
+PyInstaller one-file sidecar has a launcher PID and a different authenticated
+Python server PID. Exact PID comparison rejected that owned descendant and
+recovery failed. The correction validates authenticated PIDs against the owned
+launcher ancestry on Windows and records both identities. The smoke harness now
+checks the same boundary; a rerun is required before this is recorded as a
+passing lifecycle result.
+
 ### Desktop integration coverage — pending hosted rerun
 
 - Deterministic local coverage includes authenticated loopback, SQLite session

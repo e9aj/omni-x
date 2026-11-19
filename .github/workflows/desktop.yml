@@ -113,6 +113,19 @@ jobs:
           $ownedBackendIds = @($ownedBackend | ForEach-Object { [int]$_.ProcessId })
           $base = 'http://127.0.0.1:27451'
           $headers = @{ Authorization = "Bearer $appToken"; Origin = 'tauri://localhost' }
+          function Test-ProcessDescendant([int]$pid, [int]$ancestorPid) {
+            if ($pid -eq $ancestorPid) { return $true }
+            $current = $pid
+            for ($depth = 0; $depth -lt 32; $depth++) {
+              $process = Get-CimInstance Win32_Process -Filter "ProcessId = $current" -ErrorAction SilentlyContinue
+              if (-not $process) { return $false }
+              $parent = [int]$process.ParentProcessId
+              if ($parent -eq $ancestorPid) { return $true }
+              if ($parent -eq 0 -or $parent -eq $current) { return $false }
+              $current = $parent
+            }
+            return $false
+          }
           try { Invoke-WebRequest -Uri "$base/v1/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop | Out-Null; throw 'Unauthenticated health request was accepted' } catch { if (-not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 401) { throw } }
           $settings = Invoke-RestMethod -Uri "$base/v1/settings" -Headers $headers -TimeoutSec 5
           if ($settings.mode -ne 'FREE' -or $settings.allow_paid -ne $false) { throw "FREE mode enforcement failed: mode=$($settings.mode) allow_paid=$($settings.allow_paid)" }
@@ -127,6 +140,8 @@ jobs:
           $stop = Invoke-RestMethod -Method Post -Uri "$base/v1/stop" -Headers $headers -ContentType 'application/json' -Body '{}' -TimeoutSec 5
           Write-Host "Stop endpoint response: stopping=$($stop.stopping)"
           $oldBackendPid = $ownedBackendIds[0]
+          $oldHealth = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 5
+          if (-not (Test-ProcessDescendant ([int]$oldHealth.pid) $oldBackendPid)) { throw "Authenticated backend PID $($oldHealth.pid) is not owned by launcher $oldBackendPid" }
           $killResult = & taskkill.exe /PID $oldBackendPid /T /F 2>&1
           if ($LASTEXITCODE -ne 0) { Write-Host $killResult; throw "Failed to terminate owned backend process tree $oldBackendPid" }
           $restarted = $null
@@ -138,12 +153,12 @@ jobs:
             if ($replacement) {
               try {
                 $candidateHealth = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 2
-                if ($candidateHealth.status -eq 'ok' -and [int]$candidateHealth.pid -eq [int]$replacement.ProcessId) { $restarted = $replacement; $healthAfterRestart = $candidateHealth; break }
+                if ($candidateHealth.status -eq 'ok' -and (Test-ProcessDescendant ([int]$candidateHealth.pid) ([int]$replacement.ProcessId))) { $restarted = $replacement; $healthAfterRestart = $candidateHealth; break }
               } catch { }
             }
           }
           if (-not $restarted) { Write-Host 'Supervisor log after recovery failure:'; if (Test-Path $supervisorLog) { Get-Content $supervisorLog -Tail 100 }; throw 'Desktop did not restart its owned backend after a controlled crash' }
-          Write-Host "Backend crash recovery passed: old=$oldBackendPid new=$($restarted.ProcessId)"
+          Write-Host "Backend crash recovery passed: old_launcher=$oldBackendPid old_backend=$($oldHealth.pid) new_launcher=$($restarted.ProcessId) new_backend=$($healthAfterRestart.pid)"
           $gatewayAvailable = $false
           try { $models = Invoke-RestMethod -Uri 'http://127.0.0.1:20128/v1/models' -TimeoutSec 3; $gatewayAvailable = $true } catch { Write-Host 'Live OmniRoute route unavailable on hosted runner; live desktop inference skipped' }
           if ($gatewayAvailable) {

@@ -165,6 +165,21 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - OmniRoute's free upstream routes may return textual descriptions instead of native function calls, time out, rate-limit or change availability.
 - The UncloseAI free route previously returned HTTP 401 because its public beta was closed.
 
+### Hosted Windows recovery investigation — 2026-11-19
+
+- Runs `44562479141` and `44562458199` failed at the same recovery assertion;
+  installation, launch, authenticated health, ownership and FREE-mode checks
+  passed before controlled backend termination.
+- Follow-up run `6140943` isolated the packaging-specific cause: the PyInstaller
+  one-file launcher PID and authenticated Python server PID are different
+  Windows processes. Exact PID equality rejected the valid descendant.
+- The correction validates the authenticated health PID through the Windows
+  process-parent chain against the desktop-owned launcher, while rejecting
+  unrelated PIDs and retaining tree-scoped termination. Launcher/backend PIDs
+  are recorded separately, and the smoke harness uses the same ownership rule.
+- The latest hosted runs on `6140943` failed before this correction; no passing
+  crash recovery or live desktop inference is claimed until a rerun succeeds.
+
 ## Verified working locally
 
 - Python package installation and `omnix` CLI entry point.

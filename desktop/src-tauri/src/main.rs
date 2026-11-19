@@ -118,6 +118,71 @@ fn terminate_authenticated_orphan(pid: u32) -> Result<(), String> {
     }
 }
 
+#[cfg(windows)]
+fn process_parent_pid(pid: u32) -> Option<u32> {
+    use std::mem::{size_of, zeroed};
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot == INVALID_HANDLE_VALUE {
+            return None;
+        }
+        let mut entry: PROCESSENTRY32W = zeroed();
+        entry.dwSize = size_of::<PROCESSENTRY32W>() as u32;
+        let mut found = None;
+        if Process32FirstW(snapshot, &mut entry) != 0 {
+            loop {
+                if entry.th32ProcessID == pid {
+                    found = Some(entry.th32ParentProcessID);
+                    break;
+                }
+                if Process32NextW(snapshot, &mut entry) == 0 {
+                    break;
+                }
+            }
+        }
+        CloseHandle(snapshot);
+        found
+    }
+}
+
+fn pid_is_in_ancestry<F>(pid: u32, launcher_pid: u32, mut parent_of: F) -> bool
+where
+    F: FnMut(u32) -> Option<u32>,
+{
+    if pid == launcher_pid {
+        return true;
+    }
+    let mut current = pid;
+    for _ in 0..32 {
+        let Some(parent) = parent_of(current) else {
+            return false;
+        };
+        if parent == launcher_pid {
+            return true;
+        }
+        if parent == 0 || parent == current {
+            return false;
+        }
+        current = parent;
+    }
+    false
+}
+
+#[cfg(windows)]
+fn process_is_owned_descendant(pid: u32, launcher_pid: u32) -> bool {
+    pid_is_in_ancestry(pid, launcher_pid, process_parent_pid)
+}
+
+#[cfg(not(windows))]
+fn process_is_owned_descendant(pid: u32, launcher_pid: u32) -> bool {
+    pid == launcher_pid
+}
+
 fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     if state.stopping.load(Ordering::SeqCst) {
         return Err("backend is stopping".into());
@@ -204,8 +269,15 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         .map_err(|_| "backend lock poisoned".to_string())? = Some(child);
     for _ in 0..30 {
         if let Ok(value) = request(state, "GET", "/v1/health", None) {
+            if let Some(actual_pid) = value["pid"].as_u64().map(|value| value as u32) {
+                if process_is_owned_descendant(actual_pid, expected_pid) {
+                    supervisor_log(&format!(
+                        "health passed launcher_pid={expected_pid} backend_pid={actual_pid}"
+                    ));
+                    return Ok(());
+                }
+            }
             if value["pid"].as_u64() == Some(expected_pid as u64) {
-                supervisor_log(&format!("health passed pid={expected_pid}"));
                 return Ok(());
             }
             supervisor_log(&format!(
@@ -474,5 +546,17 @@ mod tests {
     #[test]
     fn orphan_cleanup_never_targets_desktop_process() {
         assert!(terminate_authenticated_orphan(std::process::id()).is_err());
+    }
+
+    #[test]
+    fn packaged_backend_descendant_is_owned_but_unrelated_pid_is_not() {
+        let parent = |pid| match pid {
+            300 => Some(200),
+            200 => Some(100),
+            900 => Some(800),
+            _ => None,
+        };
+        assert!(pid_is_in_ancestry(300, 100, parent));
+        assert!(!pid_is_in_ancestry(900, 100, parent));
     }
 }

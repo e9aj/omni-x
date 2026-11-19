@@ -37,7 +37,12 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     if request(state, "GET", "/v1/health", None).is_ok() { return Ok(()); }
     if TcpStream::connect(("127.0.0.1", PORT)).is_ok() { return Err("loopback backend port is occupied by an unauthorised process".into()); }
     let resource_dir = app.path().resource_dir().map_err(|e| format!("backend resource path unavailable: {e}"))?;
-    let bundled = [resource_dir.join("omnix-backend.exe"), resource_dir.join("binaries").join("omnix-backend.exe")]
+    let bundled = [
+        resource_dir.join("omnix-backend.exe"),
+        resource_dir.join("omnix-backend-x86_64-pc-windows-msvc.exe"),
+        resource_dir.join("binaries").join("omnix-backend.exe"),
+        resource_dir.join("binaries").join("omnix-backend-x86_64-pc-windows-msvc.exe"),
+    ]
         .into_iter().find(|path| path.is_file());
     let mut command;
     if let Some(bundled) = bundled.as_ref() {

@@ -42,6 +42,7 @@ jobs:
           New-Item -ItemType Directory -Force desktop/src-tauri/binaries | Out-Null
           pyinstaller --clean --noconfirm --onefile --name omnix-backend --paths src src/omnix/desktop_server.py
           Copy-Item dist/omnix-backend.exe desktop/src-tauri/binaries/omnix-backend.exe -Force
+          Copy-Item dist/omnix-backend.exe desktop/src-tauri/binaries/omnix-backend-x86_64-pc-windows-msvc.exe -Force
       - name: Generate OMNI-X application icons
         working-directory: desktop
         run: npm run tauri -- icon src/assets/omnix.svg
@@ -61,6 +62,8 @@ jobs:
           Write-Host "Application candidate: $($app.FullName)"
           if (-not $app) { Write-Host 'Installed files under LOCALAPPDATA:'; Get-ChildItem "$env:LOCALAPPDATA" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 200 FullName; throw 'Installed OMNI-X executable was not found' }
           Write-Host "Installation directory: $(Split-Path $app.FullName)"
+          Write-Host 'Installed OMNI-X files:'
+          Get-ChildItem (Split-Path $app.FullName) -File | Select-Object Name,Length | Format-Table -AutoSize
           $desktop = Start-Process -FilePath $app.FullName -PassThru
           Start-Sleep -Seconds 8
           Write-Host "Application PID: $($desktop.Id), exited: $($desktop.HasExited)"

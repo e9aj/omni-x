@@ -285,6 +285,7 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - The real installer-managed Hermes `run_agent.AIAgent` now has a bounded, opt-in probe through OmniRoute. A live FREE request using `auto/coding:free` returned `HERMES-PRIMARY-OK`: 1 API call, 1,425 input tokens, 58 output tokens, 1,483 total tokens and 24,361 ms latency at estimated cost `$0.00`. Hermes reported `served_model=None`, so no upstream identity is guessed.
 - `HermesToolAdapter` maps OMNI-X schemas and calls to Hermes-compatible function contracts while retaining OMNI-X validation, workspace containment and approval gates. Deterministic tests cover schema parity, read-only execution, unknown calls and denied writes.
 - Live Hermes tool dispatch through this adapter, Hermes session/memory migration, direct primary-runtime browser/skills execution, scheduling, background workers and delegated agents remain incomplete. Existing OMNI-X CLI/desktop runtime remains the default and fallback.
+- The managed Hermes probe is now connected at the pinned runtime's actual `model_tools.get_tool_definitions` and `model_tools.handle_function_call` boundaries. Deterministic tests prove OMNI-X schema, validation, workspace and approval enforcement. Live tool execution remains unverified: `auto/coding:free` narrated a call without dispatch, while one bounded `auto/best-free` retry timed out. No narrated action was counted as execution.
 
 ## Evidence policy
 

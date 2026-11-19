@@ -25,6 +25,14 @@ def test_hermes_adapter_keeps_omnix_approval_boundary(tmp_path: Path):
     assert not (tmp_path / "blocked.txt").exists()
 
 
+def test_hermes_adapter_executes_approved_write_and_readback(tmp_path: Path):
+    registry = ToolRegistry(tmp_path, approver=lambda request: request.startswith("write "))
+    adapter = HermesToolAdapter(registry)
+    result = adapter.call("write_file", {"path": "approved.txt", "content": "verified"})
+    assert result == "Wrote approved.txt"
+    assert adapter.call("read_file", {"path": "approved.txt"}) == "verified"
+
+
 def test_hermes_adapter_rejects_unknown_and_malformed_calls(tmp_path: Path):
     adapter = HermesToolAdapter(ToolRegistry(tmp_path))
     assert adapter.call("not_registered", {}) == "Tool error: unknown tool not_registered"

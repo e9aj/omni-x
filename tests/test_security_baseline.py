@@ -10,7 +10,8 @@ def test_narrative_action_is_not_executable():
     assert calls == []
 
 
-def test_credentials_are_scoped_and_revocable(tmp_path: Path):
+def test_credentials_are_scoped_and_revocable(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("OMNIX_MASTER_KEY", "synthetic-test-key")
     manager = CredentialManager(tmp_path / "metadata.json")
     manager.put("provider-a", "API_KEY", "synthetic-secret")
     assert manager.get("provider-a", "API_KEY", allowed_integrations={"provider-a"}) == "synthetic-secret"

@@ -73,12 +73,8 @@ class Store:
         row = self.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone(); return dict(row) if row else None
 
     def jobs(self, limit: int = 50) -> list[dict]:
-        # SQLite 3.13 runners have intermittently reported API misuse for a
-        # bound LIMIT while another worker connection is closing.  The value
-        # is an internal bounded integer, so embedding it avoids that driver
-        # edge case without accepting SQL text from callers.
         safe_limit = max(1, min(int(limit), 1000))
-        return [dict(r) for r in self.db.execute(f"SELECT * FROM jobs ORDER BY created DESC LIMIT {safe_limit}").fetchall()]
+        return [dict(r) for r in self.db.execute("SELECT * FROM jobs ORDER BY created DESC LIMIT ?", (safe_limit,)).fetchall()]
 
     def claim_job(self, job_id: str) -> bool:
         with self._lock:

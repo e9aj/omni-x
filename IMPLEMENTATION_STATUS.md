@@ -2,6 +2,140 @@
 
 Last reviewed: 2026-11-19
 
+## Hermes reuse assessment
+
+- Current upstream Hermes source was inspected at `main`. It is MIT licensed
+  and provides substantial reusable implementations for the agent loop,
+  structured tool registry, SQLite persistence, memory providers, skills,
+  browser/CDP lifecycle, cron scheduling, background process management and
+  delegated workers.
+- Direct replacement is not yet safe because Hermes owns assumptions about
+  provider resolution, profiles, session schema/identity and approval policy.
+  OMNI-X must remain authoritative for OmniRoute free-first routing, FREE mode,
+  credentials, spending limits, content preferences, desktop IPC and Windows
+  process ownership.
+- Architecture documentation now records the component-by-component reuse
+  plan. No Hermes runtime replacement was made in this change.
+
+## Windows Code Integrity validation
+
+- Read-only inspection of `Microsoft-Windows-CodeIntegrity/Operational`
+  identified Smart App Control event 3118 and Code Integrity events 3033/3077
+  for the installer. The applicable policy is `VerifiedAndReputableDesktop`,
+  policy GUID `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`, with policy ID
+  `27555.1000.240208` and policy hash
+  `2668895A5B233A80432D00D67251D7B7F52686A3FB13780F4B242C5A1F937A01`
+  recorded by Windows.
+- Installer evidence: `OMNI-X_0.1.0_x64-setup.exe`, SHA-256
+  `CCB3F53BF60A0E7A1B3E1B70251ADBAC2E52FC2E86601773FF28C9E72E38D99E`,
+  Authenticode `NotSigned`, publisher and issuer unavailable. Event 3077
+  reports requested signing level 2 and validated signing level 1; event 3089
+  reports zero signatures and publisher/issuer `Unknown`.
+- The blocked process was the Codex-hosted `pwsh.exe` attempting to load the
+  NSIS installer. Earlier events independently blocked `cargo.exe` loading
+  unsigned Rust build scripts (`thiserror` and `proc-macro2`) under the same
+  policy. No event proves that the packaged Tauri executable or PyInstaller
+  sidecar was launched; those stages remain unvalidated here.
+- No AppLocker EXE/DLL events were found for these attempts. No policy was
+  disabled, modified or bypassed. Approved validation routes are an enterprise
+  allowlisting decision by the device owner for the exact signed build, or an
+  isolated Windows 11 test VM governed by an equivalent approved policy.
+- No local VM or secondary Windows test machine is available. WSL is present but
+  is not a Windows desktop environment. The Windows Actions workflow now runs a
+  clean install, launches the installed OMNI-X executable, verifies the managed
+  `omnix-backend.exe` process, closes the app, checks the sidecar exits, and
+  performs a silent uninstall on the hosted runner. This validates packaging
+  and lifecycle only; it does not provide live OmniRoute inference.
+
+Hosted run `44538461275` installed the package with installer exit code 0,
+passed an authenticated direct probe of the packaged backend and launched the
+desktop with its child sidecar. It failed because the diagnostic probe process
+was still included in the global post-shutdown process check. Commit `702e69d`
+corrected probe cleanup and exact desktop-owned PID checks; hosted run
+`44541511158` passed the complete lifecycle.
+
+The extended integration run `44554580840` did not pass. It verified package
+installation, direct packaged-backend health, desktop launch, authenticated
+communication, FREE mode, model policy, preferences and stop signaling, then
+failed during hosted sidecar validation: one attempt reached crash recovery
+without observing a replacement child, and a later attempt observed no desktop
+sidecar after launch. The smoke launch now preserves the normal inherited
+Windows environment while injecting only the test IPC token; rerun is pending.
+
+The desktop integration milestone now includes an authenticated session-read
+endpoint used by the Tauri shell to restore SQLite-backed conversation messages
+after restart. Hosted smoke coverage also checks unauthenticated rejection,
+FREE mode (`allow_paid=false`), model policy reporting, all three content
+preferences, unknown approval rejection, stop signaling and controlled
+owned-backend crash recovery. Live chat remains conditional on an eligible
+OmniRoute route being available on the hosted runner.
+
+Supervisor hardening adds bounded startup retries, explicit restart-attempt
+tracking, authenticated ownership checks and terminal recovery diagnostics.
+Deterministic Rust state-machine tests cover missing children, unexpected exit,
+live children and shutdown suppression. Hosted run `44554580840` still failed
+before validation completed, so Windows crash recovery remains pending hosted
+confirmation.
+
+Run `44559468651` supplied precise supervisor evidence: captured child PID
+`2852` exited while authenticated `/v1/health` continued returning PID `696`
+on the same loopback port. Recovery correctly refused to spawn over that
+listener but did not remove the stale same-token backend. The next correction
+uses the authenticated token plus reported PID to terminate only that exact
+owned orphan before spawning a replacement; hosted confirmation is pending.
+
+The first rerun after that correction reached a replacement process but failed
+at the smoke harness's immediate post-recovery health request with connection
+refused. The process-name/PID observation preceded authenticated readiness.
+The harness now requires the replacement PID and matching authenticated health
+PID in one bounded polling loop.
+
+Runs `44562479141` and `44562458199` reproduced the same stale-listener
+pattern: initial startup passed, but recovery saw another authenticated backend
+PID after termination. The harness was terminating only the named process, not
+its owned Windows process tree. It now uses exact-PID `taskkill /PID /T /F`,
+matching the runtime's safe orphan-cleanup boundary.
+
+## Phase 3 desktop foundation
+
+- Created `feat/windows-desktop` from the merged Phase 2 `main` tip.
+- Tauri 2/React/TypeScript/Vite/Tailwind shell is implemented with OMNI-X
+  branding, navigation sections and backend connection status.
+- Authenticated loopback `omnix.desktop_server` and native Tauri status command
+  are implemented; Python, credentials and SQLite remain backend-owned.
+- The native layer owns the backend child, prevents duplicate instances,
+  monitors crashes, restarts only the captured child, and performs graceful
+  shutdown before escalation. These paths are implemented but still require a
+  successful Windows binary launch test.
+- Authenticated chat, stop and shutdown bridge commands call the real
+  `AgentRuntime`; the bridge returns session, model and recorded usage data.
+  Sensitive actions create backend-owned, scoped, 60-second approval requests
+  surfaced in the native Tools & Skills UI and remain denied by default.
+- Tauri single-instance protection, owned-child monitoring/restart and
+  shutdown-on-window-close are implemented in the native layer, pending the
+  Windows runner build for compilation validation.
+- `npm install`, `npm run typecheck` and `npm run build` pass from `desktop/`.
+- Python desktop bridge test passes as part of the full suite.
+- Rust/Tauri compilation is not yet validated because Windows Application
+  Control blocks `cargo.exe` in this environment. The installer and packaged
+  backend are not complete.
+- Run `44523509586` reached Rust compilation and failed because the required
+  `desktop/src-tauri/icons/icon.ico` was absent. The icon is now generated from
+  the tracked OMNI-X SVG before packaging. The first hosted Tauri run reached the Windows build step but failed schema
+  validation; that NSIS configuration and the Tauri package-version mismatch
+  are fixed in the current branch. Local compilation then reached Rust
+  dependency build scripts and was blocked by the same enterprise Code
+  Integrity policy (`thiserror`/`proc-macro2`, event 3077). The next hosted run
+  is the authoritative compilation result. The workflow now builds a
+  PyInstaller `omnix-backend.exe` sidecar and bundles it as an NSIS resource;
+  hosted run `44525198666` passed and produced `OMNI-X_0.1.0_x64-setup.exe`.
+  The artifact was downloaded locally, but Windows Application Control blocked
+  launching the installer before installation, so clean-install launch,
+  sidecar startup and persistence remain unvalidated on this host.
+- Added backend-owned content preferences: Standard, Creative (default) and
+  Open. They affect OMNI-X system prompting only and remain separate from tool,
+  browser, terminal, filesystem and provider permissions.
+
 ## Phase 2 release-candidate classification
 
 This is a Phase 2 development baseline, not a production-readiness claim.
@@ -30,6 +164,29 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 
 - OmniRoute's free upstream routes may return textual descriptions instead of native function calls, time out, rate-limit or change availability.
 - The UncloseAI free route previously returned HTTP 401 because its public beta was closed.
+
+### Hosted Windows recovery investigation — 2026-11-19
+
+- Runs `44562479141` and `44562458199` failed at the same recovery assertion;
+  installation, launch, authenticated health, ownership and FREE-mode checks
+  passed before controlled backend termination.
+- Follow-up run `6140943` isolated the packaging-specific cause: the PyInstaller
+  one-file launcher PID and authenticated Python server PID are different
+  Windows processes. Exact PID equality rejected the valid descendant.
+- The correction validates the authenticated health PID through the Windows
+  process-parent chain against the desktop-owned launcher, while rejecting
+  unrelated PIDs and retaining tree-scoped termination. Launcher/backend PIDs
+  are recorded separately, and the smoke harness uses the same ownership rule.
+- Hosted runs `44608021605` and `44608041204` on `6637caf` passed the complete
+  packaged lifecycle twice: NSIS installation, managed backend probe, desktop
+  launch, authenticated health and ownership, controlled crash recovery with a
+  new launcher/backend PID pair, clean shutdown and installer artifact upload.
+  The hosted runner had no OmniRoute gateway, so live desktop inference and
+  SQLite-after-live-chat restoration were explicitly skipped, not simulated.
+- Hosted validation of `f0025b9` compiled and launched the packaged app but
+  stopped in the smoke harness because its helper parameter `$pid` collided
+  with PowerShell's read-only `$PID` variable. This is corrected by using
+  neutral parameter names; no application failure was observed in that run.
 
 ## Verified working locally
 

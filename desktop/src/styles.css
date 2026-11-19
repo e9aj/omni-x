@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+:root { font-family: "Segoe UI", Inter, sans-serif; color: #f2f2f2; background: #090909; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 960px; min-height: 100vh; background: #090909; }
+button { font: inherit; }
+.app-shell { display: flex; min-height: 100vh; background: radial-gradient(circle at 80% 0%, #171717 0, #090909 42%); }
+.sidebar { width: 248px; border-right: 1px solid #222; padding: 28px 18px 18px; display: flex; flex-direction: column; }
+.brand { display: flex; align-items: center; gap: 11px; padding: 0 12px 42px; letter-spacing: .06em; }
+.brand strong { display: block; font-size: 17px; }.brand small { display: block; color: #6f6f6f; font-size: 8px; letter-spacing: .16em; margin-top: 4px; }
+.brand-mark { display: grid; place-items: center; width: 32px; height: 32px; background: #f2f2f2; color: #090909; font: 800 12px monospace; letter-spacing: -.1em; }
+nav { display: grid; gap: 5px; }.nav-item { background: transparent; color: #858585; border: 0; border-radius: 6px; padding: 12px; text-align: left; cursor: pointer; font-size: 13px; }.nav-item:hover { background: #151515; color: #fff; }.nav-item.active { background: #1c1c1c; color: #fff; }
+.sidebar-footer { margin-top: auto; color: #757575; font: 11px monospace; display: flex; align-items: center; gap: 8px; padding: 12px; }.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #7a7a7a; }.status-dot.online { background: #d7d7d7; box-shadow: 0 0 8px #aaa; }
+.workspace { flex: 1; padding: 42px 56px; max-width: 1280px; }.workspace header { display: flex; justify-content: space-between; align-items: end; border-bottom: 1px solid #222; padding-bottom: 24px; }.eyebrow { color: #777; font: 10px monospace; letter-spacing: .16em; margin: 0 0 10px; }.workspace h1 { font-size: 30px; font-weight: 500; margin: 0; }.connection { color: #777; font: 11px monospace; }
+.panel { max-width: 760px; margin: 110px auto; }.panel h2, .empty-chat h2 { font-size: 42px; letter-spacing: -.04em; font-weight: 400; margin: 0 0 18px; }.muted { color: #8b8b8b; line-height: 1.7; max-width: 650px; }.chat-panel { max-width: 860px; margin: 42px auto 0; min-height: 610px; display: flex; flex-direction: column; }.message-list { flex: 1; overflow: auto; padding: 16px 0 32px; }.empty-chat { margin: 90px 0; }.message { border-left: 2px solid #333; padding: 4px 18px; margin: 18px 0; }.message.user { border-color: #777; }.message.error { border-color: #9b5555; color: #e99; }.message-role { color: #777; display: block; font: 10px monospace; letter-spacing: .14em; text-transform: uppercase; }.message p { white-space: pre-wrap; line-height: 1.6; }.composer { margin-top: auto; border: 1px solid #2b2b2b; border-radius: 8px; color: #666; padding: 10px; display: flex; gap: 12px; font: 13px monospace; }.composer input { flex: 1; background: transparent; border: 0; color: #eee; outline: 0; padding: 8px; }.composer button { border: 0; background: #292929; color: #ddd; border-radius: 4px; padding: 7px 14px; }.composer button:disabled { color: #666; }

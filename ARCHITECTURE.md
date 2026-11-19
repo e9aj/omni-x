@@ -78,3 +78,81 @@ and latency samples. `Router` ranks tested tool-capable free models first,
 excludes tested-unavailable routes, and retains bounded free fallbacks. The
 policy is intentionally conservative: an advertised model is not considered
 reliable until it has been tested, and no paid route is eligible in FREE mode.
+
+## Phase 3 desktop foundation
+
+The Windows-first shell in `desktop/` is Tauri 2 with React, TypeScript, Vite
+and Tailwind CSS. Tauri owns a supervised Python `omnix.desktop_server`
+process and keeps an ephemeral IPC token in native state. The frontend invokes
+native commands for backend status; it never receives provider credentials or
+calls an unauthenticated local HTTP endpoint. The server binds only to
+`127.0.0.1` and requires a constant-time bearer-token comparison. Chat, task,
+model and settings panels remain presentation foundations until connected to
+the existing SQLite/runtime APIs. Packaging the Python/Hermes/OmniRoute
+dependencies as signed Windows sidecars is a later installer milestone.
+
+The current bridge exposes authenticated chat, stop, shutdown and approval
+operations through Tauri native commands. Chat calls the existing
+`AgentRuntime` with the existing SQLite store. Sensitive tools synchronously
+wait on a backend-owned, expiring approval record; the frontend can only submit
+the scoped decision through the authenticated bridge and cannot bypass the
+backend policy. The native layer owns the child process, monitors unexpected
+exit and restarts only that captured process. The single-instance plugin and
+fixed loopback port prevent duplicate desktop hosts.
+
+Hosted packaging builds a PyInstaller `omnix-backend.exe` from the existing
+Python package, generates the branded Tauri icons from `desktop/src/assets/omnix.svg`,
+and includes the backend as an NSIS resource. Installed SQLite data remains in
+the normal per-user OMNI-X data directory rather than inside the installer.
+
+## Hermes backend assessment — 2026-11-19
+
+The current Hermes `main` source is MIT licensed (copyright Nous Research);
+required notices must remain with any redistributed substantial portions. Hermes
+has a real `AIAgent` facade in `run_agent.py`, a split conversation loop under
+`agent/`, provider adapters in `hermes_cli/runtime_provider.py`, a central
+schema/dispatch registry in `tools/registry.py` and `model_tools.py`, SQLite
+session/state persistence through `persistence_assembly.py` and
+`persistence/sqlite/`, and gateway session lifecycle in `gateway/session.py`.
+Its architecture is materially broader than the current OMNI-X compatibility
+layer.
+
+| Subsystem | Hermes implementation | OMNI-X comparison | Recommendation |
+|---|---|---|---|
+| Agent execution/tool loop | `AIAgent` plus `agent/conversation_loop.py`, `agent/turn_*.py`, `model_tools.py` | OMNI-X currently uses its own `AgentRuntime` and Hermes-compatible backend loop | Adapt Hermes `AIAgent` behind an OMNI-X executor interface after policy injection is proven; do not run both loops permanently |
+| Tool calling | `tools/registry.py`, `model_tools.py`, structured schemas and toolset filtering | OMNI-X has `ToolRegistry`, schema validation, textual-call compatibility and approvals | Reuse Hermes registry/dispatch only through an OMNI-X permission adapter; retain OMNI-X deny-by-default, workspace containment and audit boundary |
+| Sessions/memory | `persistence/sqlite/`, `gateway/session.py`, `agent/memory_manager.py`, `session_search` | OMNI-X SQLite schema stores sessions, messages, tasks, events, usage and health | Use an OMNI-X persistence adapter or migration layer; do not point Hermes directly at OMNI-X tables until schema/locking/identity mapping is verified |
+| Skills | `skills/`, `optional-skills/`, `tools/skills_tool.py`, `hermes_cli/skills_config.py` | OMNI-X already discovers approved `SKILL.md` instructions | Reuse Hermes skill loading/read-only execution with OMNI-X allowlisting and prompt-budget limits |
+| Browser | `tools/browser_use_cli.py`, `browser_session.py`, `browser_launcher.py`, CDP lifecycle | OMNI-X already has a thin Hermes browser adapter | Directly reuse the installed Hermes browser harness; wrap startup, origin, profile and shutdown permissions |
+| Scheduling | `cron/jobs.py`, `cron/scheduler.py`, missed-run, ownership and delivery modules | OMNI-X has persistent schedules and task service in SQLite | Prefer Hermes scheduler semantics behind an adapter, preserving OMNI-X job IDs, provider policy and history migrations |
+| Background workers | Hermes cron detached-worker/process-registry modules | OMNI-X has durable jobs, bounded workers and Windows process-tree ownership | Reuse isolated worker concepts selectively; retain OMNI-X Windows ownership/cancellation until a direct process contract is demonstrated |
+| Delegation | `tools/delegate_tool.py`, delegation context and isolated child sessions | OMNI-X has parent/child jobs and inherited policies | Adapt Hermes delegation context to OMNI-X policy snapshots, spending limits and result verification; replace OMNI-X delegation only after live evidence |
+| Gateway | Hermes gateway/run, RPC and platform adapters | OMNI-X desktop uses authenticated loopback and OmniRoute | Do not adopt Hermes gateway as the desktop transport; use it as a possible internal execution service later |
+
+### Feasibility and migration plan
+
+Direct reuse is technically feasible for Hermes's browser harness, skill loader,
+tool schema/dispatch primitives, session persistence interfaces and delegation
+context. Full direct replacement is not yet safe: Hermes assumes its own profile
+home, SQLite schema, provider/credential resolution, tool approval lifecycle,
+session identity and broad tool catalogue. Those assumptions conflict with
+OMNI-X's free-first OmniRoute routing, zero-spend enforcement, content
+preferences, authenticated desktop transport and backend-owned permissions.
+
+Recommended sequence:
+
+1. Pin a reviewed Hermes release/source package and preserve MIT notices.
+2. Build a narrow `HermesExecutionAdapter` that supplies OMNI-X's provider,
+   credential, permission and persistence interfaces to Hermes `AIAgent`.
+3. Run deterministic tool/schema/session tests against the adapter, then a
+   bounded live OmniRoute run; retain the existing runtime as rollback until
+   equivalent evidence exists.
+4. Migrate browser and skills first because OMNI-X already wraps those Hermes
+   capabilities; then migrate session/memory with explicit SQLite migrations.
+5. Migrate scheduling, workers and delegation only after identity, cancellation,
+   crash recovery and inherited FREE-mode policy pass on Windows.
+6. Remove duplicate OMNI-X loop code only after the adapter is the sole runtime
+   for CLI and desktop and all existing commands remain compatible.
+
+The Hermes source remains an implementation dependency under evaluation, not a
+public OMNI-X brand claim and not yet the active OMNI-X execution engine.

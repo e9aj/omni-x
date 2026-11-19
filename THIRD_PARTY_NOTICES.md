@@ -18,3 +18,11 @@ When `OMNIX_HERMES_SOURCE` is explicitly configured, OMNI-X also invokes
 Hermes's `tools/browser_use_cli.py` for browser tasks and reads selected Hermes
 `SKILL.md` trees. Those paths remain subject to OMNI-X approval and allowlist
 controls; the MIT copyright and licence above apply to the reused source.
+
+## Phase 3 desktop dependencies
+
+The desktop foundation uses Tauri 2 (`@tauri-apps/api`, Apache-2.0 OR MIT),
+React (MIT), Vite (MIT), and Tailwind CSS (MIT). Their notices are supplied by
+the package distributions under `desktop/node_modules` during development and
+must be included in any packaged distribution according to the final lockfile
+and installer build.

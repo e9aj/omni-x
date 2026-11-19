@@ -154,3 +154,145 @@ The final reduction leaves the 712-character security/system policy and all seve
 
 Release-candidate conclusion: suitable as a clearly labelled Phase 2 development baseline for review, not production-ready and not evidence of fully validated live multi-agent AI execution.
 
+## Phase 3 desktop foundation — 2026-11-19
+
+- `desktop/`: `npm install` completed with zero reported vulnerabilities;
+  `npm run typecheck` and `npm run build` passed.
+- Python suite including authenticated loopback bridge coverage: 44 passed,
+  3 opt-in live tests skipped.
+- Tauri/Rust build remains unvalidated because host Application Control blocks
+  `cargo.exe`; no installer or production desktop readiness is claimed.
+- Desktop bridge deterministic coverage now includes authenticated chat
+  forwarding to the existing runtime, session ID return, origin rejection and
+  stop/shutdown endpoints. The desktop UI has no fake model response and does
+  not bypass backend approval policy. Live desktop chat remains unexecuted in
+  this increment to avoid repeating unstable free-provider calls.
+- Local `npm run tauri build` now passes Tauri configuration/version validation
+  but cannot execute Rust build scripts because Code Integrity blocks unsigned
+  generated executables. The hosted Windows build is the required compilation
+  evidence; no installer is claimed until that run succeeds.
+
+- Hosted run `44523509586` compiled Rust dependencies and failed in the Tauri
+  build script because `src-tauri/icons/icon.ico` was missing. This was a
+  packaging-input defect, not an Application Control failure. The branch now
+  tracks the OMNI-X SVG source, generates the required icon set, builds a
+  PyInstaller-managed backend sidecar and bundles it as an NSIS resource. The
+  replacement workflow run is pending; no installer launch or live desktop AI
+  inference is claimed yet.
+- Deterministic approval coverage: backend approval requests are scoped to the
+  exact action, expire after 60 seconds, deny by default, and are auditable via
+  the authenticated approval endpoint. The UI surface is implemented; a real
+  packaged Windows approval interaction remains unvalidated.
+- Hosted Windows run `44525198666` passed and produced the NSIS artifact
+  `OMNI-X_0.1.0_x64-setup.exe`. Attempted silent installation on this Windows 11
+  host was blocked by enterprise Application Control before the installer
+  started. No policy bypass was attempted; launch, restart, SQLite update
+  persistence and owned-process shutdown are therefore not live-validated.
+
+Hosted run `44538461275` installed the package (exit code 0), passed an
+authenticated direct backend health probe and observed the desktop-owned
+sidecar. It failed because the probe process was not fully excluded from the
+global post-shutdown check. Commit `702e69d` corrected exact PID cleanup and
+ownership; hosted run `44541511158` passed installer, launch, backend health,
+shutdown, sidecar termination and silent uninstall.
+
+Hosted extended run `44554580840` did not pass. It recorded installer exit 0,
+packaged-backend probe success, desktop launch, authenticated settings,
+FREE-mode enforcement, model policy, preference persistence and stop signaling.
+It failed at hosted sidecar observation/recovery. Commit `c3efda6` changes only
+the test launch to preserve the normal inherited environment; the validation
+rerun remains pending. No live desktop inference is claimed.
+
+Supervisor investigation found two independent symptoms: a dead child could be
+cleared without a reliable bounded recovery outcome, and some hosted launches
+reached WebView2 without an observable managed child. The correction uses
+bounded startup/recovery attempts, explicit ownership and authenticated health
+sequencing; hosted confirmation is pending and no production readiness is
+claimed.
+
+Run `44559468651` narrowed the recovery failure to an authenticated stale
+listener: child PID `2852` exited, but the health endpoint reported PID `696`.
+The supervisor rejected the listener as unowned and exhausted its bounded
+retries. The correction authorizes exact-PID cleanup only after the same
+OMNI-X IPC token authenticates the health response, then requires a new PID
+and matching health response. No unrelated process is targeted.
+
+The first orphan-cleanup rerun reached a replacement process, then the harness
+called health before readiness and recorded connection refused. This was a
+test sequencing defect; recovery validation now combines process identity and
+authenticated health in the same bounded poll instead of accepting process
+existence alone.
+
+Runs `44562479141` and `44562458199` reproduced the same stale-listener
+pattern during crash recovery. The correction is exact-PID Windows process-tree
+cleanup for the captured backend, without terminating by process name or
+touching unrelated infrastructure.
+
+Follow-up hosted validation on `6140943` isolated the remaining defect: the
+PyInstaller one-file sidecar has a launcher PID and a different authenticated
+Python server PID. Exact PID comparison rejected that owned descendant and
+recovery failed. The correction validates authenticated PIDs against the owned
+launcher ancestry on Windows and records both identities. The smoke harness now
+checks the same boundary; a rerun is required before this is recorded as a
+passing lifecycle result.
+
+Hosted run `44607023149` reached install, packaged-backend probe, desktop launch,
+owned-backend observation and FREE-mode checks, then failed in the new test
+harness because PowerShell reserved `$PID` conflicts with the helper's `$pid`
+parameter. The application was not the failing assertion; the helper parameters
+are renamed before rerun.
+
+### Desktop integration coverage — hosted validation passed
+
+- Deterministic local coverage includes authenticated loopback, SQLite session
+  retrieval, backend-owned preference persistence, approval expiry/decision,
+  cancellation signaling and permission boundaries.
+- Hosted deterministic coverage now checks unauthenticated health rejection,
+  FREE mode and `allow_paid=false`, configured model/provider reporting,
+  Standard / Creative / Open persistence, unknown approval rejection, stop
+  signaling, owned-backend crash/restart and exact shutdown ownership.
+- One bounded live desktop chat is attempted only when the runner can reach
+  OmniRoute. A successful result must include an answer, actual model ID,
+  usage data and a session readable after relaunch; unavailable routes are
+  recorded as an external limitation.
+
+Hosted runs `44608021605` and `44608041204` passed twice on `6637caf`:
+installer exit code 0, packaged backend probe, desktop launch, one owned
+backend, authenticated FREE-mode/model policy, Standard/Creative/Open settings,
+unknown approval rejection, stop signaling, owned-tree crash recovery with
+distinct launcher and authenticated backend PIDs, application exit code 0,
+owned-sidecar cleanup, silent uninstall and installer artifact upload. Both
+hosted runners lacked OmniRoute, so no live desktop model response or
+conversation-persistence-after-live-chat result is claimed.
+
+### Windows execution policy evidence — 2026-11-19
+
+- Code Integrity event 3077/3033 blocked the unsigned NSIS installer before
+  launch. SHA-256:
+  `CCB3F53BF60A0E7A1B3E1B70251ADBAC2E52FC2E86601773FF28C9E72E38D99E`.
+- Event 3089 recorded zero signatures, `Unknown` publisher/issuer and validated
+  signing level 1 versus requested level 2. Event 3118 identified Smart App
+  Control details under `VerifiedAndReputableDesktop`, policy GUID
+  `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`.
+- Earlier local Cargo attempts were blocked separately when Cargo loaded
+  unsigned generated Rust build scripts. No installer, Tauri process, Python
+  sidecar or live desktop chat was observed. Testing must proceed only through
+  approved enterprise allowlisting or an authorised Windows 11 test VM.
+- The local host has no discoverable Hyper-V VM or secondary Windows machine;
+  Windows Sandbox requires elevation. A hosted Windows Actions smoke test was
+  added to install the NSIS artifact, launch OMNI-X, observe the managed
+  backend, close the app, verify the sidecar exits and uninstall. Its result is
+  the next permitted installation evidence; no real AI chat is claimed from
+  this smoke test.
+
+### Hermes architecture assessment — 2026-11-19
+
+- Inspected the current Hermes source tree and MIT license. The source contains
+  a production-scale `AIAgent` loop, registry-based structured tool dispatch,
+  SQLite persistence/session search, memory providers, skills, CDP browser
+  lifecycle, cron scheduler and isolated delegation workers.
+- Assessment: direct reuse is feasible behind compatibility adapters, but a
+  direct replacement would currently risk bypassing OMNI-X's provider policy,
+  FREE-mode restrictions, credential ownership, approval boundary and SQLite
+  identity model. No Hermes replacement was claimed or activated.
+

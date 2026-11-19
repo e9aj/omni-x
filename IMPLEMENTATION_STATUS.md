@@ -1,6 +1,35 @@
 # OMNI-X Implementation Status
 
-Last reviewed: 2026-11-18
+Last reviewed: 2026-11-19
+
+## Phase 2 release-candidate classification
+
+This is a Phase 2 development baseline, not a production-readiness claim.
+
+### Fully validated on this Windows 11 machine
+
+- OmniRoute free text inference with recorded model, token and latency data.
+- Real read-only and isolated file-tool execution when the provider emits a supported textual call format.
+- Hermes-managed browser startup, navigation, screenshot, shutdown and restart recovery through the installed backend.
+- FREE-mode rejection of paid-only routes, zero estimated cost recording, credential gating and inherited child policy snapshots.
+- Owned Windows subprocess cancellation boundaries and SQLite persistence/recovery.
+
+### Deterministic validation only
+
+- Scheduling, background workers, cancellation, recovery, permission inheritance, delegation ledger transitions and parser formats are covered by local tests.
+- Native structured tool-call handling is covered by injected deterministic responses, but the selected live free model did not return a native `tool_calls` field.
+- Reduced-context prompt telemetry and skill filtering are covered by deterministic tests and one bounded live measurement.
+
+### Experimental or requiring live provider validation
+
+- Live multi-agent AI execution through OmniRoute remains experimental. A previous attempt timed out before child creation; no passing live parent/child benchmark is claimed.
+- Live tool calling depends on upstream textual formatting variability. `[list_directory]` and other non-executable prose are safely rejected.
+- Provider health and fallback ranking are implemented, but reliability scores remain route-specific and require more live samples over time.
+
+### Known external limitations
+
+- OmniRoute's free upstream routes may return textual descriptions instead of native function calls, time out, rate-limit or change availability.
+- The UncloseAI free route previously returned HTTP 401 because its public beta was closed.
 
 ## Verified working locally
 

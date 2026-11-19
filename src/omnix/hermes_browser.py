@@ -48,7 +48,7 @@ class HermesBrowserAdapter:
             "print(browser_exec(sys.argv[1], timeout_s=int(sys.argv[2])))"
         )
         try:
-            process = subprocess.Popen([str(python), "-c", launcher, code, str(max(1, min(int(timeout_s), 600)))], capture_output=True, text=True, env=env, creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0), start_new_session=(os.name != "nt"))
+            process = subprocess.Popen([str(python), "-c", launcher, code, str(max(1, min(int(timeout_s), 600)))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0), start_new_session=(os.name != "nt"))
             self._active.add(process)
             _, stopped = wait_owned_process(process, self.cancel_event, max(5, min(int(timeout_s) + 15, 615)))
             stdout, stderr = process.communicate(timeout=10)

@@ -144,3 +144,13 @@ Prompt telemetry identified the local cause of the approximately 32,000-token si
 
 The final reduction leaves the 712-character security/system policy and all seven approved tool schemas intact. Skills are still available when explicitly named by skill name (for example `review-code`), but unrelated skill bodies and duplicated conversation history are not injected.
 
+## Release-candidate audit — 2026-11-19
+
+- Complete local collection: 46 tests; 43 deterministic tests passed and 3 opt-in live-provider tests were skipped by default. Compileall, `pip check` and `git diff --check` passed.
+- Hermes browser live test initially exposed a Windows Python compatibility defect (`Popen(capture_output=True)`). Replacing it with explicit `stdout=PIPE` and `stderr=PIPE` fixed the issue; the opt-in browser test then passed for navigation, screenshot, shutdown and restart recovery.
+- Security review confirmed command and browser subprocesses are owned process trees; cancellation uses the captured PID/tree and does not match or terminate OmniRoute. Filesystem tools remain workspace-contained and sensitive tools remain approval-gated.
+- FREE routing continues to reject paid-only providers/models when `allow_paid=false`; usage records estimated cost `$0.00` and child policy snapshots cannot broaden mode, spending or tool policy.
+- The `[list_directory]` response observed after context reduction produced no `tool_result` event and was not treated as task evidence.
+
+Release-candidate conclusion: suitable as a clearly labelled Phase 2 development baseline for review, not production-ready and not evidence of fully validated live multi-agent AI execution.
+

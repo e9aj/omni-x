@@ -92,6 +92,8 @@ jobs:
           $appToken = 'smoke-app-' + [guid]::NewGuid().ToString('N')
           $stderr = Join-Path $env:TEMP 'omnix-desktop-stderr.log'
           $stdout = Join-Path $env:TEMP 'omnix-desktop-stdout.log'
+          $supervisorLog = Join-Path $env:TEMP 'omnix-desktop-supervisor.log'
+          Remove-Item -LiteralPath $supervisorLog -Force -ErrorAction SilentlyContinue
           $previousAppToken = $env:OMNIX_IPC_TOKEN
           $env:OMNIX_IPC_TOKEN = $appToken
           try { $desktop = Start-Process -FilePath $app.FullName -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout } finally { if ($null -eq $previousAppToken) { Remove-Item Env:OMNIX_IPC_TOKEN -ErrorAction SilentlyContinue } else { $env:OMNIX_IPC_TOKEN = $previousAppToken } }
@@ -107,7 +109,7 @@ jobs:
             Start-Sleep -Seconds 1
           }
           Write-Host "Desktop-owned backend processes: $(@($ownedBackend).Count)"
-          if (-not $ownedBackend) { Write-Host 'OMNI-X stderr:'; if (Test-Path $stderr) { Get-Content $stderr -Tail 100 }; Write-Host 'OMNI-X stdout:'; if (Test-Path $stdout) { Get-Content $stdout -Tail 100 }; throw 'Desktop-owned omnix-backend sidecar was not observed' }
+          if (-not $ownedBackend) { Write-Host 'OMNI-X stderr:'; if (Test-Path $stderr) { Get-Content $stderr -Tail 100 }; Write-Host 'OMNI-X stdout:'; if (Test-Path $stdout) { Get-Content $stdout -Tail 100 }; Write-Host 'Supervisor log:'; if (Test-Path $supervisorLog) { Get-Content $supervisorLog -Tail 100 }; throw 'Desktop-owned omnix-backend sidecar was not observed' }
           $ownedBackendIds = @($ownedBackend | ForEach-Object { [int]$_.ProcessId })
           $base = 'http://127.0.0.1:27451'
           $headers = @{ Authorization = "Bearer $appToken"; Origin = 'tauri://localhost' }
@@ -132,7 +134,7 @@ jobs:
             $candidate = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }
             if ($candidate -and @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid }).Count -gt 0) { $restarted = @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid })[0]; break }
           }
-          if (-not $restarted) { throw 'Desktop did not restart its owned backend after a controlled crash' }
+          if (-not $restarted) { Write-Host 'Supervisor log after recovery failure:'; if (Test-Path $supervisorLog) { Get-Content $supervisorLog -Tail 100 }; throw 'Desktop did not restart its owned backend after a controlled crash' }
           $healthAfterRestart = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 5
           if ($healthAfterRestart.status -ne 'ok') { throw 'Restarted backend failed authenticated health check' }
           Write-Host "Backend crash recovery passed: old=$oldBackendPid new=$($restarted.ProcessId)"

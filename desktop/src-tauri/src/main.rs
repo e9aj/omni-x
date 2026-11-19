@@ -3,6 +3,7 @@
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{
+    fs::OpenOptions,
     io::{Read, Write},
     net::{TcpStream, ToSocketAddrs},
     process::{Child, Command},
@@ -16,6 +17,17 @@ use std::{
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
 const PORT: u16 = 27451;
+
+fn supervisor_log(message: &str) {
+    if let Ok(mut file) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(std::env::temp_dir().join("omnix-desktop-supervisor.log"))
+    {
+        use std::io::Write as _;
+        let _ = writeln!(file, "{message}");
+    }
+}
 
 struct BackendState {
     child: Mutex<Option<Child>>,
@@ -98,6 +110,7 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         return Ok(());
     }
     if request(state, "GET", "/v1/health", None).is_ok() {
+        supervisor_log("startup refused: authenticated backend reachable without owned child");
         return Err(
             "authenticated backend is reachable but is not owned by this desktop instance".into(),
         );
@@ -150,14 +163,23 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         .env("OMNIX_IPC_TOKEN", &state.token)
         .spawn()
         .map_err(|e| format!("backend start failed: {e}"))?;
-    eprintln!("OMNI-X backend sidecar spawned with pid {}", child.id());
+    let expected_pid = child.id();
+    eprintln!("OMNI-X backend sidecar spawned with pid {expected_pid}");
+    supervisor_log(&format!("spawned backend pid={expected_pid}"));
     *state
         .child
         .lock()
         .map_err(|_| "backend lock poisoned".to_string())? = Some(child);
     for _ in 0..30 {
-        if request(state, "GET", "/v1/health", None).is_ok() {
-            return Ok(());
+        if let Ok(value) = request(state, "GET", "/v1/health", None) {
+            if value["pid"].as_u64() == Some(expected_pid as u64) {
+                supervisor_log(&format!("health passed pid={expected_pid}"));
+                return Ok(());
+            }
+            supervisor_log(&format!(
+                "health returned unexpected pid expected={expected_pid} actual={}",
+                value["pid"]
+            ));
         }
         let exit_status = state.child.lock().ok().and_then(|mut guard| {
             guard
@@ -166,16 +188,21 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         });
         if let Some(status) = exit_status {
             eprintln!("OMNI-X backend sidecar exited before health check with status {status}");
+            supervisor_log(&format!(
+                "backend pid={expected_pid} exited before health: {status}"
+            ));
             return Err("backend exited before authenticated health check".into());
         }
         thread::sleep(Duration::from_millis(500));
     }
     eprintln!("OMNI-X backend authenticated health check timed out");
+    supervisor_log(&format!("health timeout pid={expected_pid}"));
     Err("backend did not pass authenticated health check within 15 seconds".into())
 }
 
 fn shutdown_backend(state: &BackendState) {
     state.stopping.store(true, Ordering::SeqCst);
+    supervisor_log("shutdown requested");
     let _ = request(state, "POST", "/v1/shutdown", Some(json!({})));
     if let Ok(mut guard) = state.child.lock() {
         if let Some(mut child) = guard.take() {
@@ -326,11 +353,13 @@ fn main() {
                     match child.as_mut() {
                         Some(value) => match value.try_wait() {
                             Ok(Some(_)) => {
+                                supervisor_log("owned backend exited; scheduling recovery");
                                 *child = None;
                                 true
                             }
                             Ok(None) => false,
                             Err(_) => {
+                                supervisor_log("owned backend wait failed; scheduling recovery");
                                 *child = None;
                                 true
                             }
@@ -344,17 +373,25 @@ fn main() {
                     let attempt = state.restart_attempts.fetch_add(1, Ordering::SeqCst) + 1;
                     if attempt <= 3 {
                         eprintln!("OMNI-X backend recovery attempt {attempt}/3");
+                        supervisor_log(&format!("recovery attempt={attempt}"));
                         match start_backend(&handle, &state) {
                             Ok(()) => {
                                 state.restart_attempts.store(0, Ordering::SeqCst);
                                 eprintln!("OMNI-X backend recovery succeeded");
+                                supervisor_log("recovery succeeded");
                             }
-                            Err(error) => eprintln!(
-                                "OMNI-X backend recovery attempt {attempt} failed: {error}"
-                            ),
+                            Err(error) => {
+                                eprintln!(
+                                    "OMNI-X backend recovery attempt {attempt} failed: {error}"
+                                );
+                                supervisor_log(&format!(
+                                    "recovery failed attempt={attempt}: {error}"
+                                ));
+                            }
                         }
                     } else {
                         eprintln!("OMNI-X backend recovery stopped after 3 failed attempts");
+                        supervisor_log("recovery stopped after 3 attempts");
                     }
                 }
             });

@@ -50,8 +50,9 @@ Last reviewed: 2026-11-19
 Hosted run `44538461275` installed the package with installer exit code 0,
 passed an authenticated direct probe of the packaged backend and launched the
 desktop with its child sidecar. It failed because the diagnostic probe process
-was still included in the global post-shutdown process check. The smoke test
-now cleans the probe by exact PID and checks desktop-owned PIDs.
+was still included in the global post-shutdown process check. Commit `702e69d`
+corrected probe cleanup and exact desktop-owned PID checks; hosted run
+`44541511158` passed the complete lifecycle.
 
 ## Phase 3 desktop foundation
 

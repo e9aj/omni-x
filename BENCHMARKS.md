@@ -192,8 +192,9 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
 Hosted run `44538461275` installed the package (exit code 0), passed an
 authenticated direct backend health probe and observed the desktop-owned
 sidecar. It failed because the probe process was not fully excluded from the
-global post-shutdown check; the smoke test now uses exact PID ownership and is
-pending rerun.
+global post-shutdown check. Commit `702e69d` corrected exact PID cleanup and
+ownership; hosted run `44541511158` passed installer, launch, backend health,
+shutdown, sidecar termination and silent uninstall.
 
 ### Windows execution policy evidence — 2026-11-19
 

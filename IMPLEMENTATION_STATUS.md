@@ -335,6 +335,19 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Controlled raw-response evidence (2026-11-19) shows one direct free-route request returned `tool_calls=null`, `finish_reason=stop`, empty content, model `deepseek-ai/deepseek-r1-distill-qwen-32b`, and 406 total tokens. There was no valid call for Hermes to lose or reject; this is recorded as a provider/model limitation. No additional parser formats were added.
 - Current catalogue sweep tested four free `combo` auto routes with native tools requested. All served `deepseek-ai/deepseek-r1-distill-qwen-32b` and returned no `tool_calls`; the declared-tool UncloseAI route returned 401 because registration is closed. No reliable free tool route is currently available, so live Hermes tool execution remains unverified and testing has stopped rather than consuming repeated tokens.
 
+### Hermes task lifecycle bridge — 2026-11-19
+
+- Added `omnix.hermes_task_bridge`, a fail-closed boundary around Hermes
+  `cron.jobs.parse_schedule`, normalising one-shot and interval syntax into the
+  existing SQLite scheduler and supporting cron only when `croniter` is present.
+- `TaskService` remains the sole scheduler, worker host and delegated-job
+  executor. Hermes `cron.scheduler`, managed workers and `delegate_tool` are
+  not started for execution.
+- Deterministic task tests continue to cover recurring schedules, restart
+  reclamation, cancellation, inherited FREE policy, child aggregation and
+  persistence. Actual Hermes-native worker IPC, Hermes-owned cron persistence
+  and live model-backed delegated children remain incomplete.
+
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.

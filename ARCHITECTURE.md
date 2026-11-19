@@ -222,3 +222,22 @@ declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the
 request with 401. Routing must therefore exclude these routes for autonomous
 tool execution until a future catalogue refresh verifies a real call.
+
+### Hermes task-lifecycle boundary — 2026-11-19
+
+The pinned Hermes revision (`edd11438db3b99558f71ca58f2b93e6c804cf20b`) was
+inspected at `cron.jobs.parse_schedule`, `cron.scheduler`,
+`agent.managed_worker`, `gateway.session_managed_worker`,
+`persistence.workers.executions`, `persistence.workers.delegations` and
+`tools.delegate_tool`. OMNI-X reuses the pure schedule parser through
+`omnix.hermes_task_bridge` when the managed environment can import it. Hermes
+cron syntax is never silently downgraded to a one-shot; cron fails closed when
+the optional `croniter` dependency is unavailable.
+
+Hermes's scheduler and worker processes are not embedded: they own Hermes
+profile files and would create a second runtime. The inspected worker and
+delegation modules provide lifecycle references for bounded supervision,
+terminal states and child ledgers. OMNI-X `TaskService` remains the sole
+scheduler, worker host, delegated-job executor, SQLite owner and policy
+authority. Native Hermes scheduling, worker IPC and delegated-agent execution
+remain incomplete pending identity, credential, approval and migration proof.

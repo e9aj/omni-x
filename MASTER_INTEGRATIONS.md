@@ -100,6 +100,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-19 | Connected enabled/reviewed skill context to Hermes `AIAgent` through `ephemeral_system_prompt`, added dependency/permission/credential gating, declarative `IntegrationRegistry`, and additive OMNI-X SQLite turn recording. Hermes-native session/memory stores and live skill execution remain incomplete. |
 | 2026-11-19 | Added additive Hermes session mapping, SQLite-backed memory facade and skill load/skip audit events. Existing OMNI-X sessions and memory remain authoritative; Hermes-native persistence is not yet authoritative. |
 | 2026-11-18 | Stage 3 delegation added parent/child policy inheritance, specialist roles, concurrent child jobs, aggregation and failure propagation; actual child execution remains OMNI-X `AgentRuntime`. |
+| 2026-11-19 | Inspected Hermes `cron.jobs.parse_schedule`, `cron.scheduler`, `agent.managed_worker`, `gateway.session_managed_worker`, `persistence.workers.executions`, `persistence.workers.delegations` and `tools.delegate_tool` at `edd11438db3b99558f71ca58f2b93e6c804cf20b`. Added `omnix.hermes_task_bridge` to reuse pure schedule parsing where the managed environment can import it. Hermes-owned schedulers/workers/delegated agents remain deliberately unembedded; OMNI-X `TaskService` is the single runtime and policy authority. |
 
 ## OMNI-X implementation status
 

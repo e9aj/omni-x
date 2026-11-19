@@ -9,10 +9,7 @@ bootstrap and tests.
 """
 from __future__ import annotations
 
-import datetime as dt
-import os
 import json
-import re
 import threading
 import time
 import uuid
@@ -21,53 +18,14 @@ from pathlib import Path
 from typing import Callable
 
 from .config import Settings
+from .hermes_task_bridge import parse_schedule
 from .runtime import AgentRuntime
 from .store import Store
 
 
 def _parse_schedule(value: str) -> tuple[str, float, float | None]:
     """Return kind, first due epoch, recurrence seconds (None = one-shot)."""
-    raw = value.strip()
-    # Prefer the installed Hermes parser, but do not make OMNI-X installation
-    # depend on Hermes' optional croniter package.
-    try:
-        from .hermes_runtime import installed_hermes_source
-        import sys
-        source = installed_hermes_source()
-        if source:
-            source_text = str(source)
-            if source_text not in sys.path:
-                sys.path.insert(0, source_text)
-            from cron.jobs import parse_schedule  # type: ignore
-            try:
-                parsed = parse_schedule(raw)
-            except (ValueError, TypeError):
-                parsed = None
-            if parsed is None:
-                raise ImportError("Hermes parser does not support this local interval")
-            kind = str(parsed["kind"])
-            if kind == "once":
-                return kind, dt.datetime.fromisoformat(parsed["run_at"]).timestamp(), None
-            if kind == "interval":
-                seconds = float(parsed["minutes"]) * 60
-                return kind, time.time() + seconds, seconds
-            # Hermes cron expressions need croniter; preserving the explicit
-            # error is safer than silently interpreting a cron expression.
-            raise ValueError("cron expressions require Hermes croniter support")
-    except ImportError:
-        pass
-    if re.fullmatch(r"(?:every\s+)?\d+(?:\.\d+)?[smhd]", raw.lower()):
-        token = raw.lower().replace("every", "").strip()
-        amount, unit = float(token[:-1]), token[-1]
-        seconds = amount * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
-        return "interval", time.time() + seconds, seconds
-    try:
-        when = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise ValueError("schedule must be an ISO timestamp or interval such as 'every 1m'") from exc
-    if when.tzinfo is None:
-        when = when.replace(tzinfo=dt.timezone.utc)
-    return "once", when.timestamp(), None
+    return parse_schedule(value)
 
 
 class TaskService:
@@ -164,8 +122,12 @@ class TaskService:
             now = time.time()
             for row in self.store.due_schedules(now):
                 try:
-                    _, _, recurrence = _parse_schedule(row["schedule"])
-                    next_run = now + recurrence if recurrence else None
+                    kind, parsed_next, recurrence = _parse_schedule(row["schedule"])
+                    # Hermes cron schedules return the next occurrence rather
+                    # than a fixed interval. Re-parse after each fire so DST,
+                    # calendar boundaries and missed runs follow Hermes' own
+                    # semantics without starting Hermes' scheduler process.
+                    next_run = (now + recurrence) if recurrence else (parsed_next if kind == "cron" else None)
                     self.store.advance_schedule(row["id"], next_run, now, missed=0)
                     self.enqueue(row["prompt"])
                 except Exception as exc:

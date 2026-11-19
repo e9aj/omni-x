@@ -368,3 +368,17 @@ conversation-persistence-after-live-chat result is claimed.
   FREE-mode restrictions, credential ownership, approval boundary and SQLite
   identity model. No Hermes replacement was claimed or activated.
 
+### Hermes task lifecycle integration — 2026-11-19
+
+- Source inspection at Hermes `edd11438db3b99558f71ca58f2b93e6c804cf20b`
+  confirmed that `cron.scheduler` and the managed worker gateway own Hermes
+  profile stores and process protocols. They were not started by OMNI-X.
+- The new bridge reuses `cron.jobs.parse_schedule` where dependencies are
+  importable and otherwise uses the dependency-free interval/ISO fallback.
+  Cron expressions fail closed when `croniter` is unavailable.
+- Deterministic evidence remains the local `TaskService` suite: persistent
+  schedule execution, queue reclamation after host restart, cancellation,
+  inherited FREE policy, delegated result aggregation and SQLite history all
+  pass. This is adapted lifecycle behavior, not live Hermes worker or child
+  execution evidence.
+

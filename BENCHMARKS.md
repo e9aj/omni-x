@@ -242,7 +242,7 @@ harness because PowerShell reserved `$PID` conflicts with the helper's `$pid`
 parameter. The application was not the failing assertion; the helper parameters
 are renamed before rerun.
 
-### Desktop integration coverage — pending hosted rerun
+### Desktop integration coverage — hosted validation passed
 
 - Deterministic local coverage includes authenticated loopback, SQLite session
   retrieval, backend-owned preference persistence, approval expiry/decision,
@@ -255,6 +255,15 @@ are renamed before rerun.
   OmniRoute. A successful result must include an answer, actual model ID,
   usage data and a session readable after relaunch; unavailable routes are
   recorded as an external limitation.
+
+Hosted runs `44608021605` and `44608041204` passed twice on `6637caf`:
+installer exit code 0, packaged backend probe, desktop launch, one owned
+backend, authenticated FREE-mode/model policy, Standard/Creative/Open settings,
+unknown approval rejection, stop signaling, owned-tree crash recovery with
+distinct launcher and authenticated backend PIDs, application exit code 0,
+owned-sidecar cleanup, silent uninstall and installer artifact upload. Both
+hosted runners lacked OmniRoute, so no live desktop model response or
+conversation-persistence-after-live-chat result is claimed.
 
 ### Windows execution policy evidence — 2026-11-19
 

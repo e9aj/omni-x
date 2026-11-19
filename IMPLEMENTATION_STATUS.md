@@ -177,8 +177,12 @@ This is a Phase 2 development baseline, not a production-readiness claim.
   process-parent chain against the desktop-owned launcher, while rejecting
   unrelated PIDs and retaining tree-scoped termination. Launcher/backend PIDs
   are recorded separately, and the smoke harness uses the same ownership rule.
-- The latest hosted runs on `6140943` failed before this correction; no passing
-  crash recovery or live desktop inference is claimed until a rerun succeeds.
+- Hosted runs `44608021605` and `44608041204` on `6637caf` passed the complete
+  packaged lifecycle twice: NSIS installation, managed backend probe, desktop
+  launch, authenticated health and ownership, controlled crash recovery with a
+  new launcher/backend PID pair, clean shutdown and installer artifact upload.
+  The hosted runner had no OmniRoute gateway, so live desktop inference and
+  SQLite-after-live-chat restoration were explicitly skipped, not simulated.
 - Hosted validation of `f0025b9` compiled and launched the packaged app but
   stopped in the smoke harness because its helper parameter `$pid` collided
   with PowerShell's read-only `$PID` variable. This is corrected by using

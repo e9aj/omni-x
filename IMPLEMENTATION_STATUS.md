@@ -252,12 +252,138 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; the complete local suite includes task lifecycle and owned-process cancellation tests.
 - OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.
 - Hermes source remains an external inspection checkout; the adapted execution boundary is attributed in `THIRD_PARTY_NOTICES.md` and is not presented as the full Hermes backend.
+
+### Hermes-primary migration branch — initial slice
+
+- Branch `feat/hermes-primary-runtime` starts from merged desktop baseline
+  `e1bfe92`.
+- Current Hermes source was inspected at `edd11438db3b99558f71ca58f2b93e6c804cf20b`.
+  It is MIT licensed and contains the production `run_agent.AIAgent`, split
+  conversation loop, structured tool registry, SQLite session persistence,
+  memory manager, browser/CDP lifecycle, cron scheduler, managed workers and
+  delegation context.
+- Added an opt-in `omnix hermes probe` that invokes the actual Hermes
+  `AIAgent` in the installer-managed Hermes Python environment through the
+  configured OmniRoute endpoint. The first slice is text-only with Hermes tools,
+  memory and persistence disabled; FREE mode, explicit free-model selection and
+  zero spending are enforced before process launch.
+- Deterministic tests cover paid/ambiguous-route rejection and missing managed
+  installation handling. Live Hermes-through-OmniRoute execution remains
+  pending because OmniRoute was unavailable locally at branch creation.
+- The default OMNI-X desktop/CLI runtime is unchanged. Tool, permission,
+  session/memory, browser, scheduling, worker and delegation replacement remain
+  gated on dedicated adapters and live evidence.
 - Final validation status: hard cancellation is implemented and tested for owned command trees; browser lifecycle is live-tested, but live browser cancellation and a fully successful live parent/child OmniRoute workflow remain outstanding. Do not mark PR #2 fully integrated or merge-ready on simulated lifecycle tests.
 - Tool reliability status: native calls, Hermes XML/JSON calls, explicit `Tool call: name(...)` calls and exact bare function-call text are normalized into the existing ToolRegistry; schema-invalid calls and children without tool-result events cannot be treated as successful execution.
 - Latest bounded live probe (2026-11-18) found `auto/best-free` and `auto/coding:free` available for text inference through OmniRoute (`owned_by=combo`, 400000 context), but neither emitted an executable `list_directory` call in the lightweight tool probe. `unc/turboderp/Qwen3.8-27B-exl3` returned HTTP 401 because UncloseAI's public beta is closed and key registration is closed. These routes are therefore not recorded as verified tool-capable; no paid fallback is permitted.
 - Controlled raw-response investigation found OmniRoute/upstream `zai-org/glm-5.2` returned `finish_reason=stop`, `tool_calls=null`, and textual `tool_call({...})` or `tool_calls: [...]` content despite a native tools request. The bridge now normalizes those exact JSON-validated formats. A real read-only invocation and an isolated write/read task then produced verified tool-result events. Native structured function calling is still not demonstrated for this free route.
 - Prompt-size optimization is implemented and measured: unrelated skill-body matching was removed, explicit skill-name matching retained, per-step prompt component telemetry added, and parent/child history remains isolated. The comparable fixture reduced provider prompt usage from approximately 16k tokens per call to 2,004/2,165 and then 524 tokens after the final skill-name-only filter. A final rerun returned non-executable `[list_directory]` prose, so it was correctly not counted as a live tool success.
 - Parent/child timeout budgets are now independent and bounded; child jobs persist a 60–180 second deadline and parent waits are bounded to 45–180 seconds. Live delegation remains externally blocked by the previously recorded OmniRoute timeout before child creation.
+
+### Hermes-primary runtime — 2026-11-19
+
+- The real installer-managed Hermes `run_agent.AIAgent` now has a bounded, opt-in probe through OmniRoute. A live FREE request using `auto/coding:free` returned `HERMES-PRIMARY-OK`: 1 API call, 1,425 input tokens, 58 output tokens, 1,483 total tokens and 24,361 ms latency at estimated cost `$0.00`. Hermes reported `served_model=None`, so no upstream identity is guessed.
+- `HermesToolAdapter` maps OMNI-X schemas and calls to Hermes-compatible function contracts while retaining OMNI-X validation, workspace containment and approval gates. Deterministic tests cover schema parity, read-only execution, unknown calls and denied writes.
+- Live Hermes tool dispatch through this adapter, Hermes session/memory migration, direct primary-runtime browser/skills execution, scheduling, background workers and delegated agents remain incomplete. Existing OMNI-X CLI/desktop runtime remains the default and fallback.
+- The managed Hermes probe is connected at the pinned runtime's actual `model_tools.get_tool_definitions` and `model_tools.handle_function_call` boundaries, and reuses `omnix.hermes_bridge.extract_tool_calls` during Hermes response normalization for anchored textual formats. Deterministic tests prove OMNI-X schema, validation, workspace and approval enforcement. Live tool execution remains unverified: the route previously narrated a call without dispatch and bounded retries produced no verified tool event. No narrated action was counted as execution.
+
+### Unified integrations and skills management — 2026-11-19
+
+- Added `SkillsManager` for read-only browsing of Hermes bundled/optional and
+  OMNI-X custom `SKILL.md` sources, explicit reviewed local installation,
+  disabled-by-default activation, metadata inspection and CLI enable/disable.
+  Unreviewed or automatically downloaded skills are not installed or executed.
+- Added `CredentialManager` over the existing Windows DPAPI secret store. It
+  scopes credentials by integration, supports revocation and returns metadata
+  without values; child callers can be restricted to an integration allowlist.
+- Current inventory: OmniRoute and direct provider adapters are implemented;
+  OmniRoute free discovery is usable with the local gateway credential; direct
+  providers require their own API keys/accounts. Hermes browser and bundled
+  skills are installed and selectively discoverable; optional skills remain
+  disabled unless explicitly allowlisted/reviewed. SQLite sessions/memory and
+  task lifecycle remain OMNI-X-owned. RTK/Caveman is represented by the tested
+  deterministic compressor; no external RTK/Caveman binary is bundled.
+- Not yet integrated: MCP server lifecycle, OAuth flows, external API service
+  adapters, Hermes-native session/memory persistence, and Hermes-primary
+  scheduling/delegation. No integration is described as live without evidence.
+
+### Hermes manager bridge — 2026-11-19
+
+- Hermes `AIAgent` now receives only relevant, enabled and reviewed OMNI-X skill
+  instructions through its supported `ephemeral_system_prompt` field. Declared
+  permissions, credentials and executable dependencies are checked first;
+  disabled or ineligible skills are excluded and reported as skipped metadata.
+- Completed Hermes probe turns are copied to the existing OMNI-X SQLite
+  `sessions`/`messages` tables through an additive `HermesSessionBridge`.
+  Hermes-native session and memory stores are not yet the source of truth.
+- `IntegrationRegistry` provides declarative metadata for API, MCP, skill and
+  custom-tool integrations, including credentials, permissions, endpoints,
+  dependencies, OS support, installation state and fail-closed health checks.
+
+### Hermes session, memory and skill audit slice — 2026-11-19
+
+- Added additive SQLite migrations for `hermes_session_map` and `skill_events`.
+  Hermes session IDs map to existing OMNI-X sessions, while prompts and answers
+  remain in the existing `sessions`/`messages` tables.
+- Added `HermesMemoryAdapter`, which uses OMNI-X's existing SQLite `memories`
+  table rather than introducing a second memory store.
+- Skill load and skip decisions now produce audit records. Deterministic tests
+  cover enabled/relevant loading, permission/dependency filtering, session
+  mapping, memory persistence and audit behavior.
+- Hermes-native persistence and memory managers are inspected but not yet made
+  authoritative; live skill execution remains unverified.
+- Controlled raw-response evidence (2026-11-19) shows one direct free-route request returned `tool_calls=null`, `finish_reason=stop`, empty content, model `deepseek-ai/deepseek-r1-distill-qwen-32b`, and 406 total tokens. There was no valid call for Hermes to lose or reject; this is recorded as a provider/model limitation. No additional parser formats were added.
+- Current catalogue sweep tested four free `combo` auto routes with native tools requested. All served `deepseek-ai/deepseek-r1-distill-qwen-32b` and returned no `tool_calls`; the declared-tool UncloseAI route returned 401 because registration is closed. No reliable free tool route is currently available, so live Hermes tool execution remains unverified and testing has stopped rather than consuming repeated tokens.
+
+### Hermes task lifecycle bridge — 2026-11-19
+
+- Added `omnix.hermes_task_bridge`, a fail-closed boundary around Hermes
+  `cron.jobs.parse_schedule`, normalising one-shot and interval syntax into the
+  existing SQLite scheduler and supporting cron only when `croniter` is present.
+- `TaskService` remains the sole scheduler, worker host and delegated-job
+  executor. Hermes `cron.scheduler`, managed workers and `delegate_tool` are
+  not started for execution.
+- Deterministic task tests continue to cover recurring schedules, restart
+  reclamation, cancellation, inherited FREE policy, child aggregation and
+  persistence. Actual Hermes-native worker IPC, Hermes-owned cron persistence
+  and live model-backed delegated children remain incomplete.
+
+### Hermes runtime selector — 2026-11-19
+
+- Added controlled `Settings.runtime` selection. OMNI-X remains the default;
+  Hermes is explicit or can be selected through bounded `auto` fallback.
+- Background and child jobs can now invoke the real Hermes `AIAgent` probe
+  through `TaskService`, with inherited FREE/zero-spend/tool policy snapshots,
+  persisted usage and runtime events.
+- Hermes probe cancellation terminates only its owned subprocess tree.
+- Deterministic tests passed for Hermes child dispatch, usage persistence,
+  parent/child settlement and auto fallback. No live Hermes child inference or
+  live Hermes delegation is claimed; provider/tool instability remains the
+  external blocker.
+
+### Live Hermes child validation — 2026-11-19
+
+- OmniRoute discovery succeeded using the existing gateway credential and
+  reported nine explicitly free catalogue models.
+- One bounded real child attempt selected Hermes `AIAgent` for
+  `auto/coding:free` under FREE/zero-spend policy. The child timed out after
+  30 seconds before receiving a response; parent/child IDs and the failure are
+  persisted, with no usage or tool event falsely recorded.
+- Hermes is therefore not ready to become the default runtime. The existing
+  OMNI-X runtime remains default and `auto` fallback remains available.
+
+### Hermes timeout and live child validation — 2026-11-19
+
+- Timeout configuration is split into provider request, agent execution, child
+  task and parent orchestration budgets; all are positive and bounded.
+- A real Hermes child completed a minimal text-only task through
+  `auto/best-free` in FREE mode with zero cost. The response was
+  `HERMES-TIMING-OK`, using `1,488` total tokens and `28,736 ms` probe latency.
+- Instrumentation measured `13 ms` process startup and `21,969 ms` Hermes agent
+  runtime. The prior 30-second failure was upstream/provider latency beyond
+  the old budget, not a parent/child lifecycle failure.
+- Live tool execution remains unverified. Hermes remains experimental and is
+  not ready to replace the default OMNI-X runtime.
 
 ## Evidence policy
 

@@ -265,6 +265,78 @@ owned-sidecar cleanup, silent uninstall and installer artifact upload. Both
 hosted runners lacked OmniRoute, so no live desktop model response or
 conversation-persistence-after-live-chat result is claimed.
 
+### Hermes-primary live probe — 2026-11-19
+
+- The actual installer-managed Hermes `run_agent.AIAgent` was invoked through local OmniRoute using `auto/coding:free` in FREE mode.
+- One API call returned exactly `HERMES-PRIMARY-OK`; Hermes reported `completed=true` and `text_response(finish_reason=stop)`.
+- Usage was 1,425 input, 58 output and 1,483 total tokens. Measured latency was 24,361 ms and estimated cost was `$0.00`.
+- Hermes reported provider `custom` and `served_model=None`; no upstream model identity is inferred. No tool or persistence execution was claimed.
+- `HermesToolAdapter` has deterministic schema, read-only execution and approval-denial tests, but live wiring into the Hermes subprocess remains incomplete.
+
+### Hermes tool-dispatch probe — 2026-11-19
+
+- The managed Hermes process is wired at its actual `model_tools.get_tool_definitions` and `model_tools.handle_function_call` extension points to an OMNI-X `HermesToolAdapter`; response normalization reuses OMNI-X's existing anchored textual-call parser before Hermes chooses text finalization.
+- Deterministic adapter validation passed for schema parity, read-only read-back, approved write/read-back, denied write and unknown/malformed calls.
+- The bounded live read test did **not** pass: `auto/coding:free` returned narrated `read_file(evidence.txt)` text with zero dispatch events. A single bounded `auto/best-free` retry timed out before a terminal result. Neither is counted as tool execution.
+- A further bounded live attempt after the parser bridge produced no verifiable tool-dispatch evidence and was not counted as success. Live Hermes tool execution remains unverified because the available free routes are text-only or unstable for this task.
+
+### Hermes tool-call boundary investigation — 2026-11-19
+
+- A single direct, sanitized OmniRoute request with the `read_file` schema
+  returned model `deepseek-ai/deepseek-r1-distill-qwen-32b`,
+  `finish_reason=stop`, `tool_calls=null`, empty `content`, and usage of 126
+  prompt / 280 completion / 406 total tokens in 10,135 ms.
+- This response contained no executable call for Hermes to normalize or
+  dispatch. The failure boundary is upstream model output, not OMNI-X loss or
+  rejection. The selected free route therefore remains unverified for tools.
+- Deterministic normalization tests confirm valid anchored textual calls enter
+  the Hermes tool-round shape while narrative and empty responses do not.
+
+### Current free-model capability sweep — 2026-11-19
+
+- OmniRoute discovery reported four free `combo` routes with declared tool
+  support: `auto/best-coding`, `auto/best-fast`, `auto/best-reasoning` and
+  `auto/best-chat`. One bounded native-function request was sent to each.
+- All four served `deepseek-ai/deepseek-r1-distill-qwen-32b`, returned
+  `finish_reason=stop` and `tool_calls=null`; three returned empty content and
+  one returned a clarification fragment. Usage was 432–479 total tokens and
+  latency was 10,735–16,068 ms. No dispatch event occurred.
+- The other declared-tool route, `unc/turboderp/Qwen3.8-27B-exl3`, returned
+  HTTP 401 in 390 ms: UncloseAI's public beta is closed and key registration is
+  unavailable. It was excluded without retry.
+- No free route passed native tool capability testing. No live textual retry was
+  attempted because the provider responses did not establish a usable route;
+  existing deterministic textual-parser tests remain the evidence for that
+  compatibility path.
+
+### Integration management validation — 2026-11-19
+
+- Deterministic tests passed for unified skill browsing, explicit reviewed local
+  installation, disabled-by-default activation, permission/credential metadata,
+  credential integration scoping and revocation without exposing secret values.
+- The local CLI inventory identified Hermes bundled and optional skill trees;
+  optional entries are visible for review but are not enabled automatically.
+- Direct provider adapters remain credential-gated. No new external API, OAuth
+  or MCP service was contacted in this milestone.
+
+### Hermes session/memory and audit validation — 2026-11-19
+
+- Deterministic migration tests passed for Hermes-to-OMNI-X session mapping,
+  conversation preservation, SQLite memory read/write and skill load audit
+  records.
+- No existing SQLite tables were replaced. Hermes's native session database and
+  memory manager remain compatibility references, not the OMNI-X source of
+  truth.
+
+### Hermes manager bridge validation — 2026-11-19
+
+- Deterministic tests passed for relevant enabled-skill context, permission and
+  dependency filtering, scoped credentials, integration health and additive
+  SQLite session recording.
+- Hermes receives skill instructions only through its supported
+  `ephemeral_system_prompt` boundary. No live skill execution was claimed; the
+  available free routes remain unreliable for tool execution.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before
@@ -295,4 +367,61 @@ conversation-persistence-after-live-chat result is claimed.
   direct replacement would currently risk bypassing OMNI-X's provider policy,
   FREE-mode restrictions, credential ownership, approval boundary and SQLite
   identity model. No Hermes replacement was claimed or activated.
+
+### Hermes task lifecycle integration — 2026-11-19
+
+- Source inspection at Hermes `edd11438db3b99558f71ca58f2b93e6c804cf20b`
+  confirmed that `cron.scheduler` and the managed worker gateway own Hermes
+  profile stores and process protocols. They were not started by OMNI-X.
+- The new bridge reuses `cron.jobs.parse_schedule` where dependencies are
+  importable and otherwise uses the dependency-free interval/ISO fallback.
+  Cron expressions fail closed when `croniter` is unavailable.
+- Deterministic evidence remains the local `TaskService` suite: persistent
+  schedule execution, queue reclamation after host restart, cancellation,
+  inherited FREE policy, delegated result aggregation and SQLite history all
+  pass. This is adapted lifecycle behavior, not live Hermes worker or child
+  execution evidence.
+
+### Hermes child runtime selector — 2026-11-19
+
+- Deterministic child dispatch invoked the `hermes-aiaagent` boundary with a
+  FREE policy, zero spend, inherited permissions and a cancellation event.
+  Usage and runtime-selection events were persisted against the child job, and
+  the parent delegation reached `completed` only after the child settled.
+- Deterministic `auto` selection recorded a Hermes failure and completed through
+  the existing OMNI-X runtime fallback.
+- These tests use an injected probe to avoid provider consumption. They verify
+  lifecycle and policy wiring only; no live Hermes child response or live
+  delegated tool execution is claimed.
+
+### Live Hermes child attempt — 2026-11-19
+
+- OmniRoute was reachable with the existing local gateway credential and
+  advertised nine explicitly free models. The bounded child test selected
+  `auto/coding:free` in FREE mode with a zero-cost limit.
+- Parent job: `4ca91f62-3863-4cfe-a8bc-fb42a675e630`.
+- Child job: `45478389-59c8-45a0-9454-f78b4c989baf`.
+- Hermes selection and the parent/child SQLite delegation row were recorded,
+  but the actual Hermes AIAgent child timed out after 30 seconds before a model
+  response. No usage row, tool result or successful child inference was
+  recorded. Testing stopped without retrying the unstable route.
+
+### Hermes timeout instrumentation and live child inference — 2026-11-19
+
+- Added separate bounded budgets for provider requests, agent execution, child
+  jobs and parent orchestration. Hermes probes now record process startup,
+  process runtime and Hermes agent runtime when a response is returned.
+- One bounded live text-only child attempt through OmniRoute `auto/best-free`
+  succeeded under FREE mode and `$0` spending:
+  - parent `d4b920ef-4caa-4dca-9b7b-9f27734c50f6`
+  - child `d7d9f311-d8a8-4f5b-a65f-9c4ca5321fe5`
+  - response `HERMES-TIMING-OK`
+  - `1,430` input, `58` output, `1,488` total tokens
+  - process startup `13 ms`, Hermes agent runtime `21,969 ms`, probe latency
+    `28,736 ms`, end-to-end child wall time `28,834 ms`
+  - provider reported `custom`; served upstream model was not exposed
+  - no tool call was requested or counted
+- The previous 30-second timeout was consistent with free-route provider/agent
+  latency, not process startup or parent orchestration. No repeated retry was
+  made after this successful minimal probe.
 

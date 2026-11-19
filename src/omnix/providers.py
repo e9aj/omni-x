@@ -97,7 +97,7 @@ class ModelClient:
         for attempt in range(self.settings.retry_limit + 1):
             request = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, headers={"Content-Type": "application/json", **headers}, method="POST" if body is not None else "GET")
             try:
-                with urllib.request.urlopen(request, timeout=self.settings.request_timeout_seconds) as response:
+                with urllib.request.urlopen(request, timeout=getattr(self.settings, "provider_request_timeout_seconds", self.settings.request_timeout_seconds)) as response:
                     return json.loads(response.read())
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode(errors="replace")

@@ -42,7 +42,7 @@ def discover_omniroute(settings: Settings) -> Discovery:
     started = time.perf_counter()
     request = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(request, timeout=min(settings.request_timeout_seconds, 10)) as response:
+        with urllib.request.urlopen(request, timeout=min(getattr(settings, "provider_request_timeout_seconds", settings.request_timeout_seconds), 10)) as response:
             payload = json.loads(response.read())
         models = payload.get("data", []) if isinstance(payload, dict) else []
         free = [model for model in models if isinstance(model, dict) and _is_explicitly_free(model)]

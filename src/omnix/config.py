@@ -20,6 +20,10 @@ def data_dir() -> Path:
 
 @dataclass
 class Settings:
+    # ``omnix`` keeps the verified OMNI-X engine as the default. ``auto`` may
+    # use Hermes for bounded jobs and falls back to OMNI-X on availability or
+    # compatibility failure; ``hermes`` is an explicit opt-in requirement.
+    runtime: str = "omnix"
     provider: str = "openai"
     model: str = "gpt-4o-mini"
     base_url: str = ""
@@ -29,6 +33,10 @@ class Settings:
     max_cost_usd: float = 0.0
     allow_paid: bool = False
     request_timeout_seconds: int = 120
+    provider_request_timeout_seconds: int = 120
+    agent_execution_timeout_seconds: int = 300
+    child_task_timeout_seconds: int = 360
+    parent_orchestration_timeout_seconds: int = 420
     retry_limit: int = 2
     free_models: list[str] = field(default_factory=list)
     content_preference: str = "creative"

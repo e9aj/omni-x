@@ -37,6 +37,8 @@ class Store:
         CREATE TABLE IF NOT EXISTS schedules (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, schedule TEXT NOT NULL, kind TEXT NOT NULL, next_run_at REAL NOT NULL, last_run_at REAL, enabled INTEGER NOT NULL DEFAULT 1, missed_runs INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, schedule_id TEXT, parent_job_id TEXT, session_id TEXT, prompt TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, deadline REAL, created REAL NOT NULL, started REAL, finished REAL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS delegations (id TEXT PRIMARY KEY, parent_job_id TEXT NOT NULL, child_job_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS hermes_session_map (omnix_session_id TEXT PRIMARY KEY, hermes_session_id TEXT NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS skill_events (id INTEGER PRIMARY KEY, skill TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, task_id TEXT, created REAL NOT NULL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
@@ -112,6 +114,22 @@ class Store:
     def messages(self, session_id: str) -> list[dict[str, str]]:
         rows = self.db.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id", (session_id,)).fetchall()
         return [{"role": row["role"], "content": row["content"]} for row in rows]
+
+    def bind_hermes_session(self, omnix_session_id: str, hermes_session_id: str) -> None:
+        self.db.execute("INSERT OR REPLACE INTO hermes_session_map VALUES (?,?,?)", (omnix_session_id, hermes_session_id, time.time()))
+        self.db.commit()
+
+    def hermes_session(self, omnix_session_id: str) -> str | None:
+        row = self.db.execute("SELECT hermes_session_id FROM hermes_session_map WHERE omnix_session_id=?", (omnix_session_id,)).fetchone()
+        return row["hermes_session_id"] if row else None
+
+    def record_skill_event(self, skill: str, event: str, detail: str = "", task_id: str | None = None) -> None:
+        self.db.execute("INSERT INTO skill_events(skill,event,detail,task_id,created) VALUES (?,?,?,?,?)", (skill, event, detail[:2000], task_id, time.time()))
+        self.db.commit()
+
+    def skill_events(self, skill: str | None = None) -> list[dict]:
+        rows = self.db.execute("SELECT * FROM skill_events" + (" WHERE skill=?" if skill else "") + " ORDER BY id", (skill,) if skill else ()).fetchall()
+        return [dict(row) for row in rows]
 
     def remember(self, key: str, value: str) -> None:
         now = time.time()

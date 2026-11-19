@@ -189,3 +189,17 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   started. No policy bypass was attempted; launch, restart, SQLite update
   persistence and owned-process shutdown are therefore not live-validated.
 
+### Windows execution policy evidence — 2026-11-19
+
+- Code Integrity event 3077/3033 blocked the unsigned NSIS installer before
+  launch. SHA-256:
+  `CCB3F53BF60A0E7A1B3E1B70251ADBAC2E52FC2E86601773FF28C9E72E38D99E`.
+- Event 3089 recorded zero signatures, `Unknown` publisher/issuer and validated
+  signing level 1 versus requested level 2. Event 3118 identified Smart App
+  Control details under `VerifiedAndReputableDesktop`, policy GUID
+  `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`.
+- Earlier local Cargo attempts were blocked separately when Cargo loaded
+  unsigned generated Rust build scripts. No installer, Tauri process, Python
+  sidecar or live desktop chat was observed. Testing must proceed only through
+  approved enterprise allowlisting or an authorised Windows 11 test VM.
+

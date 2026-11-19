@@ -2,6 +2,30 @@
 
 Last reviewed: 2026-11-19
 
+## Windows Code Integrity validation
+
+- Read-only inspection of `Microsoft-Windows-CodeIntegrity/Operational`
+  identified Smart App Control event 3118 and Code Integrity events 3033/3077
+  for the installer. The applicable policy is `VerifiedAndReputableDesktop`,
+  policy GUID `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`, with policy ID
+  `27555.1000.240208` and policy hash
+  `2668895A5B233A80432D00D67251D7B7F52686A3FB13780F4B242C5A1F937A01`
+  recorded by Windows.
+- Installer evidence: `OMNI-X_0.1.0_x64-setup.exe`, SHA-256
+  `CCB3F53BF60A0E7A1B3E1B70251ADBAC2E52FC2E86601773FF28C9E72E38D99E`,
+  Authenticode `NotSigned`, publisher and issuer unavailable. Event 3077
+  reports requested signing level 2 and validated signing level 1; event 3089
+  reports zero signatures and publisher/issuer `Unknown`.
+- The blocked process was the Codex-hosted `pwsh.exe` attempting to load the
+  NSIS installer. Earlier events independently blocked `cargo.exe` loading
+  unsigned Rust build scripts (`thiserror` and `proc-macro2`) under the same
+  policy. No event proves that the packaged Tauri executable or PyInstaller
+  sidecar was launched; those stages remain unvalidated here.
+- No AppLocker EXE/DLL events were found for these attempts. No policy was
+  disabled, modified or bypassed. Approved validation routes are an enterprise
+  allowlisting decision by the device owner for the exact signed build, or an
+  isolated Windows 11 test VM governed by an equivalent approved policy.
+
 ## Phase 3 desktop foundation
 
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.

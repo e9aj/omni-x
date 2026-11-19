@@ -160,6 +160,7 @@ class TaskService:
                 try:
                     result = self._run_hermes_job(db, row, cancel)
                 except HermesPrimaryError as exc:
+                    db.event(row["id"], "hermes_failure", str(exc))
                     if str(getattr(self.settings, "runtime", "omnix")).lower() != "auto" or cancel.is_set():
                         raise
                     # Auto is deliberately fail-open to the already validated

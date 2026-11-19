@@ -255,3 +255,8 @@ This proves the dispatch boundary and policy inheritance deterministically. It
 does not claim live child inference, tool execution or Hermes-native delegation:
 the available free route has not supplied reliable executable tool calls, and
 Hermes's own `delegate_tool` remains intentionally unembedded.
+
+The desktop loopback API now exposes and persists the same runtime selector.
+`omnix` uses the existing engine, `hermes` invokes the Hermes probe, and `auto`
+falls back to OMNI-X after a Hermes failure. The frontend contract remains the
+same and responses include the selected runtime and usage metadata.

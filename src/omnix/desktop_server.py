@@ -15,6 +15,7 @@ from typing import Any
 from . import __version__
 from .config import Settings, config_path, load_settings, save_settings
 from .runtime import AgentRuntime
+from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
 from .store import Store
 
 
@@ -100,7 +101,7 @@ class Handler(BaseHTTPRequestHandler):
             settings = load_settings()
             if not config_path().exists() and settings.provider == "openai":
                 settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
-            self._json(200, {"mode": settings.mode, "provider": settings.provider, "model": settings.model, "content_preference": settings.content_preference, "allow_paid": settings.allow_paid})
+            self._json(200, {"mode": settings.mode, "provider": settings.provider, "model": settings.model, "runtime": settings.runtime, "content_preference": settings.content_preference, "allow_paid": settings.allow_paid})
         elif self.path.startswith("/v1/sessions/"):
             session_id = self.path.rsplit("/", 1)[-1]
             if not session_id or len(session_id) > 200 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in session_id):
@@ -134,13 +135,20 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     self._json(200, {"id": ident, "decision": decision})
             elif self.path == "/v1/settings":
-                preference = self._body().get("content_preference")
-                if preference not in {"standard", "creative", "open"}:
+                body = self._body()
+                preference = body.get("content_preference")
+                runtime = body.get("runtime")
+                if preference is not None and preference not in {"standard", "creative", "open"}:
                     raise ValueError("content_preference must be standard, creative or open")
+                if runtime is not None and runtime not in {"omnix", "hermes", "auto"}:
+                    raise ValueError("runtime must be omnix, hermes or auto")
                 settings = load_settings()
-                settings.content_preference = preference
+                if preference is not None:
+                    settings.content_preference = preference
+                if runtime is not None:
+                    settings.runtime = runtime
                 save_settings(settings)
-                self._json(200, {"content_preference": preference})
+                self._json(200, {"content_preference": settings.content_preference, "runtime": settings.runtime})
             else:
                 self._json(404, {"error": "not found"})
         except (ValueError, OSError, RuntimeError) as exc:
@@ -165,6 +173,26 @@ class Handler(BaseHTTPRequestHandler):
                 settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
             store = Store()
             approver = self.server.approvals.request if hasattr(self.server, "approvals") else (lambda _: False)
+            hermes_result = None
+            if settings.runtime in {"hermes", "auto"} and settings.mode == "FREE" and not settings.allow_paid and settings.max_cost_usd == 0:
+                try:
+                    hermes_result = run_hermes_primary_probe(settings, prompt, timeout=settings.request_timeout_seconds, cancel_event=cancel)
+                except HermesPrimaryError:
+                    if settings.runtime == "hermes":
+                        raise
+            if hermes_result is not None:
+                answer = hermes_result["answer"]
+                result_session = hermes_result.get("omnix_session_id") or session_id
+                task_id = None
+                h_usage = hermes_result.get("usage", {})
+                usage = [{"provider": h_usage.get("provider", settings.provider),
+                          "model": h_usage.get("served_model") or hermes_result.get("model", settings.model),
+                          "input_tokens": h_usage.get("input_tokens", 0),
+                          "output_tokens": h_usage.get("output_tokens", 0),
+                          "estimated_cost": h_usage.get("estimated_cost_usd", 0.0)}]
+                tool_events = []
+                self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "runtime": "hermes", "allow_paid": settings.allow_paid, "model": usage[-1]["model"], "provider": usage[-1]["provider"], "usage": usage, "tool_events": tool_events})
+                return
             runtime = AgentRuntime(settings, store, Path.cwd(), approver=approver, cancel_event=cancel)
             answer, result_session = runtime.run(prompt, session_id)
             task_id = getattr(runtime, "last_task_id", None)
@@ -175,7 +203,7 @@ class Handler(BaseHTTPRequestHandler):
                 tool_events = [dict(row) for row in store.db.execute("SELECT kind, detail, created FROM events WHERE task_id=? AND kind LIKE 'tool_%' ORDER BY id", (task_id,)).fetchall()]
             actual_model = usage[-1]["model"] if usage else settings.model
             actual_provider = usage[-1]["provider"] if usage else settings.provider
-            self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "allow_paid": settings.allow_paid, "model": actual_model, "provider": actual_provider, "usage": usage, "tool_events": tool_events})
+            self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "runtime": "omnix", "allow_paid": settings.allow_paid, "model": actual_model, "provider": actual_provider, "usage": usage, "tool_events": tool_events})
         except Exception as exc:
             self._json(502, {"error": str(exc)})
         finally:

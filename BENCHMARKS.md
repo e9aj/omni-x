@@ -394,3 +394,15 @@ conversation-persistence-after-live-chat result is claimed.
   lifecycle and policy wiring only; no live Hermes child response or live
   delegated tool execution is claimed.
 
+### Live Hermes child attempt — 2026-11-19
+
+- OmniRoute was reachable with the existing local gateway credential and
+  advertised nine explicitly free models. The bounded child test selected
+  `auto/coding:free` in FREE mode with a zero-cost limit.
+- Parent job: `4ca91f62-3863-4cfe-a8bc-fb42a675e630`.
+- Child job: `45478389-59c8-45a0-9454-f78b4c989baf`.
+- Hermes selection and the parent/child SQLite delegation row were recorded,
+  but the actual Hermes AIAgent child timed out after 30 seconds before a model
+  response. No usage row, tool result or successful child inference was
+  recorded. Testing stopped without retrying the unstable route.
+

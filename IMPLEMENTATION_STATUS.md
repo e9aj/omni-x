@@ -361,6 +361,17 @@ This is a Phase 2 development baseline, not a production-readiness claim.
   live Hermes delegation is claimed; provider/tool instability remains the
   external blocker.
 
+### Live Hermes child validation — 2026-11-19
+
+- OmniRoute discovery succeeded using the existing gateway credential and
+  reported nine explicitly free catalogue models.
+- One bounded real child attempt selected Hermes `AIAgent` for
+  `auto/coding:free` under FREE/zero-spend policy. The child timed out after
+  30 seconds before receiving a response; parent/child IDs and the failure are
+  persisted, with no usage or tool event falsely recorded.
+- Hermes is therefore not ready to become the default runtime. The existing
+  OMNI-X runtime remains default and `auto` fallback remains available.
+
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.

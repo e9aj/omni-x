@@ -236,6 +236,12 @@ launcher ancestry on Windows and records both identities. The smoke harness now
 checks the same boundary; a rerun is required before this is recorded as a
 passing lifecycle result.
 
+Hosted run `44607023149` reached install, packaged-backend probe, desktop launch,
+owned-backend observation and FREE-mode checks, then failed in the new test
+harness because PowerShell reserved `$PID` conflicts with the helper's `$pid`
+parameter. The application was not the failing assertion; the helper parameters
+are renamed before rerun.
+
 ### Desktop integration coverage — pending hosted rerun
 
 - Deterministic local coverage includes authenticated loopback, SQLite session

@@ -113,14 +113,14 @@ jobs:
           $ownedBackendIds = @($ownedBackend | ForEach-Object { [int]$_.ProcessId })
           $base = 'http://127.0.0.1:27451'
           $headers = @{ Authorization = "Bearer $appToken"; Origin = 'tauri://localhost' }
-          function Test-ProcessDescendant([int]$pid, [int]$ancestorPid) {
-            if ($pid -eq $ancestorPid) { return $true }
-            $current = $pid
+          function Test-ProcessDescendant([int]$processId, [int]$ancestorId) {
+            if ($processId -eq $ancestorId) { return $true }
+            $current = $processId
             for ($depth = 0; $depth -lt 32; $depth++) {
               $process = Get-CimInstance Win32_Process -Filter "ProcessId = $current" -ErrorAction SilentlyContinue
               if (-not $process) { return $false }
               $parent = [int]$process.ParentProcessId
-              if ($parent -eq $ancestorPid) { return $true }
+              if ($parent -eq $ancestorId) { return $true }
               if ($parent -eq 0 -or $parent -eq $current) { return $false }
               $current = $parent
             }

@@ -179,6 +179,10 @@ This is a Phase 2 development baseline, not a production-readiness claim.
   are recorded separately, and the smoke harness uses the same ownership rule.
 - The latest hosted runs on `6140943` failed before this correction; no passing
   crash recovery or live desktop inference is claimed until a rerun succeeds.
+- Hosted validation of `f0025b9` compiled and launched the packaged app but
+  stopped in the smoke harness because its helper parameter `$pid` collided
+  with PowerShell's read-only `$PID` variable. This is corrected by using
+  neutral parameter names; no application failure was observed in that run.
 
 ## Verified working locally
 

@@ -2,6 +2,21 @@
 
 Last reviewed: 2026-11-19
 
+## Hermes reuse assessment
+
+- Current upstream Hermes source was inspected at `main`. It is MIT licensed
+  and provides substantial reusable implementations for the agent loop,
+  structured tool registry, SQLite persistence, memory providers, skills,
+  browser/CDP lifecycle, cron scheduling, background process management and
+  delegated workers.
+- Direct replacement is not yet safe because Hermes owns assumptions about
+  provider resolution, profiles, session schema/identity and approval policy.
+  OMNI-X must remain authoritative for OmniRoute free-first routing, FREE mode,
+  credentials, spending limits, content preferences, desktop IPC and Windows
+  process ownership.
+- Architecture documentation now records the component-by-component reuse
+  plan. No Hermes runtime replacement was made in this change.
+
 ## Windows Code Integrity validation
 
 - Read-only inspection of `Microsoft-Windows-CodeIntegrity/Operational`

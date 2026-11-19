@@ -64,6 +64,27 @@ jobs:
           Write-Host "Installation directory: $(Split-Path $app.FullName)"
           Write-Host 'Installed OMNI-X files:'
           Get-ChildItem (Split-Path $app.FullName) -File | Select-Object Name,Length | Format-Table -AutoSize
+          $installDir = Split-Path $app.FullName
+          $probe = Join-Path $installDir 'omnix-backend.exe'
+          if (-not (Test-Path -LiteralPath $probe)) { throw "Packaged backend not found at $probe" }
+          $probeToken = 'smoke-probe-' + [guid]::NewGuid().ToString('N')
+          $probeOut = Join-Path $env:TEMP 'omnix-backend-probe.stdout.log'
+          $probeErr = Join-Path $env:TEMP 'omnix-backend-probe.stderr.log'
+          Remove-Item -LiteralPath $probeOut,$probeErr -Force -ErrorAction SilentlyContinue
+          $probeProcess = Start-Process -FilePath $probe -ArgumentList '--port','27452' -WorkingDirectory $installDir -Environment @{ OMNIX_IPC_TOKEN = $probeToken } -RedirectStandardOutput $probeOut -RedirectStandardError $probeErr -PassThru
+          Start-Sleep -Seconds 3
+          if ($probeProcess.HasExited) {
+            $probeProcess.Refresh()
+            Write-Host "Packaged backend probe exit code: $($probeProcess.ExitCode)"
+            Write-Host 'Packaged backend probe stderr:'; if (Test-Path $probeErr) { Get-Content $probeErr -Tail 100 }
+            Write-Host 'Packaged backend probe stdout:'; if (Test-Path $probeOut) { Get-Content $probeOut -Tail 100 }
+            throw 'Packaged backend exited before smoke probe'
+          }
+          $health = Invoke-RestMethod -Uri 'http://127.0.0.1:27452/v1/health' -Headers @{ Authorization = "Bearer $probeToken"; Origin = 'tauri://localhost' } -TimeoutSec 5
+          if ($health.status -ne 'ok') { throw 'Packaged backend health probe did not return status ok' }
+          Write-Host 'Packaged backend direct probe: passed'
+          Stop-Process -Id $probeProcess.Id -Force
+          Wait-Process -Id $probeProcess.Id -Timeout 10 -ErrorAction SilentlyContinue
           $stderr = Join-Path $env:TEMP 'omnix-desktop-stderr.log'
           $stdout = Join-Path $env:TEMP 'omnix-desktop-stdout.log'
           $desktop = Start-Process -FilePath $app.FullName -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout

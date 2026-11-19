@@ -209,3 +209,14 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   the next permitted installation evidence; no real AI chat is claimed from
   this smoke test.
 
+### Hermes architecture assessment — 2026-11-19
+
+- Inspected the current Hermes source tree and MIT license. The source contains
+  a production-scale `AIAgent` loop, registry-based structured tool dispatch,
+  SQLite persistence/session search, memory providers, skills, CDP browser
+  lifecycle, cron scheduler and isolated delegation workers.
+- Assessment: direct reuse is feasible behind compatibility adapters, but a
+  direct replacement would currently risk bypassing OMNI-X's provider policy,
+  FREE-mode restrictions, credential ownership, approval boundary and SQLite
+  identity model. No Hermes replacement was claimed or activated.
+

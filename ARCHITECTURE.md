@@ -260,3 +260,10 @@ The desktop loopback API now exposes and persists the same runtime selector.
 `omnix` uses the existing engine, `hermes` invokes the Hermes probe, and `auto`
 falls back to OMNI-X after a Hermes failure. The frontend contract remains the
 same and responses include the selected runtime and usage metadata.
+
+Timeout ownership is explicit: provider clients use
+`provider_request_timeout_seconds`; Hermes/AIAgent and OMNI-X turns use
+`agent_execution_timeout_seconds`; queued children use
+`child_task_timeout_seconds`; parent waits use
+`parent_orchestration_timeout_seconds`. Cancellation still terminates only the
+owned Hermes subprocess tree.

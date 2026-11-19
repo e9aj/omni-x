@@ -33,6 +33,10 @@ class Settings:
     max_cost_usd: float = 0.0
     allow_paid: bool = False
     request_timeout_seconds: int = 120
+    provider_request_timeout_seconds: int = 120
+    agent_execution_timeout_seconds: int = 300
+    child_task_timeout_seconds: int = 360
+    parent_orchestration_timeout_seconds: int = 420
     retry_limit: int = 2
     free_models: list[str] = field(default_factory=list)
     content_preference: str = "creative"

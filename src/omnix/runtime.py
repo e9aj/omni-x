@@ -49,7 +49,7 @@ class AgentRuntime:
         self.cancel_event = cancel_event or threading.Event()
         self.tools = ToolRegistry(self.workspace, approver, self.cancel_event, delegate_handler)
         self.max_steps = settings.max_steps
-        self.timeout_seconds = settings.request_timeout_seconds * max(1, settings.max_steps)
+        self.timeout_seconds = getattr(settings, "agent_execution_timeout_seconds", settings.request_timeout_seconds * max(1, settings.max_steps))
 
     def cancel(self) -> None:
         self.cancel_event.set()

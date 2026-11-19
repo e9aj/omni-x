@@ -212,7 +212,7 @@ class TaskService:
         child_settings = self._job_settings(row)
         self.store.event(row["id"], "runtime_selected", "hermes-aiaagent")
         result = run_hermes_primary_probe(child_settings, row["prompt"],
-                                          timeout=max(1.0, float(self.settings.request_timeout_seconds)),
+                                          timeout=max(1.0, float(getattr(self.settings, "agent_execution_timeout_seconds", self.settings.request_timeout_seconds))),
                                           cancel_event=cancel)
         usage = result.get("usage", {})
         db.record_usage(row["id"], str(usage.get("provider", child_settings.provider)),
@@ -237,11 +237,11 @@ class TaskService:
     def _delegate_for_job(self, parent_job_id: str, cancel: threading.Event, prompt: str, role: str = "specialist") -> str:
         if cancel.is_set():
             raise RuntimeError("Task cancelled")
-        child_budget = max(60.0, min(180.0, self.settings.request_timeout_seconds * 2))
+        child_budget = max(30.0, float(getattr(self.settings, "child_task_timeout_seconds", self.settings.request_timeout_seconds * 2)))
         child = self.enqueue(prompt, parent_job_id=parent_job_id, deadline_seconds=child_budget)
         self.store.create_delegation(parent_job_id, child, role)
         # Parent waiting and child execution have independent bounded budgets.
-        deadline = time.monotonic() + max(45.0, min(180.0, self.settings.request_timeout_seconds * 3))
+        deadline = time.monotonic() + max(30.0, float(getattr(self.settings, "parent_orchestration_timeout_seconds", self.settings.request_timeout_seconds * 3)))
         while time.monotonic() < deadline:
             if cancel.is_set():
                 self.cancel(child); raise RuntimeError("Task cancelled")

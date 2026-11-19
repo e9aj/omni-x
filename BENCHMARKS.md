@@ -406,3 +406,22 @@ conversation-persistence-after-live-chat result is claimed.
   response. No usage row, tool result or successful child inference was
   recorded. Testing stopped without retrying the unstable route.
 
+### Hermes timeout instrumentation and live child inference — 2026-11-19
+
+- Added separate bounded budgets for provider requests, agent execution, child
+  jobs and parent orchestration. Hermes probes now record process startup,
+  process runtime and Hermes agent runtime when a response is returned.
+- One bounded live text-only child attempt through OmniRoute `auto/best-free`
+  succeeded under FREE mode and `$0` spending:
+  - parent `d4b920ef-4caa-4dca-9b7b-9f27734c50f6`
+  - child `d7d9f311-d8a8-4f5b-a65f-9c4ca5321fe5`
+  - response `HERMES-TIMING-OK`
+  - `1,430` input, `58` output, `1,488` total tokens
+  - process startup `13 ms`, Hermes agent runtime `21,969 ms`, probe latency
+    `28,736 ms`, end-to-end child wall time `28,834 ms`
+  - provider reported `custom`; served upstream model was not exposed
+  - no tool call was requested or counted
+- The previous 30-second timeout was consistent with free-route provider/agent
+  latency, not process startup or parent orchestration. No repeated retry was
+  made after this successful minimal probe.
+

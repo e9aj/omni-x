@@ -49,7 +49,7 @@ def inject_omnix_text_calls(message: Any) -> bool:
     return True
 
 _HERMES_PROBE = r'''
-import json, sys
+import json, sys, time
 from run_agent import AIAgent
 payload = json.loads(sys.stdin.read())
 agent = AIAgent(
@@ -60,7 +60,9 @@ agent = AIAgent(
     platform="omnix-hermes-primary-probe",
     ephemeral_system_prompt=payload.get("skill_prompt") or None,
 )
+agent_started = time.perf_counter()
 result = agent.run_conversation(user_message=payload["prompt"])
+agent_runtime_ms = round((time.perf_counter() - agent_started) * 1000)
 if isinstance(result, dict):
     # Keep the bridge deliberately narrow: expose execution evidence, never the
     # full Hermes result (which may contain prompts or provider metadata).
@@ -76,6 +78,7 @@ if isinstance(result, dict):
         "completed": result.get("completed"),
         "turn_exit_reason": result.get("turn_exit_reason"),
         "session_id": result.get("session_id"),
+        "agent_runtime_ms": agent_runtime_ms,
     }
 else:
     output = {"answer": str(result)}
@@ -88,7 +91,7 @@ os._exit(0)
 '''
 
 _HERMES_TOOL_PROBE = r'''
-import json, os, sys
+import json, os, sys, time
 from pathlib import Path
 
 payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
@@ -140,7 +143,9 @@ agent = AIAgent(
     platform="omnix-hermes-tool-probe",
     ephemeral_system_prompt=payload.get("skill_prompt") or None,
 )
+agent_started = time.perf_counter()
 result = agent.run_conversation(user_message=payload["prompt"])
+agent_runtime_ms = round((time.perf_counter() - agent_started) * 1000)
 if isinstance(result, dict):
     output = {
         "answer": result.get("final_response") or result.get("answer") or "",
@@ -154,6 +159,7 @@ if isinstance(result, dict):
         "completed": result.get("completed"),
         "turn_exit_reason": result.get("turn_exit_reason"),
         "session_id": result.get("session_id"),
+        "agent_runtime_ms": agent_runtime_ms,
     }
 else:
     output = {"answer": str(result)}
@@ -224,6 +230,7 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
     process = subprocess.Popen([str(python), "-c", _HERMES_PROBE], stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                cwd=str(source), env=env, creationflags=flags)
+    spawned_ms = round((time.perf_counter() - started) * 1000)
     process.stdin.write(json.dumps(payload))
     process.stdin.close()
     deadline = time.monotonic() + timeout
@@ -247,7 +254,7 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
             process.stdout.read()
         if process.stderr:
             process.stderr.read()
-        raise HermesPrimaryError("Hermes primary probe timed out") from exc
+        raise HermesPrimaryError(f"Hermes primary probe timed out after {round((time.perf_counter() - started) * 1000)}ms") from exc
     except HermesPrimaryError:
         if os.name == "nt":
             subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
@@ -272,9 +279,11 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
             elapsed_ms = round((time.perf_counter() - started) * 1000)
             metrics = {key: result.get(key) for key in (
                 "provider", "served_model", "input_tokens", "output_tokens", "total_tokens",
-                "estimated_cost_usd", "api_calls", "completed", "turn_exit_reason", "session_id"
+                "estimated_cost_usd", "api_calls", "completed", "turn_exit_reason", "session_id", "agent_runtime_ms"
             ) if key in result}
             metrics["latency_ms"] = elapsed_ms
+            metrics["process_spawn_ms"] = spawned_ms
+            metrics["process_runtime_ms"] = max(0, elapsed_ms - spawned_ms)
             return {"answer": result["answer"], "model": settings.model,
                     "engine": "hermes-aiaagent", "skills_loaded": payload.get("skills_loaded", []),
                     "skills_skipped": payload.get("skills_skipped", []),

@@ -372,6 +372,19 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Hermes is therefore not ready to become the default runtime. The existing
   OMNI-X runtime remains default and `auto` fallback remains available.
 
+### Hermes timeout and live child validation — 2026-11-19
+
+- Timeout configuration is split into provider request, agent execution, child
+  task and parent orchestration budgets; all are positive and bounded.
+- A real Hermes child completed a minimal text-only task through
+  `auto/best-free` in FREE mode with zero cost. The response was
+  `HERMES-TIMING-OK`, using `1,488` total tokens and `28,736 ms` probe latency.
+- Instrumentation measured `13 ms` process startup and `21,969 ms` Hermes agent
+  runtime. The prior 30-second failure was upstream/provider latency beyond
+  the old budget, not a parent/child lifecycle failure.
+- Live tool execution remains unverified. Hermes remains experimental and is
+  not ready to replace the default OMNI-X runtime.
+
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.

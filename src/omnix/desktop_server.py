@@ -176,7 +176,7 @@ class Handler(BaseHTTPRequestHandler):
             hermes_result = None
             if settings.runtime in {"hermes", "auto"} and settings.mode == "FREE" and not settings.allow_paid and settings.max_cost_usd == 0:
                 try:
-                    hermes_result = run_hermes_primary_probe(settings, prompt, timeout=settings.request_timeout_seconds, cancel_event=cancel)
+                    hermes_result = run_hermes_primary_probe(settings, prompt, timeout=settings.agent_execution_timeout_seconds, cancel_event=cancel)
                 except HermesPrimaryError:
                     if settings.runtime == "hermes":
                         raise

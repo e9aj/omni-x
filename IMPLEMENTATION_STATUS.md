@@ -388,3 +388,18 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.
+
+## Security and compliance hardening baseline — 2026-11-19
+
+- Added the supplied handbook unchanged under `docs/security/` and project
+  operating instructions in `AGENTS.md`.
+- Added a threat model, security architecture, test plan, release gate, risk
+  register and incident-response runbook.
+- Added CI definitions for Python SAST/dependency/licence checks, secret
+  scanning, npm audit, RustSec audit and a Python SBOM artifact.
+- Added deterministic regression coverage for narrative tool-call rejection,
+  credential scoping/revocation and disabled-skill exclusion.
+- This branch does not claim legal compliance, production readiness, complete
+  prompt-injection detection, sandboxed subprocesses, live Hermes tools, or live
+  desktop inference. Owner/legal decisions and external-provider assessments
+  remain required.

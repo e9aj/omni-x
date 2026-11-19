@@ -31,3 +31,10 @@ React (MIT), Vite (MIT), and Tailwind CSS (MIT). Their notices are supplied by
 the package distributions under `desktop/node_modules` during development and
 must be included in any packaged distribution according to the final lockfile
 and installer build.
+
+## Security handbook reference
+
+`docs/security/SOFTWARE_SECURITY_LEGAL_COMPLIANCE_HANDBOOK.pdf` is a
+user-supplied project policy reference copied byte-for-byte from the supplied
+source. It is not an OMNI-X dependency and is not represented as legal advice,
+a certification, or a third-party licence grant.

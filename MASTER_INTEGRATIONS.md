@@ -79,6 +79,10 @@ No repository in this register is automatically installed, executed, copied, or 
 
 ## Change log
 
+The security hardening branch adds a separate security/compliance evidence set;
+it does not change an integration decision or make a repository executable by
+default. The register remains authoritative for accept/defer/reject decisions.
+
 | Date | Change |
 |---|---|
 | 2026-11-16 | Created the initial register from the 38 explicit GitHub URLs in the OMNI-X specification and recorded GitHub API metadata plus preliminary scope decisions. |

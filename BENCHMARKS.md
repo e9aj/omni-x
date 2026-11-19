@@ -425,3 +425,17 @@ conversation-persistence-after-live-chat result is claimed.
   latency, not process startup or parent orchestration. No repeated retry was
   made after this successful minimal probe.
 
+### Security baseline validation — 2026-11-19
+
+- Handbook preservation: source and repository PDF SHA-256 matched
+  `89C791FB986A032A8640D09C743AA9C2679B2854F300EF8F63F6F76D9528A08E`.
+- Python regression suite: passed (`pytest -q`).
+- Python compilation: passed (`compileall`).
+- Frontend typecheck/build: passed.
+- npm high-severity audit: passed with zero vulnerabilities.
+- Credential-pattern scan over source, tests, docs and workflows: passed.
+- Bandit could not complete on the local Python 3.15 interpreter because the
+  pinned Bandit 1.7.9 uses removed `ast.Num`; CI uses Python 3.12. Local
+  `pip-audit` was also blocked by the pre-existing editable `omnix` install.
+  These are validation limitations, not clean security results.
+

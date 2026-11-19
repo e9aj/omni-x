@@ -91,11 +91,16 @@ model and settings panels remain presentation foundations until connected to
 the existing SQLite/runtime APIs. Packaging the Python/Hermes/OmniRoute
 dependencies as signed Windows sidecars is a later installer milestone.
 
-The current bridge now exposes authenticated chat, stop and shutdown operations
-through Tauri native commands. Chat calls the existing `AgentRuntime` with the
-existing SQLite store and an approval callback that denies sensitive actions by
-default; the frontend cannot grant permissions or access credentials. The
-native layer owns the child process, monitors unexpected exit and restarts only
-that captured process. The single-instance plugin and fixed loopback port
-prevent duplicate desktop hosts; packaged sidecar discovery and an interactive
-approval surface remain incomplete.
+The current bridge exposes authenticated chat, stop, shutdown and approval
+operations through Tauri native commands. Chat calls the existing
+`AgentRuntime` with the existing SQLite store. Sensitive tools synchronously
+wait on a backend-owned, expiring approval record; the frontend can only submit
+the scoped decision through the authenticated bridge and cannot bypass the
+backend policy. The native layer owns the child process, monitors unexpected
+exit and restarts only that captured process. The single-instance plugin and
+fixed loopback port prevent duplicate desktop hosts.
+
+Hosted packaging builds a PyInstaller `omnix-backend.exe` from the existing
+Python package, generates the branded Tauri icons from `desktop/src/assets/omnix.svg`,
+and includes the backend as an NSIS resource. Installed SQLite data remains in
+the normal per-user OMNI-X data directory rather than inside the installer.

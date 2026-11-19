@@ -35,6 +35,16 @@ jobs:
         run: |
           npm run typecheck
           npm run build
+      - name: Build managed Python backend sidecar
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          python -m pip install .
+          New-Item -ItemType Directory -Force desktop/src-tauri/binaries | Out-Null
+          pyinstaller --clean --noconfirm --onefile --name omnix-backend --paths src src/omnix/desktop_server.py
+          Copy-Item dist/omnix-backend.exe desktop/src-tauri/binaries/omnix-backend.exe -Force
+      - name: Generate OMNI-X application icons
+        working-directory: desktop
+        run: npm run tauri -- icon src/assets/omnix.svg
       - name: Build Windows NSIS installer
         working-directory: desktop
         run: npm run tauri build

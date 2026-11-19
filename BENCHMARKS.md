@@ -172,3 +172,15 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   generated executables. The hosted Windows build is the required compilation
   evidence; no installer is claimed until that run succeeds.
 
+- Hosted run `44523509586` compiled Rust dependencies and failed in the Tauri
+  build script because `src-tauri/icons/icon.ico` was missing. This was a
+  packaging-input defect, not an Application Control failure. The branch now
+  tracks the OMNI-X SVG source, generates the required icon set, builds a
+  PyInstaller-managed backend sidecar and bundles it as an NSIS resource. The
+  replacement workflow run is pending; no installer launch or live desktop AI
+  inference is claimed yet.
+- Deterministic approval coverage: backend approval requests are scoped to the
+  exact action, expire after 60 seconds, deny by default, and are auditable via
+  the authenticated approval endpoint. The UI surface is implemented; a real
+  packaged Windows approval interaction remains unvalidated.
+

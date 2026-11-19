@@ -9,13 +9,14 @@ Last reviewed: 2026-11-19
   branding, navigation sections and backend connection status.
 - Authenticated loopback `omnix.desktop_server` and native Tauri status command
   are implemented; Python, credentials and SQLite remain backend-owned.
-- This foundation does not yet claim complete lifecycle supervision: crash
-  restart, shutdown-on-window-exit, duplicate-instance locking and packaged
-  Python/Hermes/OmniRoute sidecars remain installer milestone work.
-- Authenticated chat, stop and shutdown bridge commands now call the real
-  `AgentRuntime`; deterministic endpoint tests prove session/result forwarding,
-  but no new live desktop inference run is claimed. Sensitive tools remain
-  denied until a native approval-request UI is implemented.
+- The native layer owns the backend child, prevents duplicate instances,
+  monitors crashes, restarts only the captured child, and performs graceful
+  shutdown before escalation. These paths are implemented but still require a
+  successful Windows binary launch test.
+- Authenticated chat, stop and shutdown bridge commands call the real
+  `AgentRuntime`; the bridge returns session, model and recorded usage data.
+  Sensitive actions create backend-owned, scoped, 60-second approval requests
+  surfaced in the native Tools & Skills UI and remain denied by default.
 - Tauri single-instance protection, owned-child monitoring/restart and
   shutdown-on-window-close are implemented in the native layer, pending the
   Windows runner build for compilation validation.
@@ -24,12 +25,16 @@ Last reviewed: 2026-11-19
 - Rust/Tauri compilation is not yet validated because Windows Application
   Control blocks `cargo.exe` in this environment. The installer and packaged
   backend are not complete.
-- The first hosted Tauri run reached the Windows build step but failed schema
+- Run `44523509586` reached Rust compilation and failed because the required
+  `desktop/src-tauri/icons/icon.ico` was absent. The icon is now generated from
+  the tracked OMNI-X SVG before packaging. The first hosted Tauri run reached the Windows build step but failed schema
   validation; that NSIS configuration and the Tauri package-version mismatch
   are fixed in the current branch. Local compilation then reached Rust
   dependency build scripts and was blocked by the same enterprise Code
   Integrity policy (`thiserror`/`proc-macro2`, event 3077). The next hosted run
-  is the authoritative compilation result.
+  is the authoritative compilation result. The workflow now builds a
+  PyInstaller `omnix-backend.exe` sidecar and bundles it as an NSIS resource;
+  a successful rerun is still required before claiming an installer artifact.
 
 ## Phase 2 release-candidate classification
 

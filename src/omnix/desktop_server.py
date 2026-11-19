@@ -6,12 +6,14 @@ import hmac
 import json
 import os
 import threading
+import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .config import load_settings
+from .config import Settings, config_path, load_settings
 from .runtime import AgentRuntime
 from .store import Store
 
@@ -20,6 +22,40 @@ class DesktopState:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.cancel_event: threading.Event | None = None
+
+
+class ApprovalManager:
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.pending: dict[str, dict[str, Any]] = {}
+
+    def request(self, action: str, timeout: float = 60.0) -> bool:
+        ident = str(uuid.uuid4())
+        event = threading.Event()
+        item = {"id": ident, "action": action, "status": "pending", "expires_at": time.time() + timeout, "event": event}
+        with self.lock:
+            self.pending[ident] = item
+        event.wait(timeout)
+        with self.lock:
+            current = self.pending.pop(ident, item)
+        return current["status"] == "approved" and current["expires_at"] > time.time()
+
+    def list(self) -> list[dict[str, Any]]:
+        now = time.time()
+        with self.lock:
+            expired = [key for key, item in self.pending.items() if item["expires_at"] <= now]
+            for key in expired:
+                self.pending[key]["status"] = "expired"
+            return [{key: value for key, value in item.items() if key != "event"} for item in self.pending.values()]
+
+    def decide(self, ident: str, approved: bool) -> bool:
+        with self.lock:
+            item = self.pending.get(ident)
+            if not item or item["expires_at"] <= time.time():
+                return False
+            item["status"] = "approved" if approved else "rejected"
+            item["event"].set()
+            return True
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -56,7 +92,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if not self._authorized():
             return
-        self._json(200, {"status": "ok", "version": __version__, "pid": os.getpid()}) if self.path == "/v1/health" else self._json(404, {"error": "not found"})
+        if self.path == "/v1/health":
+            self._json(200, {"status": "ok", "version": __version__, "pid": os.getpid()})
+        elif self.path == "/v1/approvals":
+            self._json(200, {"approvals": self.server.approvals.list()})
+        else:
+            self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
         if not self._authorized():
@@ -73,6 +114,13 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == "/v1/shutdown":
                 self._json(200, {"stopping": True})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
+            elif self.path.startswith("/v1/approvals/"):
+                ident = self.path.rsplit("/", 1)[-1]
+                decision = self._body().get("decision")
+                if decision not in {"approve", "reject"} or not self.server.approvals.decide(ident, decision == "approve"):
+                    self._json(404, {"error": "approval is missing or expired"})
+                else:
+                    self._json(200, {"id": ident, "decision": decision})
             else:
                 self._json(404, {"error": "not found"})
         except (ValueError, OSError, RuntimeError) as exc:
@@ -93,9 +141,19 @@ class Handler(BaseHTTPRequestHandler):
             self.server.state.cancel_event = cancel
         try:
             settings = load_settings()
-            runtime = AgentRuntime(settings, Store(), Path.cwd(), approver=lambda _: False, cancel_event=cancel)
+            if not config_path().exists() and settings.provider == "openai":
+                settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
+            store = Store()
+            approver = self.server.approvals.request if hasattr(self.server, "approvals") else (lambda _: False)
+            runtime = AgentRuntime(settings, store, Path.cwd(), approver=approver, cancel_event=cancel)
             answer, result_session = runtime.run(prompt, session_id)
-            self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "allow_paid": settings.allow_paid})
+            task_id = getattr(runtime, "last_task_id", None)
+            usage = []
+            tool_events = []
+            if task_id:
+                usage = [dict(row) for row in store.db.execute("SELECT provider, model, input_tokens, output_tokens, estimated_cost FROM usage WHERE task_id=? ORDER BY id", (task_id,)).fetchall()]
+                tool_events = [dict(row) for row in store.db.execute("SELECT kind, detail, created FROM events WHERE task_id=? AND kind LIKE 'tool_%' ORDER BY id", (task_id,)).fetchall()]
+            self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "allow_paid": settings.allow_paid, "model": settings.model, "usage": usage, "tool_events": tool_events})
         except Exception as exc:
             self._json(502, {"error": str(exc)})
         finally:
@@ -112,6 +170,7 @@ class DesktopServer(ThreadingHTTPServer):
     def __init__(self, address: tuple[str, int], handler: type[Handler]) -> None:
         super().__init__(address, handler)
         self.state = DesktopState()
+        self.approvals = ApprovalManager()
 
 
 def main() -> int:

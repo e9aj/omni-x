@@ -3,7 +3,7 @@
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{io::{Read, Write}, net::{TcpStream, ToSocketAddrs}, process::{Child, Command}, sync::{atomic::{AtomicBool, Ordering}, Mutex}, thread, time::{Duration, SystemTime, UNIX_EPOCH}};
-use tauri::{Manager, State, WindowEvent};
+use tauri::{AppHandle, Manager, State, WindowEvent};
 
 const PORT: u16 = 27451;
 
@@ -31,14 +31,24 @@ fn request(state: &BackendState, method: &str, path: &str, payload: Option<Value
     Ok(value)
 }
 
-fn start_backend(state: &BackendState) -> Result<(), String> {
+fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     if state.stopping.load(Ordering::SeqCst) { return Err("backend is stopping".into()); }
     if state.child.lock().map_err(|_| "backend lock poisoned".to_string())?.as_ref().is_some() { return Ok(()); }
     if request(state, "GET", "/v1/health", None).is_ok() { return Ok(()); }
     if TcpStream::connect(("127.0.0.1", PORT)).is_ok() { return Err("loopback backend port is occupied by an unauthorised process".into()); }
-    let python = std::env::var("OMNIX_PYTHON").unwrap_or_else(|_| "python".into());
-    let python_path = std::env::var("OMNIX_PYTHONPATH").unwrap_or_else(|_| "../src".into());
-    let child = Command::new(python).args(["-m", "omnix.desktop_server", "--port", &PORT.to_string()]).env("OMNIX_IPC_TOKEN", &state.token).env("PYTHONPATH", python_path).spawn().map_err(|e| format!("backend start failed: {e}"))?;
+    let bundled = app.path().resource_dir().map_err(|e| format!("backend resource path unavailable: {e}"))?.join("omnix-backend.exe");
+    let mut command;
+    if bundled.is_file() {
+        command = Command::new(&bundled);
+        command.args(["--port", &PORT.to_string()]);
+        command.current_dir(app.path().resource_dir().map_err(|e| e.to_string())?);
+    } else {
+        let python = std::env::var("OMNIX_PYTHON").unwrap_or_else(|_| "python".into());
+        command = Command::new(python);
+        command.args(["-m", "omnix.desktop_server", "--port", &PORT.to_string()]);
+        command.env("PYTHONPATH", std::env::var("OMNIX_PYTHONPATH").unwrap_or_else(|_| "../src".into()));
+    }
+    let child = command.env("OMNIX_IPC_TOKEN", &state.token).spawn().map_err(|e| format!("backend start failed: {e}"))?;
     *state.child.lock().map_err(|_| "backend lock poisoned".to_string())? = Some(child);
     Ok(())
 }
@@ -63,6 +73,15 @@ fn backend_chat(prompt: String, session_id: Option<String>, state: State<'_, Bac
 #[tauri::command]
 fn backend_stop(state: State<'_, BackendState>) -> Result<Value, String> { request(&state, "POST", "/v1/stop", Some(json!({}))) }
 
+#[tauri::command]
+fn backend_approvals(state: State<'_, BackendState>) -> Result<Value, String> { request(&state, "GET", "/v1/approvals", None) }
+
+#[tauri::command]
+fn backend_approval_decide(id: String, decision: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if decision != "approve" && decision != "reject" { return Err("invalid approval decision".into()); }
+    request(&state, "POST", &format!("/v1/approvals/{id}"), Some(json!({"decision": decision})))
+}
+
 fn main() {
     let state = BackendState { child: Mutex::new(None), token: token(), stopping: AtomicBool::new(false) };
     tauri::Builder::default()
@@ -70,18 +89,18 @@ fn main() {
         .manage(state)
         .setup(|app| {
             let handle = app.handle().clone();
-            { let state = handle.state::<BackendState>(); start_backend(&state).map_err(|error| Box::<dyn std::error::Error>::from(error))?; }
+            { let state = handle.state::<BackendState>(); start_backend(&handle, &state).map_err(|error| Box::<dyn std::error::Error>::from(error))?; }
             thread::spawn(move || loop {
                 thread::sleep(Duration::from_secs(2));
                 let state = handle.state::<BackendState>();
                 if state.stopping.load(Ordering::SeqCst) { break; }
                 let exited = state.child.lock().ok().and_then(|mut child| child.as_mut().map(|value| value.try_wait().ok().flatten().is_some())).unwrap_or(false);
-                if exited { if let Ok(mut child) = state.child.lock() { *child = None; } let _ = start_backend(&state); }
+                if exited { if let Ok(mut child) = state.child.lock() { *child = None; } let _ = start_backend(&handle, &state); }
             });
             Ok(())
         })
         .on_window_event(|window, event| { if matches!(event, WindowEvent::CloseRequested { .. }) { let state = window.app_handle().state::<BackendState>(); shutdown_backend(&state); } })
-        .invoke_handler(tauri::generate_handler![backend_status, backend_chat, backend_stop])
+        .invoke_handler(tauri::generate_handler![backend_status, backend_chat, backend_stop, backend_approvals, backend_approval_decide])
         .run(tauri::generate_context!())
         .expect("error while running OMNI-X");
 }

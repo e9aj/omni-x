@@ -7,7 +7,7 @@ from contextlib import closing
 from http.server import ThreadingHTTPServer
 from socket import socket
 
-from omnix.desktop_server import Handler
+from omnix.desktop_server import DesktopServer, Handler
 
 
 def test_desktop_server_requires_loopback_token(monkeypatch):
@@ -61,3 +61,20 @@ def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch):
     finally:
         server.shutdown()
         thread.join(timeout=2)
+
+
+def test_desktop_approval_is_explicit_scoped_and_time_limited():
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    result = []
+    worker = threading.Thread(target=lambda: result.append(server.approvals.request("write workspace/file.txt", timeout=1)), daemon=True)
+    worker.start()
+    for _ in range(20):
+        pending = server.approvals.list()
+        if pending:
+            break
+        worker.join(0.01)
+    assert pending and pending[0]["action"] == "write workspace/file.txt"
+    assert server.approvals.decide(pending[0]["id"], True)
+    worker.join(timeout=1)
+    assert result == [True]
+    server.server_close()

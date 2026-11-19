@@ -92,7 +92,9 @@ jobs:
           $appToken = 'smoke-app-' + [guid]::NewGuid().ToString('N')
           $stderr = Join-Path $env:TEMP 'omnix-desktop-stderr.log'
           $stdout = Join-Path $env:TEMP 'omnix-desktop-stdout.log'
-          $desktop = Start-Process -FilePath $app.FullName -Environment @{ OMNIX_IPC_TOKEN = $appToken } -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout
+          $previousAppToken = $env:OMNIX_IPC_TOKEN
+          $env:OMNIX_IPC_TOKEN = $appToken
+          try { $desktop = Start-Process -FilePath $app.FullName -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout } finally { if ($null -eq $previousAppToken) { Remove-Item Env:OMNIX_IPC_TOKEN -ErrorAction SilentlyContinue } else { $env:OMNIX_IPC_TOKEN = $previousAppToken } }
           Start-Sleep -Seconds 8
           Write-Host "Application PID: $($desktop.Id), exited: $($desktop.HasExited)"
           if ($desktop.HasExited) { throw "OMNI-X exited during startup with code $($desktop.ExitCode)" }

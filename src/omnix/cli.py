@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import os
 import sys
 import subprocess
@@ -46,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("discover", help="show provider and free-model availability without exposing credentials")
     sub.add_parser("doctor", help="check local runtime readiness")
     hermes = sub.add_parser("hermes", help="install or inspect the managed Hermes backend")
-    hermes.add_argument("action", choices=["install", "status"])
+    hermes.add_argument("action", choices=["install", "status", "probe"])
     schedule = sub.add_parser("schedule", help="manage persistent scheduled tasks")
     schedule.add_argument("action", choices=["add", "list"])
     schedule.add_argument("prompt", nargs="?")
@@ -189,6 +190,18 @@ def main(argv: list[str] | None = None) -> int:
             if source:
                 print(f"Source: {source}")
             return 0 if source else 1
+        if args.action == "probe":
+            if os.environ.get("OMNIX_HERMES_PRIMARY") != "1":
+                print("Hermes primary probe is opt-in; set OMNIX_HERMES_PRIMARY=1 to run it.", file=sys.stderr)
+                return 2
+            from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
+            try:
+                result = run_hermes_primary_probe(load_settings(), "Reply with exactly HERMES-PRIMARY-OK.")
+            except HermesPrimaryError as exc:
+                print(f"Hermes primary probe unavailable: {exc}", file=sys.stderr)
+                return 1
+            print(json.dumps(result))
+            return 0
         if os.name != "nt":
             print("Hermes installer integration currently supports native Windows only.", file=sys.stderr)
             return 1

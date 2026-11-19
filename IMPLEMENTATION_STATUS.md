@@ -252,6 +252,27 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Long-run quota/latency optimization remains future work. The live repair trace records transient provider failures and retries without hiding them; the complete local suite includes task lifecycle and owned-process cancellation tests.
 - OmniRoute upstream's changing free catalogue is treated as advisory. OMNI-X requires a reachable `/v1/models` response with explicit free metadata before auto-configuring a model.
 - Hermes source remains an external inspection checkout; the adapted execution boundary is attributed in `THIRD_PARTY_NOTICES.md` and is not presented as the full Hermes backend.
+
+### Hermes-primary migration branch — initial slice
+
+- Branch `feat/hermes-primary-runtime` starts from merged desktop baseline
+  `e1bfe92`.
+- Current Hermes source was inspected at `edd11438db3b99558f71ca58f2b93e6c804cf20b`.
+  It is MIT licensed and contains the production `run_agent.AIAgent`, split
+  conversation loop, structured tool registry, SQLite session persistence,
+  memory manager, browser/CDP lifecycle, cron scheduler, managed workers and
+  delegation context.
+- Added an opt-in `omnix hermes probe` that invokes the actual Hermes
+  `AIAgent` in the installer-managed Hermes Python environment through the
+  configured OmniRoute endpoint. The first slice is text-only with Hermes tools,
+  memory and persistence disabled; FREE mode, explicit free-model selection and
+  zero spending are enforced before process launch.
+- Deterministic tests cover paid/ambiguous-route rejection and missing managed
+  installation handling. Live Hermes-through-OmniRoute execution remains
+  pending because OmniRoute was unavailable locally at branch creation.
+- The default OMNI-X desktop/CLI runtime is unchanged. Tool, permission,
+  session/memory, browser, scheduling, worker and delegation replacement remain
+  gated on dedicated adapters and live evidence.
 - Final validation status: hard cancellation is implemented and tested for owned command trees; browser lifecycle is live-tested, but live browser cancellation and a fully successful live parent/child OmniRoute workflow remain outstanding. Do not mark PR #2 fully integrated or merge-ready on simulated lifecycle tests.
 - Tool reliability status: native calls, Hermes XML/JSON calls, explicit `Tool call: name(...)` calls and exact bare function-call text are normalized into the existing ToolRegistry; schema-invalid calls and children without tool-result events cannot be treated as successful execution.
 - Latest bounded live probe (2026-11-18) found `auto/best-free` and `auto/coding:free` available for text inference through OmniRoute (`owned_by=combo`, 400000 context), but neither emitted an executable `list_directory` call in the lightweight tool probe. `unc/turboderp/Qwen3.8-27B-exl3` returned HTTP 401 because UncloseAI's public beta is closed and key registration is closed. These routes are therefore not recorded as verified tool-capable; no paid fallback is permitted.

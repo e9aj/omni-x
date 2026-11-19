@@ -90,6 +90,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-18 | Added a pinned Windows installer wrapper around Hermes `scripts/install.ps1`; validated managed Python/Chromium/browser-harness installation and live browser startup, navigation, screenshot, shutdown and restart recovery. |
 | 2026-11-18 | Stage 1 task lifecycle added SQLite-backed schedules, jobs and child records with restart recovery; Hermes schedule parsing is reused through an OMNI-X adapter. |
 | 2026-11-18 | Stage 2 durable worker host added: detached Windows worker, atomic SQLite claims, bounded concurrency, cancellation persistence and restart reclamation. Hermes worker modules remain references/adapters, not a second runtime. |
+| 2026-11-19 | Inspected Hermes `main` at `edd11438db3b99558f71ca58f2b93e6c804cf20b` and confirmed MIT licence. Created `feat/hermes-primary-runtime` from merged desktop baseline `e1bfe92`; added an opt-in, text-only probe invoking the actual installer-managed `run_agent.AIAgent` through OmniRoute with FREE/zero-spend checks and Hermes tools, memory and persistence disabled. Full runtime replacement remains unaccepted pending policy, tool and SQLite adapters. |
 | 2026-11-18 | Stage 3 delegation added parent/child policy inheritance, specialist roles, concurrent child jobs, aggregation and failure propagation; actual child execution remains OMNI-X `AgentRuntime`. |
 
 ## OMNI-X implementation status

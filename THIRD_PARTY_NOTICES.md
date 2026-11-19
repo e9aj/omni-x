@@ -7,6 +7,11 @@ from [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent),
 specifically the XML/bare-JSON tool-call contract from
 `agent/acp_openai_bridge.py`.
 
+The migration branch also invokes the unmodified Hermes `run_agent.AIAgent`
+from the installer-managed source at runtime for an opt-in text-only probe.
+This does not enable Hermes tools, memory or persistence and does not replace
+the OMNI-X runtime.
+
 Hermes Agent is licensed under the MIT License, copyright © 2025 Nous Research.
 The adaptation includes the bounded conversation-loop and tool-executor
 boundaries used by OMNI-X's `HermesExecutionBackend`; OMNI-X retains its own

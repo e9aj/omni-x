@@ -156,3 +156,19 @@ Recommended sequence:
 
 The Hermes source remains an implementation dependency under evaluation, not a
 public OMNI-X brand claim and not yet the active OMNI-X execution engine.
+
+## Hermes-primary migration branch — initial slice
+
+Branch `feat/hermes-primary-runtime` begins the migration without changing the
+working desktop runtime. `omnix hermes probe` is an explicit opt-in command
+(`OMNIX_HERMES_PRIMARY=1`) that invokes the installed Hermes `run_agent.AIAgent`
+through its managed Python environment and OMNI-X's configured OmniRoute URL.
+The probe is restricted to explicitly free models, zero spending and no Hermes
+tools, memory or persistence. It proves the actual Hermes execution loop can be
+called safely through the provider boundary, while the existing OMNI-X runtime
+continues to own tools, permissions and SQLite.
+
+The next adapter must inject OMNI-X's ToolRegistry, approval callback, router
+policy and SQLite session interface into Hermes before any tool-enabled primary
+execution is enabled. Until that work is proven, the probe is not a replacement
+engine and must not be used to claim full Hermes integration.

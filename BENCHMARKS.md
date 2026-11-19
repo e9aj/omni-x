@@ -275,10 +275,10 @@ conversation-persistence-after-live-chat result is claimed.
 
 ### Hermes tool-dispatch probe — 2026-11-19
 
-- The managed Hermes process was wired at its actual `model_tools.get_tool_definitions` and `model_tools.handle_function_call` extension points to an OMNI-X `HermesToolAdapter`.
+- The managed Hermes process is wired at its actual `model_tools.get_tool_definitions` and `model_tools.handle_function_call` extension points to an OMNI-X `HermesToolAdapter`; response normalization reuses OMNI-X's existing anchored textual-call parser before Hermes chooses text finalization.
 - Deterministic adapter validation passed for schema parity, read-only read-back, approved write/read-back, denied write and unknown/malformed calls.
 - The bounded live read test did **not** pass: `auto/coding:free` returned narrated `read_file(evidence.txt)` text with zero dispatch events. A single bounded `auto/best-free` retry timed out before a terminal result. Neither is counted as tool execution.
-- Therefore live Hermes tool execution is not verified. The implementation path is present, but the available free routes remain text-only or unstable for this task.
+- A further bounded live attempt after the parser bridge produced no verifiable tool-dispatch evidence and was not counted as success. Live Hermes tool execution remains unverified because the available free routes are text-only or unstable for this task.
 
 ### Windows execution policy evidence — 2026-11-19
 

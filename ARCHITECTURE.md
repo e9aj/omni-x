@@ -181,4 +181,6 @@ The tool probe now implements that boundary in the managed process by replacing
 only Hermes's model-facing schema and dispatch functions with the adapter. The
 Hermes `AIAgent` loop remains the sole engine; OMNI-X still owns validation,
 workspace containment and approvals. Deterministic execution passes, but the
-available free routes have not yet produced a verified live tool call.
+available free routes have not yet produced a verified live tool call. Textual
+normalization reuses `omnix.hermes_bridge.extract_tool_calls` and only accepts
+its anchored, syntactically valid contracts; narrative prose is left untouched.

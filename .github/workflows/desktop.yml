@@ -65,6 +65,8 @@ jobs:
           Start-Sleep -Seconds 8
           Write-Host "Application PID: $($desktop.Id), exited: $($desktop.HasExited)"
           if ($desktop.HasExited) { throw "OMNI-X exited during startup with code $($desktop.ExitCode)" }
+          Write-Host 'Application child processes:'
+          Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $desktop.Id } | Select-Object Name,ProcessId,ParentProcessId,ExecutablePath | Format-Table -AutoSize
           $backend = Get-Process -Name 'omnix-backend' -ErrorAction SilentlyContinue
           Write-Host "Backend processes: $(@($backend).Count)"
           if (-not $backend) { throw 'Managed omnix-backend sidecar was not observed' }

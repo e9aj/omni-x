@@ -36,13 +36,18 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     if state.child.lock().map_err(|_| "backend lock poisoned".to_string())?.as_ref().is_some() { return Ok(()); }
     if request(state, "GET", "/v1/health", None).is_ok() { return Ok(()); }
     if TcpStream::connect(("127.0.0.1", PORT)).is_ok() { return Err("loopback backend port is occupied by an unauthorised process".into()); }
-    let bundled = app.path().resource_dir().map_err(|e| format!("backend resource path unavailable: {e}"))?.join("omnix-backend.exe");
+    let resource_dir = app.path().resource_dir().map_err(|e| format!("backend resource path unavailable: {e}"))?;
+    let bundled = [resource_dir.join("omnix-backend.exe"), resource_dir.join("binaries").join("omnix-backend.exe")]
+        .into_iter().find(|path| path.is_file());
     let mut command;
-    if bundled.is_file() {
-        command = Command::new(&bundled);
+    if let Some(bundled) = bundled.as_ref() {
+        command = Command::new(bundled);
         command.args(["--port", &PORT.to_string()]);
-        command.current_dir(app.path().resource_dir().map_err(|e| e.to_string())?);
+        command.current_dir(&resource_dir);
     } else {
+        if !cfg!(debug_assertions) && std::env::var_os("OMNIX_PYTHON").is_none() {
+            return Err(format!("managed backend sidecar not found under {}", resource_dir.display()));
+        }
         let python = std::env::var("OMNIX_PYTHON").unwrap_or_else(|_| "python".into());
         command = Command::new(python);
         command.args(["-m", "omnix.desktop_server", "--port", &PORT.to_string()]);

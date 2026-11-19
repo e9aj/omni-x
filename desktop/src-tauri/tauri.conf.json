@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "OMNI-X",
+  "version": "0.1.0",
+  "identifier": "uk.digisol.omnix",
+  "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://localhost:5173", "frontendDist": "../dist" },
+  "app": { "windows": [{ "title": "OMNI-X", "width": 1280, "height": 800, "minWidth": 960, "minHeight": 640, "resizable": true }], "security": { "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost" } },
+  "bundle": { "active": true, "targets": ["nsis"], "windows": { "nsis": { "installMode": "perUser", "displayLanguageSelector": false, "startMenuFolder": "OMNI-X", "createDesktopShortcut": true } } }
+}

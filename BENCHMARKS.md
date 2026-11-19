@@ -154,3 +154,12 @@ The final reduction leaves the 712-character security/system policy and all seve
 
 Release-candidate conclusion: suitable as a clearly labelled Phase 2 development baseline for review, not production-ready and not evidence of fully validated live multi-agent AI execution.
 
+## Phase 3 desktop foundation — 2026-11-19
+
+- `desktop/`: `npm install` completed with zero reported vulnerabilities;
+  `npm run typecheck` and `npm run build` passed.
+- Python suite including authenticated loopback bridge coverage: 44 passed,
+  3 opt-in live tests skipped.
+- Tauri/Rust build remains unvalidated because host Application Control blocks
+  `cargo.exe`; no installer or production desktop readiness is claimed.
+

@@ -78,3 +78,15 @@ and latency samples. `Router` ranks tested tool-capable free models first,
 excludes tested-unavailable routes, and retains bounded free fallbacks. The
 policy is intentionally conservative: an advertised model is not considered
 reliable until it has been tested, and no paid route is eligible in FREE mode.
+
+## Phase 3 desktop foundation
+
+The Windows-first shell in `desktop/` is Tauri 2 with React, TypeScript, Vite
+and Tailwind CSS. Tauri owns a supervised Python `omnix.desktop_server`
+process and keeps an ephemeral IPC token in native state. The frontend invokes
+native commands for backend status; it never receives provider credentials or
+calls an unauthenticated local HTTP endpoint. The server binds only to
+`127.0.0.1` and requires a constant-time bearer-token comparison. Chat, task,
+model and settings panels remain presentation foundations until connected to
+the existing SQLite/runtime APIs. Packaging the Python/Hermes/OmniRoute
+dependencies as signed Windows sidecars is a later installer milestone.

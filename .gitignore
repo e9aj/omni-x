@@ -13,3 +13,7 @@ build/
 *.db
 *.sqlite3
 .env
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+desktop/tsconfig.tsbuildinfo

@@ -2,6 +2,8 @@
 
 OMNI-X is a free, open-source autonomous AI agent runtime with a Windows-first CLI. The first implementation focuses on a working, inspectable agent loop: direct provider calls, OmniRoute-compatible routing, SQLite sessions and memory, permission-gated tools, and secure local credential storage.
 
+The Phase 3 desktop foundation lives in [`desktop/`](desktop/README.md). It is a Tauri 2 + React + TypeScript + Vite + Tailwind shell that supervises the existing Python runtime through an authenticated loopback health bridge. The CLI remains the validated primary interface while desktop chat and management surfaces are connected incrementally.
+
 ## Quick start
 
 ```powershell

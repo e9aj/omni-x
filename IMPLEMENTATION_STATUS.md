@@ -2,6 +2,19 @@
 
 Last reviewed: 2026-11-19
 
+## Phase 3 desktop foundation
+
+- Created `feat/windows-desktop` from the merged Phase 2 `main` tip.
+- Tauri 2/React/TypeScript/Vite/Tailwind shell is implemented with OMNI-X
+  branding, navigation sections and backend connection status.
+- Authenticated loopback `omnix.desktop_server` and native Tauri status command
+  are implemented; Python, credentials and SQLite remain backend-owned.
+- `npm install`, `npm run typecheck` and `npm run build` pass from `desktop/`.
+- Python desktop bridge test passes as part of the full suite.
+- Rust/Tauri compilation is not yet validated because Windows Application
+  Control blocks `cargo.exe` in this environment. The installer and packaged
+  backend are not complete.
+
 ## Phase 2 release-candidate classification
 
 This is a Phase 2 development baseline, not a production-readiness claim.

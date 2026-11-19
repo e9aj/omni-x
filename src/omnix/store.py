@@ -153,8 +153,12 @@ class Store:
         self.db.commit()
 
     def event(self, task_id: str, kind: str, detail: str) -> None:
-        self.db.execute("INSERT INTO events(task_id,kind,detail,created) VALUES (?,?,?,?)", (task_id, kind, detail, time.time()))
-        self.db.commit()
+        # Task workers and the control path can share this Store connection.
+        # Serialize the write so cancellation cannot interleave a commit with
+        # runtime lifecycle/audit events on Windows SQLite.
+        with self._lock:
+            self.db.execute("INSERT INTO events(task_id,kind,detail,created) VALUES (?,?,?,?)", (task_id, kind, detail, time.time()))
+            self.db.commit()
 
     def record_usage(self, task_id: str | None, provider: str, model: str, input_tokens: int, output_tokens: int, estimated_cost: float = 0.0) -> None:
         self.db.execute("INSERT INTO usage(task_id,provider,model,input_tokens,output_tokens,estimated_cost,created) VALUES (?,?,?,?,?,?,?)", (task_id, provider, model, input_tokens, output_tokens, estimated_cost, time.time()))

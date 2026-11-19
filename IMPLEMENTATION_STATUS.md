@@ -280,6 +280,12 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Prompt-size optimization is implemented and measured: unrelated skill-body matching was removed, explicit skill-name matching retained, per-step prompt component telemetry added, and parent/child history remains isolated. The comparable fixture reduced provider prompt usage from approximately 16k tokens per call to 2,004/2,165 and then 524 tokens after the final skill-name-only filter. A final rerun returned non-executable `[list_directory]` prose, so it was correctly not counted as a live tool success.
 - Parent/child timeout budgets are now independent and bounded; child jobs persist a 60–180 second deadline and parent waits are bounded to 45–180 seconds. Live delegation remains externally blocked by the previously recorded OmniRoute timeout before child creation.
 
+### Hermes-primary runtime — 2026-11-19
+
+- The real installer-managed Hermes `run_agent.AIAgent` now has a bounded, opt-in probe through OmniRoute. A live FREE request using `auto/coding:free` returned `HERMES-PRIMARY-OK`: 1 API call, 1,425 input tokens, 58 output tokens, 1,483 total tokens and 24,361 ms latency at estimated cost `$0.00`. Hermes reported `served_model=None`, so no upstream identity is guessed.
+- `HermesToolAdapter` maps OMNI-X schemas and calls to Hermes-compatible function contracts while retaining OMNI-X validation, workspace containment and approval gates. Deterministic tests cover schema parity, read-only execution, unknown calls and denied writes.
+- Live Hermes tool dispatch through this adapter, Hermes session/memory migration, direct primary-runtime browser/skills execution, scheduling, background workers and delegated agents remain incomplete. Existing OMNI-X CLI/desktop runtime remains the default and fallback.
+
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.

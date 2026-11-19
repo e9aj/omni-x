@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 from typing import Any
 
 from .config import Settings
@@ -28,11 +29,31 @@ agent = AIAgent(
     skip_memory=True, save_trajectories=False,
     platform="omnix-hermes-primary-probe",
 )
-try:
-    result = agent.run_conversation(user_message=payload["prompt"])
-    print(json.dumps({"answer": result if isinstance(result, str) else str(result)}))
-finally:
-    agent.close()
+result = agent.run_conversation(user_message=payload["prompt"])
+if isinstance(result, dict):
+    # Keep the bridge deliberately narrow: expose execution evidence, never the
+    # full Hermes result (which may contain prompts or provider metadata).
+    output = {
+        "answer": result.get("final_response") or result.get("answer") or "",
+        "provider": result.get("provider"),
+        "served_model": result.get("served_model"),
+        "input_tokens": result.get("input_tokens", result.get("prompt_tokens")),
+        "output_tokens": result.get("output_tokens", result.get("completion_tokens")),
+        "total_tokens": result.get("total_tokens"),
+        "estimated_cost_usd": result.get("estimated_cost_usd"),
+        "api_calls": result.get("api_calls"),
+        "completed": result.get("completed"),
+        "turn_exit_reason": result.get("turn_exit_reason"),
+        "session_id": result.get("session_id"),
+    }
+else:
+    output = {"answer": str(result)}
+print(json.dumps(output, default=str), flush=True)
+# Hermes owns background client/cache hooks that can outlive a short probe. The
+# probe has no tools, memory or persistence, so process exit is the cleanest
+# boundary after the result has been flushed.
+import os
+os._exit(0)
 '''
 
 
@@ -64,15 +85,36 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
     env = os.environ.copy()
     env["PYTHONPATH"] = str(source)
     env["OMNIX_HERMES_PRIMARY"] = "1"
-    completed = subprocess.run([str(python), "-c", _HERMES_PROBE], input=json.dumps(payload), text=True,
-                               capture_output=True, cwd=str(source), env=env, timeout=timeout, check=False)
-    if completed.returncode != 0:
-        raise HermesPrimaryError(f"Hermes exited with code {completed.returncode}: {completed.stderr[-1000:]}")
-    for line in reversed(completed.stdout.splitlines()):
+    flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+    started = time.perf_counter()
+    process = subprocess.Popen([str(python), "-c", _HERMES_PROBE], stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                               cwd=str(source), env=env, creationflags=flags)
+    try:
+        stdout, stderr = process.communicate(json.dumps(payload), timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        if os.name == "nt":
+            subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        else:
+            process.kill()
+        process.communicate(timeout=5)
+        raise HermesPrimaryError("Hermes primary probe timed out") from exc
+    if process.returncode != 0:
+        safe_error = stderr[-1000:].replace(api_key, "[redacted]")
+        raise HermesPrimaryError(f"Hermes exited with code {process.returncode}: {safe_error}")
+    for line in reversed(stdout.splitlines()):
         try:
             result = json.loads(line)
         except json.JSONDecodeError:
             continue
         if isinstance(result, dict) and isinstance(result.get("answer"), str):
-            return {"answer": result["answer"], "model": settings.model, "engine": "hermes-aiaagent"}
+            elapsed_ms = round((time.perf_counter() - started) * 1000)
+            metrics = {key: result.get(key) for key in (
+                "provider", "served_model", "input_tokens", "output_tokens", "total_tokens",
+                "estimated_cost_usd", "api_calls", "completed", "turn_exit_reason", "session_id"
+            ) if key in result}
+            metrics["latency_ms"] = elapsed_ms
+            return {"answer": result["answer"], "model": settings.model,
+                    "engine": "hermes-aiaagent", "usage": metrics}
     raise HermesPrimaryError("Hermes returned no structured result")

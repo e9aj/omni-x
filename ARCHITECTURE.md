@@ -172,3 +172,7 @@ The next adapter must inject OMNI-X's ToolRegistry, approval callback, router
 policy and SQLite session interface into Hermes before any tool-enabled primary
 execution is enabled. Until that work is proven, the probe is not a replacement
 engine and must not be used to claim full Hermes integration.
+
+### Live primary-runtime evidence — 2026-11-19
+
+The opt-in probe invoked the real installer-managed `run_agent.AIAgent` through local OmniRoute. `auto/coding:free` returned `HERMES-PRIMARY-OK` in 24,361 ms with 1,425 input, 58 output and 1,483 total tokens at estimated cost `$0`. Hermes exposed `served_model=None`, so OMNI-X records that limitation. The probe is text-only. `HermesToolAdapter` is the next compatibility boundary: Hermes-compatible schemas and calls route back into OMNI-X's existing permission-gated `ToolRegistry`. Live wiring and Hermes persistence/services remain separate validation steps.

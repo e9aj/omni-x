@@ -265,6 +265,14 @@ owned-sidecar cleanup, silent uninstall and installer artifact upload. Both
 hosted runners lacked OmniRoute, so no live desktop model response or
 conversation-persistence-after-live-chat result is claimed.
 
+### Hermes-primary live probe — 2026-11-19
+
+- The actual installer-managed Hermes `run_agent.AIAgent` was invoked through local OmniRoute using `auto/coding:free` in FREE mode.
+- One API call returned exactly `HERMES-PRIMARY-OK`; Hermes reported `completed=true` and `text_response(finish_reason=stop)`.
+- Usage was 1,425 input, 58 output and 1,483 total tokens. Measured latency was 24,361 ms and estimated cost was `$0.00`.
+- Hermes reported provider `custom` and `served_model=None`; no upstream model identity is inferred. No tool or persistence execution was claimed.
+- `HermesToolAdapter` has deterministic schema, read-only execution and approval-denial tests, but live wiring into the Hermes subprocess remains incomplete.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before

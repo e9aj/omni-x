@@ -130,8 +130,17 @@ fn main() {
                 thread::sleep(Duration::from_secs(2));
                 let state = handle.state::<BackendState>();
                 if state.stopping.load(Ordering::SeqCst) { break; }
-                let exited = state.child.lock().ok().and_then(|mut child| child.as_mut().map(|value| value.try_wait().ok().flatten().is_some())).unwrap_or(false);
-                if exited { if let Ok(mut child) = state.child.lock() { *child = None; } let _ = start_backend(&handle, &state); }
+                let needs_restart = if let Ok(mut child) = state.child.lock() {
+                    match child.as_mut() {
+                        Some(value) => match value.try_wait() {
+                            Ok(Some(_)) => { *child = None; true }
+                            Ok(None) => false,
+                            Err(_) => { *child = None; true }
+                        },
+                        None => true,
+                    }
+                } else { false };
+                if needs_restart { let _ = start_backend(&handle, &state); }
             });
             Ok(())
         })

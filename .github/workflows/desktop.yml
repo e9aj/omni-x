@@ -98,7 +98,12 @@ jobs:
           if ($desktop.HasExited) { throw "OMNI-X exited during startup with code $($desktop.ExitCode)" }
           Write-Host 'Application child processes:'
           Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $desktop.Id } | Select-Object Name,ProcessId,ParentProcessId,ExecutablePath | Format-Table -AutoSize
-          $ownedBackend = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }
+          $ownedBackend = $null
+          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            $ownedBackend = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }
+            if ($ownedBackend) { break }
+            Start-Sleep -Seconds 1
+          }
           Write-Host "Desktop-owned backend processes: $(@($ownedBackend).Count)"
           if (-not $ownedBackend) { Write-Host 'OMNI-X stderr:'; if (Test-Path $stderr) { Get-Content $stderr -Tail 100 }; Write-Host 'OMNI-X stdout:'; if (Test-Path $stdout) { Get-Content $stdout -Tail 100 }; throw 'Desktop-owned omnix-backend sidecar was not observed' }
           $ownedBackendIds = @($ownedBackend | ForEach-Object { [int]$_.ProcessId })

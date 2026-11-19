@@ -125,7 +125,7 @@ jobs:
           $oldBackendPid = $ownedBackendIds[0]
           Stop-Process -Id $oldBackendPid -Force
           $restarted = $null
-          for ($attempt = 0; $attempt -lt 30; $attempt++) {
+          for ($attempt = 0; $attempt -lt 90; $attempt++) {
             Start-Sleep -Milliseconds 500
             $candidate = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }
             if ($candidate -and @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid }).Count -gt 0) { $restarted = @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid })[0]; break }

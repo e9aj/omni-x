@@ -9,6 +9,9 @@ Last reviewed: 2026-11-19
   branding, navigation sections and backend connection status.
 - Authenticated loopback `omnix.desktop_server` and native Tauri status command
   are implemented; Python, credentials and SQLite remain backend-owned.
+- This foundation does not yet claim complete lifecycle supervision: crash
+  restart, shutdown-on-window-exit, duplicate-instance locking and packaged
+  Python/Hermes/OmniRoute sidecars remain installer milestone work.
 - `npm install`, `npm run typecheck` and `npm run build` pass from `desktop/`.
 - Python desktop bridge test passes as part of the full suite.
 - Rust/Tauri compilation is not yet validated because Windows Application

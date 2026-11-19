@@ -6,6 +6,10 @@ an authenticated loopback health endpoint. Credentials never enter the
 frontend. Chat, tasks, models and settings are being connected incrementally
 to the existing SQLite-backed OMNI-X services.
 
+The current foundation starts and reports the backend during a desktop session;
+crash restart, shutdown-on-exit, duplicate-instance locking and packaged
+sidecars are intentionally deferred to the installer/supervision milestone.
+
 Development prerequisites: Node.js/npm and Rust/Tauri tooling. From this
 directory run `npm install`, `npm run typecheck`, `npm run build`, or
 `npm run tauri dev`. The current environment has Node/npm, but Cargo execution

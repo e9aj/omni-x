@@ -196,6 +196,13 @@ global post-shutdown check. Commit `702e69d` corrected exact PID cleanup and
 ownership; hosted run `44541511158` passed installer, launch, backend health,
 shutdown, sidecar termination and silent uninstall.
 
+Hosted extended run `44554580840` did not pass. It recorded installer exit 0,
+packaged-backend probe success, desktop launch, authenticated settings,
+FREE-mode enforcement, model policy, preference persistence and stop signaling.
+It failed at hosted sidecar observation/recovery. Commit `c3efda6` changes only
+the test launch to preserve the normal inherited environment; the validation
+rerun remains pending. No live desktop inference is claimed.
+
 ### Desktop integration coverage — pending hosted rerun
 
 - Deterministic local coverage includes authenticated loopback, SQLite session

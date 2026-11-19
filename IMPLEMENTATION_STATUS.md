@@ -54,6 +54,14 @@ was still included in the global post-shutdown process check. Commit `702e69d`
 corrected probe cleanup and exact desktop-owned PID checks; hosted run
 `44541511158` passed the complete lifecycle.
 
+The extended integration run `44554580840` did not pass. It verified package
+installation, direct packaged-backend health, desktop launch, authenticated
+communication, FREE mode, model policy, preferences and stop signaling, then
+failed during hosted sidecar validation: one attempt reached crash recovery
+without observing a replacement child, and a later attempt observed no desktop
+sidecar after launch. The smoke launch now preserves the normal inherited
+Windows environment while injecting only the test IPC token; rerun is pending.
+
 The desktop integration milestone now includes an authenticated session-read
 endpoint used by the Tauri shell to restore SQLite-backed conversation messages
 after restart. Hosted smoke coverage also checks unauthenticated rejection,

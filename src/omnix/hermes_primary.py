@@ -19,6 +19,10 @@ from types import SimpleNamespace
 from .config import Settings
 from .hermes_runtime import hermes_python, installed_hermes_source
 from .secrets import get_secret
+from .credentials import CredentialManager
+from .skills_manager import SkillsManager
+from .hermes_sessions import HermesSessionBridge
+from .store import Store
 
 
 def inject_omnix_text_calls(message: Any) -> bool:
@@ -53,6 +57,7 @@ agent = AIAgent(
     enabled_toolsets=[], quiet_mode=True, skip_context_files=True,
     skip_memory=True, save_trajectories=False,
     platform="omnix-hermes-primary-probe",
+    ephemeral_system_prompt=payload.get("skill_prompt") or None,
 )
 result = agent.run_conversation(user_message=payload["prompt"])
 if isinstance(result, dict):
@@ -132,6 +137,7 @@ agent = AIAgent(
     enabled_toolsets=[], quiet_mode=True, skip_context_files=True,
     skip_memory=True, save_trajectories=False,
     platform="omnix-hermes-tool-probe",
+    ephemeral_system_prompt=payload.get("skill_prompt") or None,
 )
 result = agent.run_conversation(user_message=payload["prompt"])
 if isinstance(result, dict):
@@ -164,6 +170,29 @@ def _is_explicitly_free(settings: Settings) -> bool:
     return settings.model in settings.free_models or settings.model in {"auto/best-free"} or settings.model.endswith(":free")
 
 
+def _skill_payload(prompt: str) -> dict[str, Any]:
+    manager = SkillsManager()
+    context, loaded, skipped = manager.relevant_context(
+        prompt,
+        allowed_permissions={"filesystem.read", "terminal.read", "browser.read"},
+        credentials=CredentialManager(),
+    )
+    return {"skill_prompt": context, "skills_loaded": loaded, "skills_skipped": skipped}
+
+
+def _record_omnix_session(prompt: str, answer: str) -> str | None:
+    """Persist a completed Hermes turn additively in OMNI-X SQLite."""
+    try:
+        store = Store()
+        bridge = HermesSessionBridge(store)
+        session_id = bridge.begin("Hermes primary session")
+        bridge.record_turn(session_id, prompt, answer)
+        store.db.close()
+        return session_id
+    except Exception:
+        return None
+
+
 def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float = 120.0) -> dict[str, Any]:
     """Run one bounded, tool-disabled turn through Hermes's real ``AIAgent``."""
     if settings.mode != "FREE" or settings.allow_paid or settings.max_cost_usd != 0:
@@ -180,7 +209,7 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
         raise HermesPrimaryError("prompt must not be empty")
     api_key = get_secret("OMNIROUTE_API_KEY") or os.environ.get("OMNIROUTE_API_KEY") or "omniroute-local"
     payload = {"base_url": settings.base_url.rstrip("/"), "api_key": api_key, "model": settings.model,
-               "max_iterations": max(1, min(settings.max_steps, 8)), "prompt": prompt}
+               "max_iterations": max(1, min(settings.max_steps, 8)), "prompt": prompt, **_skill_payload(prompt)}
     env = os.environ.copy()
     env["PYTHONPATH"] = str(source)
     env["OMNIX_HERMES_PRIMARY"] = "1"
@@ -215,7 +244,9 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
             ) if key in result}
             metrics["latency_ms"] = elapsed_ms
             return {"answer": result["answer"], "model": settings.model,
-                    "engine": "hermes-aiaagent", "usage": metrics}
+                    "engine": "hermes-aiaagent", "skills_loaded": payload.get("skills_loaded", []),
+                    "skills_skipped": payload.get("skills_skipped", []),
+                    "omnix_session_id": _record_omnix_session(prompt, result["answer"]), "usage": metrics}
     raise HermesPrimaryError("Hermes returned no structured result")
 
 
@@ -240,7 +271,8 @@ def run_hermes_tool_probe(settings: Settings, prompt: str, workspace: str, *, ti
     api_key = get_secret("OMNIROUTE_API_KEY") or os.environ.get("OMNIROUTE_API_KEY") or "omniroute-local"
     payload = {"base_url": settings.base_url.rstrip("/"), "api_key": api_key,
                "model": settings.model, "max_iterations": max(1, min(settings.max_steps, 6)),
-               "prompt": prompt, "workspace": workspace_path, "omnix_root": project_root}
+               "prompt": prompt, "workspace": workspace_path, "omnix_root": project_root,
+               **_skill_payload(prompt)}
     env = os.environ.copy()
     env["PYTHONPATH"] = os.pathsep.join((str(source), project_root))
     env["OMNIX_HERMES_PRIMARY"] = "1"
@@ -285,5 +317,7 @@ def run_hermes_tool_probe(settings: Settings, prompt: str, workspace: str, *, ti
                 usage["available_tools"] = result["available_tools"]
             usage["latency_ms"] = round((time.perf_counter() - started) * 1000)
             return {"answer": result["answer"], "model": settings.model,
-                    "engine": "hermes-aiaagent+omnix-tools", "usage": usage}
+                    "engine": "hermes-aiaagent+omnix-tools", "skills_loaded": payload.get("skills_loaded", []),
+                    "skills_skipped": payload.get("skills_skipped", []),
+                    "omnix_session_id": _record_omnix_session(prompt, result["answer"]), "usage": usage}
     raise HermesPrimaryError("Hermes tool probe returned no structured result")

@@ -64,3 +64,12 @@ class CredentialManager:
     def list(self) -> list[dict[str, Any]]:
         return [{"integration": integration, "key": key, "revoked": bool(meta.get("revoked"))}
                 for integration, values in self.records.items() for key, meta in values.items()]
+
+    def available(self, integration: str, key: str) -> bool:
+        record = self.records.get(integration, {}).get(key)
+        if not record or record.get("revoked"):
+            return False
+        try:
+            return get_secret(record["secret_name"]) is not None
+        except RuntimeError:
+            return False

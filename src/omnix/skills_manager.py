@@ -113,3 +113,33 @@ class SkillsManager:
     def active(self) -> list[Skill]:
         active_names = {item.name for item in self.browse() if item.enabled}
         return [Skill(item.name, Path(item.path), item.description, Path(item.path).read_text(encoding="utf-8")[:20_000]) for item in self.browse() if item.name in active_names]
+
+    def relevant_context(self, prompt: str, *, allowed_permissions: set[str] | None = None,
+                         credentials: Any | None = None) -> tuple[str, list[str], list[dict[str, str]]]:
+        """Return enabled, relevant and dependency-satisfied instructions.
+
+        The returned text is suitable for Hermes' ``ephemeral_system_prompt``;
+        it contains no credential values. Skipped skills are returned as safe
+        reason metadata for audit events.
+        """
+        tokens = {part.lower().strip(".,:;!?()[]{}\"") for part in prompt.split() if len(part) > 3}
+        allowed = allowed_permissions or set()
+        blocks: list[str] = []
+        loaded: list[str] = []
+        skipped: list[dict[str, str]] = []
+        for item in self.browse():
+            if not item.enabled:
+                continue
+            skill_tokens = set(item.name.lower().replace("_", "-").split("-"))
+            if item.name.lower() not in tokens and not (tokens & skill_tokens):
+                continue
+            denied = [permission for permission in item.permissions if permission not in allowed]
+            missing = [key for key in item.credentials if credentials is None or not credentials.available("skill:" + item.name, key)]
+            missing_deps = [dep for dep in item.dependencies if shutil.which(dep) is None]
+            if denied or missing or missing_deps:
+                reason = "permissions" if denied else "credentials" if missing else "dependencies"
+                skipped.append({"name": item.name, "reason": reason})
+                continue
+            blocks.append(f"## Reviewed skill: {item.name}\n{Path(item.path).read_text(encoding='utf-8')[:20_000]}")
+            loaded.append(item.name)
+        return "\n\n".join(blocks), loaded, skipped

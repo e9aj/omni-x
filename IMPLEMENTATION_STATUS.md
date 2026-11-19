@@ -306,6 +306,19 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Not yet integrated: MCP server lifecycle, OAuth flows, external API service
   adapters, Hermes-native session/memory persistence, and Hermes-primary
   scheduling/delegation. No integration is described as live without evidence.
+
+### Hermes manager bridge — 2026-11-19
+
+- Hermes `AIAgent` now receives only relevant, enabled and reviewed OMNI-X skill
+  instructions through its supported `ephemeral_system_prompt` field. Declared
+  permissions, credentials and executable dependencies are checked first;
+  disabled or ineligible skills are excluded and reported as skipped metadata.
+- Completed Hermes probe turns are copied to the existing OMNI-X SQLite
+  `sessions`/`messages` tables through an additive `HermesSessionBridge`.
+  Hermes-native session and memory stores are not yet the source of truth.
+- `IntegrationRegistry` provides declarative metadata for API, MCP, skill and
+  custom-tool integrations, including credentials, permissions, endpoints,
+  dependencies, OS support, installation state and fail-closed health checks.
 - Controlled raw-response evidence (2026-11-19) shows one direct free-route request returned `tool_calls=null`, `finish_reason=stop`, empty content, model `deepseek-ai/deepseek-r1-distill-qwen-32b`, and 406 total tokens. There was no valid call for Hermes to lose or reject; this is recorded as a provider/model limitation. No additional parser formats were added.
 - Current catalogue sweep tested four free `combo` auto routes with native tools requested. All served `deepseek-ai/deepseek-r1-distill-qwen-32b` and returned no `tool_calls`; the declared-tool UncloseAI route returned 401 because registration is closed. No reliable free tool route is currently available, so live Hermes tool execution remains unverified and testing has stopped rather than consuming repeated tokens.
 

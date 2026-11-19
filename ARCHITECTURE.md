@@ -206,6 +206,13 @@ currently deterministic terminal-output compression, not a bundled external
 binary. MCP lifecycle management, OAuth flows and external-service adapters
 remain incomplete.
 
+The Hermes primary probe now supplies the `SkillsManager`'s relevant reviewed
+instructions through Hermes `AIAgent(ephemeral_system_prompt=...)`, while
+enforcing enabled state, declared permissions, credential presence and external
+dependency checks before injection. Completed Hermes turns are also copied
+additively into OMNI-X SQLite through `HermesSessionBridge`; Hermes's own
+session database is not substituted for OMNI-X history.
+
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the

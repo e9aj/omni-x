@@ -319,6 +319,15 @@ conversation-persistence-after-live-chat result is claimed.
 - Direct provider adapters remain credential-gated. No new external API, OAuth
   or MCP service was contacted in this milestone.
 
+### Hermes manager bridge validation — 2026-11-19
+
+- Deterministic tests passed for relevant enabled-skill context, permission and
+  dependency filtering, scoped credentials, integration health and additive
+  SQLite session recording.
+- Hermes receives skill instructions only through its supported
+  `ephemeral_system_prompt` boundary. No live skill execution was claimed; the
+  available free routes remain unreliable for tool execution.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before

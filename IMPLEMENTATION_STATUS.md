@@ -47,6 +47,12 @@ Last reviewed: 2026-11-19
   performs a silent uninstall on the hosted runner. This validates packaging
   and lifecycle only; it does not provide live OmniRoute inference.
 
+Hosted run `44538461275` installed the package with installer exit code 0,
+passed an authenticated direct probe of the packaged backend and launched the
+desktop with its child sidecar. It failed because the diagnostic probe process
+was still included in the global post-shutdown process check. The smoke test
+now cleans the probe by exact PID and checks desktop-owned PIDs.
+
 ## Phase 3 desktop foundation
 
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.

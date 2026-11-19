@@ -189,6 +189,12 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   started. No policy bypass was attempted; launch, restart, SQLite update
   persistence and owned-process shutdown are therefore not live-validated.
 
+Hosted run `44538461275` installed the package (exit code 0), passed an
+authenticated direct backend health probe and observed the desktop-owned
+sidecar. It failed because the probe process was not fully excluded from the
+global post-shutdown check; the smoke test now uses exact PID ownership and is
+pending rerun.
+
 ### Windows execution policy evidence — 2026-11-19
 
 - Code Integrity event 3077/3033 blocked the unsigned NSIS installer before

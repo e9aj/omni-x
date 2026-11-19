@@ -213,6 +213,10 @@ dependency checks before injection. Completed Hermes turns are also copied
 additively into OMNI-X SQLite through `HermesSessionBridge`; Hermes's own
 session database is not substituted for OMNI-X history.
 
+`HermesMemoryAdapter` maps the small memory contract to OMNI-X's existing
+SQLite `memories` table. The `hermes_session_map` and `skill_events` tables are
+additive migrations and support recovery/audit without changing desktop IPC.
+
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the

@@ -98,6 +98,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-19 | Bounded native capability sweep tested four free `combo` routes; all served DeepSeek without `tool_calls`. The UncloseAI tool route returned 401 with registration closed. No reliable free tool route was accepted and further live retries were stopped. |
 | 2026-11-19 | Added unified skills and credential management. Hermes bundled/optional and OMNI-X custom skills are browsable; installation requires explicit review and new skills are disabled by default. Credential metadata is scoped/revocable over DPAPI-backed values. MCP, OAuth and external service adapters remain incomplete. |
 | 2026-11-19 | Connected enabled/reviewed skill context to Hermes `AIAgent` through `ephemeral_system_prompt`, added dependency/permission/credential gating, declarative `IntegrationRegistry`, and additive OMNI-X SQLite turn recording. Hermes-native session/memory stores and live skill execution remain incomplete. |
+| 2026-11-19 | Added additive Hermes session mapping, SQLite-backed memory facade and skill load/skip audit events. Existing OMNI-X sessions and memory remain authoritative; Hermes-native persistence is not yet authoritative. |
 | 2026-11-18 | Stage 3 delegation added parent/child policy inheritance, specialist roles, concurrent child jobs, aggregation and failure propagation; actual child execution remains OMNI-X `AgentRuntime`. |
 
 ## OMNI-X implementation status

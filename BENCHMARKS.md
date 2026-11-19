@@ -319,6 +319,15 @@ conversation-persistence-after-live-chat result is claimed.
 - Direct provider adapters remain credential-gated. No new external API, OAuth
   or MCP service was contacted in this milestone.
 
+### Hermes session/memory and audit validation — 2026-11-19
+
+- Deterministic migration tests passed for Hermes-to-OMNI-X session mapping,
+  conversation preservation, SQLite memory read/write and skill load audit
+  records.
+- No existing SQLite tables were replaced. Hermes's native session database and
+  memory manager remain compatibility references, not the OMNI-X source of
+  truth.
+
 ### Hermes manager bridge validation — 2026-11-19
 
 - Deterministic tests passed for relevant enabled-skill context, permission and

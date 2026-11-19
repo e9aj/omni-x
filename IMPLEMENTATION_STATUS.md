@@ -319,6 +319,19 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - `IntegrationRegistry` provides declarative metadata for API, MCP, skill and
   custom-tool integrations, including credentials, permissions, endpoints,
   dependencies, OS support, installation state and fail-closed health checks.
+
+### Hermes session, memory and skill audit slice — 2026-11-19
+
+- Added additive SQLite migrations for `hermes_session_map` and `skill_events`.
+  Hermes session IDs map to existing OMNI-X sessions, while prompts and answers
+  remain in the existing `sessions`/`messages` tables.
+- Added `HermesMemoryAdapter`, which uses OMNI-X's existing SQLite `memories`
+  table rather than introducing a second memory store.
+- Skill load and skip decisions now produce audit records. Deterministic tests
+  cover enabled/relevant loading, permission/dependency filtering, session
+  mapping, memory persistence and audit behavior.
+- Hermes-native persistence and memory managers are inspected but not yet made
+  authoritative; live skill execution remains unverified.
 - Controlled raw-response evidence (2026-11-19) shows one direct free-route request returned `tool_calls=null`, `finish_reason=stop`, empty content, model `deepseek-ai/deepseek-r1-distill-qwen-32b`, and 406 total tokens. There was no valid call for Hermes to lose or reject; this is recorded as a provider/model limitation. No additional parser formats were added.
 - Current catalogue sweep tested four free `combo` auto routes with native tools requested. All served `deepseek-ai/deepseek-r1-distill-qwen-32b` and returned no `tool_calls`; the declared-tool UncloseAI route returned 401 because registration is closed. No reliable free tool route is currently available, so live Hermes tool execution remains unverified and testing has stopped rather than consuming repeated tokens.
 

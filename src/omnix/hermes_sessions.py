@@ -18,5 +18,9 @@ class HermesSessionBridge:
         self.store.add_message(session_id, "user", prompt)
         self.store.add_message(session_id, "assistant", answer)
 
+    def bind(self, session_id: str, hermes_session_id: str | None) -> None:
+        if hermes_session_id:
+            self.store.bind_hermes_session(session_id, hermes_session_id)
+
     def history(self, session_id: str) -> list[dict[str, str]]:
         return self.store.messages(session_id)

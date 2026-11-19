@@ -50,11 +50,12 @@ def _metadata(path: Path) -> dict[str, Any]:
 
 
 class SkillsManager:
-    def __init__(self, workspace: Path | None = None):
+    def __init__(self, workspace: Path | None = None, audit: Any | None = None):
         self.workspace = (workspace or Path.cwd()).resolve()
         self.install_root = self.workspace / ".omnix" / "skills"
         self.state_path = data_dir() / "skills.json"
         self.state = self._load_state()
+        self.audit = audit
 
     def _load_state(self) -> dict[str, Any]:
         if not self.state_path.exists():
@@ -139,7 +140,11 @@ class SkillsManager:
             if denied or missing or missing_deps:
                 reason = "permissions" if denied else "credentials" if missing else "dependencies"
                 skipped.append({"name": item.name, "reason": reason})
+                if self.audit:
+                    self.audit(item.name, "skipped", reason)
                 continue
             blocks.append(f"## Reviewed skill: {item.name}\n{Path(item.path).read_text(encoding='utf-8')[:20_000]}")
             loaded.append(item.name)
+            if self.audit:
+                self.audit(item.name, "loaded", "relevant enabled skill")
         return "\n\n".join(blocks), loaded, skipped

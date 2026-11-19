@@ -152,6 +152,7 @@ if isinstance(result, dict):
         "api_calls": result.get("api_calls"),
         "completed": result.get("completed"),
         "turn_exit_reason": result.get("turn_exit_reason"),
+        "session_id": result.get("session_id"),
     }
 else:
     output = {"answer": str(result)}
@@ -171,22 +172,25 @@ def _is_explicitly_free(settings: Settings) -> bool:
 
 
 def _skill_payload(prompt: str) -> dict[str, Any]:
-    manager = SkillsManager()
+    audit_store = Store()
+    manager = SkillsManager(audit=lambda name, event, detail: audit_store.record_skill_event(name, event, detail))
     context, loaded, skipped = manager.relevant_context(
         prompt,
         allowed_permissions={"filesystem.read", "terminal.read", "browser.read"},
         credentials=CredentialManager(),
     )
+    audit_store.db.close()
     return {"skill_prompt": context, "skills_loaded": loaded, "skills_skipped": skipped}
 
 
-def _record_omnix_session(prompt: str, answer: str) -> str | None:
+def _record_omnix_session(prompt: str, answer: str, hermes_session_id: str | None = None) -> str | None:
     """Persist a completed Hermes turn additively in OMNI-X SQLite."""
     try:
         store = Store()
         bridge = HermesSessionBridge(store)
         session_id = bridge.begin("Hermes primary session")
         bridge.record_turn(session_id, prompt, answer)
+        bridge.bind(session_id, hermes_session_id)
         store.db.close()
         return session_id
     except Exception:
@@ -246,7 +250,7 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
             return {"answer": result["answer"], "model": settings.model,
                     "engine": "hermes-aiaagent", "skills_loaded": payload.get("skills_loaded", []),
                     "skills_skipped": payload.get("skills_skipped", []),
-                    "omnix_session_id": _record_omnix_session(prompt, result["answer"]), "usage": metrics}
+                    "omnix_session_id": _record_omnix_session(prompt, result["answer"], result.get("session_id")), "usage": metrics}
     raise HermesPrimaryError("Hermes returned no structured result")
 
 
@@ -319,5 +323,5 @@ def run_hermes_tool_probe(settings: Settings, prompt: str, workspace: str, *, ti
             return {"answer": result["answer"], "model": settings.model,
                     "engine": "hermes-aiaagent+omnix-tools", "skills_loaded": payload.get("skills_loaded", []),
                     "skills_skipped": payload.get("skills_skipped", []),
-                    "omnix_session_id": _record_omnix_session(prompt, result["answer"]), "usage": usage}
+                    "omnix_session_id": _record_omnix_session(prompt, result["answer"], result.get("session_id")), "usage": usage}
     raise HermesPrimaryError("Hermes tool probe returned no structured result")

@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import tempfile
+import threading
 import time
 from typing import Any
 from types import SimpleNamespace
@@ -197,7 +198,8 @@ def _record_omnix_session(prompt: str, answer: str, hermes_session_id: str | Non
         return None
 
 
-def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float = 120.0) -> dict[str, Any]:
+def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float = 120.0,
+                             cancel_event: threading.Event | None = None) -> dict[str, Any]:
     """Run one bounded, tool-disabled turn through Hermes's real ``AIAgent``."""
     if settings.mode != "FREE" or settings.allow_paid or settings.max_cost_usd != 0:
         raise HermesPrimaryError("Hermes primary probe requires FREE mode with zero spending")
@@ -222,16 +224,42 @@ def run_hermes_primary_probe(settings: Settings, prompt: str, *, timeout: float 
     process = subprocess.Popen([str(python), "-c", _HERMES_PROBE], stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                cwd=str(source), env=env, creationflags=flags)
+    process.stdin.write(json.dumps(payload))
+    process.stdin.close()
+    deadline = time.monotonic() + timeout
     try:
-        stdout, stderr = process.communicate(json.dumps(payload), timeout=timeout)
+        while process.poll() is None:
+            if cancel_event is not None and cancel_event.is_set():
+                raise HermesPrimaryError("Task cancelled")
+            if time.monotonic() >= deadline:
+                raise subprocess.TimeoutExpired(process.args, timeout)
+            time.sleep(0.05)
+        stdout = process.stdout.read() if process.stdout else ""
+        stderr = process.stderr.read() if process.stderr else ""
     except subprocess.TimeoutExpired as exc:
         if os.name == "nt":
             subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         else:
             process.kill()
-        process.communicate(timeout=5)
+        process.wait(timeout=5)
+        if process.stdout:
+            process.stdout.read()
+        if process.stderr:
+            process.stderr.read()
         raise HermesPrimaryError("Hermes primary probe timed out") from exc
+    except HermesPrimaryError:
+        if os.name == "nt":
+            subprocess.run(["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        else:
+            process.kill()
+        process.wait(timeout=5)
+        if process.stdout:
+            process.stdout.read()
+        if process.stderr:
+            process.stderr.read()
+        raise
     if process.returncode != 0:
         safe_error = stderr[-1000:].replace(api_key, "[redacted]")
         raise HermesPrimaryError(f"Hermes exited with code {process.returncode}: {safe_error}")

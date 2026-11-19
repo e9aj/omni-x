@@ -20,6 +20,10 @@ def data_dir() -> Path:
 
 @dataclass
 class Settings:
+    # ``omnix`` keeps the verified OMNI-X engine as the default. ``auto`` may
+    # use Hermes for bounded jobs and falls back to OMNI-X on availability or
+    # compatibility failure; ``hermes`` is an explicit opt-in requirement.
+    runtime: str = "omnix"
     provider: str = "openai"
     model: str = "gpt-4o-mini"
     base_url: str = ""

@@ -19,6 +19,7 @@ from typing import Callable
 
 from .config import Settings
 from .hermes_task_bridge import parse_schedule
+from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
 from .runtime import AgentRuntime
 from .store import Store
 
@@ -155,13 +156,18 @@ class TaskService:
             session_id = row.get("session_id")
             if self._executor:
                 result = self._executor(row["prompt"], session_id)
+            elif self._should_try_hermes(row):
+                try:
+                    result = self._run_hermes_job(db, row, cancel)
+                except HermesPrimaryError as exc:
+                    if str(getattr(self.settings, "runtime", "omnix")).lower() != "auto" or cancel.is_set():
+                        raise
+                    # Auto is deliberately fail-open to the already validated
+                    # OMNI-X runtime, but the reason is retained in SQLite.
+                    db.event(row["id"], "runtime_fallback", str(exc))
+                    result, session_id = self._run_omnix_job(row, cancel, job_id)
             else:
-                runtime = AgentRuntime(self.settings, Store(self.store.path), self.workspace, self.approver, cancel_event=cancel, delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
-                result, session_id = runtime.run(row["prompt"], session_id)
-                if row.get("parent_job_id"):
-                    tool_events = Store(self.store.path).db.execute("SELECT 1 FROM events WHERE task_id=? AND kind='tool_result' LIMIT 1", (runtime.last_task_id,)).fetchone()
-                    if not tool_events:
-                        raise RuntimeError("delegated child completed without a verified tool result")
+                result, session_id = self._run_omnix_job(row, cancel, job_id)
             db.finish_job(job_id, "completed", result=result)
             if row.get("parent_job_id"):
                 self._settle_child(db, row["parent_job_id"], job_id, "completed", result, None)
@@ -172,6 +178,60 @@ class TaskService:
                 self._settle_child(db, row["parent_job_id"], job_id, state, None, str(exc))
         finally:
             with self._inflight_lock: self._inflight.discard(job_id)
+
+    def _should_try_hermes(self, row: dict) -> bool:
+        mode = str(getattr(self.settings, "runtime", "omnix")).lower()
+        if mode not in {"auto", "hermes"}:
+            return False
+        # Hermes is only admitted for the same explicit FREE/zero-spend
+        # envelope as the probe itself. This prevents auto fallback from ever
+        # turning a non-FREE task into an unreviewed paid route.
+        policy = json.loads(row.get("policy_json") or "{}")
+        effective_mode = policy.get("mode", self.settings.mode)
+        effective_paid = policy.get("allow_paid", self.settings.allow_paid)
+        effective_cost = policy.get("max_cost_usd", self.settings.max_cost_usd)
+        if effective_mode != "FREE" or bool(effective_paid) or float(effective_cost) != 0:
+            return False
+        # The explicit Hermes mode is still guarded by the probe's FREE and
+        # zero-spend checks. Auto is useful for delegated/background jobs but
+        # never changes the default desktop/CLI runtime implicitly.
+        return True
+
+    def _job_settings(self, row: dict) -> Settings:
+        policy = json.loads(row.get("policy_json") or "{}")
+        values = {"mode": policy.get("mode", self.settings.mode),
+                  "allow_paid": policy.get("allow_paid", self.settings.allow_paid),
+                  "max_cost_usd": policy.get("max_cost_usd", self.settings.max_cost_usd),
+                  "tool_policy": policy.get("tool_policy", self.settings.tool_policy)}
+        return Settings(**{**self.settings.__dict__, **values})
+
+    def _run_hermes_job(self, db: Store, row: dict, cancel: threading.Event) -> str:
+        if cancel.is_set():
+            raise RuntimeError("Task cancelled")
+        child_settings = self._job_settings(row)
+        self.store.event(row["id"], "runtime_selected", "hermes-aiaagent")
+        result = run_hermes_primary_probe(child_settings, row["prompt"],
+                                          timeout=max(1.0, float(self.settings.request_timeout_seconds)),
+                                          cancel_event=cancel)
+        usage = result.get("usage", {})
+        db.record_usage(row["id"], str(usage.get("provider", child_settings.provider)),
+                        str(result.get("model", child_settings.model)),
+                        int(usage.get("input_tokens", 0) or 0),
+                        int(usage.get("output_tokens", 0) or 0),
+                        float(usage.get("estimated_cost_usd", 0) or 0))
+        db.event(row["id"], "hermes_result", json.dumps({"engine": result.get("engine"), "usage": usage}, sort_keys=True))
+        return str(result["answer"])
+
+    def _run_omnix_job(self, row: dict, cancel: threading.Event, job_id: str) -> tuple[str, str | None]:
+        runtime = AgentRuntime(self.settings, Store(self.store.path), self.workspace, self.approver,
+                               cancel_event=cancel,
+                               delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
+        result, session_id = runtime.run(row["prompt"], row.get("session_id"))
+        if row.get("parent_job_id"):
+            tool_events = Store(self.store.path).db.execute("SELECT 1 FROM events WHERE task_id=? AND kind='tool_result' LIMIT 1", (runtime.last_task_id,)).fetchone()
+            if not tool_events:
+                raise RuntimeError("delegated child completed without a verified tool result")
+        return result, session_id
 
     def _delegate_for_job(self, parent_job_id: str, cancel: threading.Event, prompt: str, role: str = "specialist") -> str:
         if cancel.is_set():

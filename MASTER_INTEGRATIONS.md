@@ -101,6 +101,7 @@ No repository in this register is automatically installed, executed, copied, or 
 | 2026-11-19 | Added additive Hermes session mapping, SQLite-backed memory facade and skill load/skip audit events. Existing OMNI-X sessions and memory remain authoritative; Hermes-native persistence is not yet authoritative. |
 | 2026-11-18 | Stage 3 delegation added parent/child policy inheritance, specialist roles, concurrent child jobs, aggregation and failure propagation; actual child execution remains OMNI-X `AgentRuntime`. |
 | 2026-11-19 | Inspected Hermes `cron.jobs.parse_schedule`, `cron.scheduler`, `agent.managed_worker`, `gateway.session_managed_worker`, `persistence.workers.executions`, `persistence.workers.delegations` and `tools.delegate_tool` at `edd11438db3b99558f71ca58f2b93e6c804cf20b`. Added `omnix.hermes_task_bridge` to reuse pure schedule parsing where the managed environment can import it. Hermes-owned schedulers/workers/delegated agents remain deliberately unembedded; OMNI-X `TaskService` is the single runtime and policy authority. |
+| 2026-11-19 | Added controlled `omnix`/`hermes`/`auto` runtime selection at `TaskService`. Hermes child jobs invoke the actual installer-managed AIAgent probe when explicitly selected, inherit the parent policy snapshot, record usage/events and cancel only their owned process tree. `auto` falls back to OMNI-X on Hermes/provider failure. Deterministic evidence passes; live child inference/delegation remains unaccepted. |
 
 ## OMNI-X implementation status
 

@@ -348,6 +348,19 @@ This is a Phase 2 development baseline, not a production-readiness claim.
   persistence. Actual Hermes-native worker IPC, Hermes-owned cron persistence
   and live model-backed delegated children remain incomplete.
 
+### Hermes runtime selector — 2026-11-19
+
+- Added controlled `Settings.runtime` selection. OMNI-X remains the default;
+  Hermes is explicit or can be selected through bounded `auto` fallback.
+- Background and child jobs can now invoke the real Hermes `AIAgent` probe
+  through `TaskService`, with inherited FREE/zero-spend/tool policy snapshots,
+  persisted usage and runtime events.
+- Hermes probe cancellation terminates only its owned subprocess tree.
+- Deterministic tests passed for Hermes child dispatch, usage persistence,
+  parent/child settlement and auto fallback. No live Hermes child inference or
+  live Hermes delegation is claimed; provider/tool instability remains the
+  external blocker.
+
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.

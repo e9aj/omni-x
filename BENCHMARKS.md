@@ -382,3 +382,15 @@ conversation-persistence-after-live-chat result is claimed.
   pass. This is adapted lifecycle behavior, not live Hermes worker or child
   execution evidence.
 
+### Hermes child runtime selector — 2026-11-19
+
+- Deterministic child dispatch invoked the `hermes-aiaagent` boundary with a
+  FREE policy, zero spend, inherited permissions and a cancellation event.
+  Usage and runtime-selection events were persisted against the child job, and
+  the parent delegation reached `completed` only after the child settled.
+- Deterministic `auto` selection recorded a Hermes failure and completed through
+  the existing OMNI-X runtime fallback.
+- These tests use an injected probe to avoid provider consumption. They verify
+  lifecycle and policy wiring only; no live Hermes child response or live
+  delegated tool execution is claimed.
+

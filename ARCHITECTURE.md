@@ -241,3 +241,17 @@ terminal states and child ledgers. OMNI-X `TaskService` remains the sole
 scheduler, worker host, delegated-job executor, SQLite owner and policy
 authority. Native Hermes scheduling, worker IPC and delegated-agent execution
 remain incomplete pending identity, credential, approval and migration proof.
+
+### Hermes runtime selection and delegated jobs — 2026-11-19
+
+`TaskService` is now the single runtime selector for queued, background and
+child jobs. `runtime=omnix` is the default; `runtime=hermes` invokes the actual
+installer-managed Hermes `AIAgent` probe; `runtime=auto` attempts Hermes and
+records a bounded fallback to OMNI-X when Hermes or its provider is unavailable.
+Child jobs inherit the persisted parent policy snapshot, and Hermes usage,
+runtime selection and fallback events are recorded against the child job.
+
+This proves the dispatch boundary and policy inheritance deterministically. It
+does not claim live child inference, tool execution or Hermes-native delegation:
+the available free route has not supplied reliable executable tool calls, and
+Hermes's own `delegate_tool` remains intentionally unembedded.

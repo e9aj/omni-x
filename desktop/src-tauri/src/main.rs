@@ -50,7 +50,13 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     }
     let child = command.env("OMNIX_IPC_TOKEN", &state.token).spawn().map_err(|e| format!("backend start failed: {e}"))?;
     *state.child.lock().map_err(|_| "backend lock poisoned".to_string())? = Some(child);
-    Ok(())
+    for _ in 0..30 {
+        if request(state, "GET", "/v1/health", None).is_ok() { return Ok(()); }
+        let exited = state.child.lock().ok().and_then(|mut guard| guard.as_mut().map(|value| value.try_wait().ok().flatten().is_some())).unwrap_or(true);
+        if exited { return Err("backend exited before authenticated health check".into()); }
+        thread::sleep(Duration::from_millis(500));
+    }
+    Err("backend did not pass authenticated health check within 15 seconds".into())
 }
 
 fn shutdown_backend(state: &BackendState) {

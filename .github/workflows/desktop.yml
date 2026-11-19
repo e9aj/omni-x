@@ -52,18 +52,25 @@ jobs:
         shell: pwsh
         run: |
           $installer = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
+          Write-Host "Installer: $($installer.FullName)"
           if (-not $installer) { throw 'NSIS installer was not produced' }
           $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          Write-Host "Installer exit code: $($install.ExitCode)"
           if ($install.ExitCode -ne 0) { throw "NSIS installer failed with exit code $($install.ExitCode)" }
-          $app = Get-ChildItem "$env:LOCALAPPDATA/Programs" -Recurse -Filter 'OMNI-X.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $app) { throw 'Installed OMNI-X executable was not found' }
+          $app = Get-ChildItem "$env:LOCALAPPDATA" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('omnix-desktop.exe', 'OMNI-X.exe') } | Select-Object -First 1
+          Write-Host "Application candidate: $($app.FullName)"
+          if (-not $app) { Write-Host 'Installed files under LOCALAPPDATA:'; Get-ChildItem "$env:LOCALAPPDATA" -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 200 FullName; throw 'Installed OMNI-X executable was not found' }
+          Write-Host "Installation directory: $(Split-Path $app.FullName)"
           $desktop = Start-Process -FilePath $app.FullName -PassThru
           Start-Sleep -Seconds 8
+          Write-Host "Application PID: $($desktop.Id), exited: $($desktop.HasExited)"
           if ($desktop.HasExited) { throw "OMNI-X exited during startup with code $($desktop.ExitCode)" }
           $backend = Get-Process -Name 'omnix-backend' -ErrorAction SilentlyContinue
+          Write-Host "Backend processes: $(@($backend).Count)"
           if (-not $backend) { throw 'Managed omnix-backend sidecar was not observed' }
           $desktop.CloseMainWindow() | Out-Null
           if (-not $desktop.WaitForExit(15000)) { $desktop.Kill(); throw 'OMNI-X did not shut down gracefully' }
+          Write-Host "Application shutdown exit code: $($desktop.ExitCode)"
           Start-Sleep -Seconds 2
           if (Get-Process -Name 'omnix-backend' -ErrorAction SilentlyContinue) { throw 'Backend sidecar remained after application shutdown' }
           $uninstaller = Get-ChildItem (Split-Path $app.FullName) -Filter 'uninstall*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1

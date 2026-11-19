@@ -90,6 +90,12 @@ refused. The process-name/PID observation preceded authenticated readiness.
 The harness now requires the replacement PID and matching authenticated health
 PID in one bounded polling loop.
 
+Runs `44562479141` and `44562458199` reproduced the same stale-listener
+pattern: initial startup passed, but recovery saw another authenticated backend
+PID after termination. The harness was terminating only the named process, not
+its owned Windows process tree. It now uses exact-PID `taskkill /PID /T /F`,
+matching the runtime's safe orphan-cleanup boundary.
+
 ## Phase 3 desktop foundation
 
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.

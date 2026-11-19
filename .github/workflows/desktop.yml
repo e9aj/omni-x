@@ -127,7 +127,8 @@ jobs:
           $stop = Invoke-RestMethod -Method Post -Uri "$base/v1/stop" -Headers $headers -ContentType 'application/json' -Body '{}' -TimeoutSec 5
           Write-Host "Stop endpoint response: stopping=$($stop.stopping)"
           $oldBackendPid = $ownedBackendIds[0]
-          Stop-Process -Id $oldBackendPid -Force
+          $killResult = & taskkill.exe /PID $oldBackendPid /T /F 2>&1
+          if ($LASTEXITCODE -ne 0) { Write-Host $killResult; throw "Failed to terminate owned backend process tree $oldBackendPid" }
           $restarted = $null
           $healthAfterRestart = $null
           for ($attempt = 0; $attempt -lt 90; $attempt++) {

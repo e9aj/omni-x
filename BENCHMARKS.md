@@ -223,6 +223,11 @@ test sequencing defect; recovery validation now combines process identity and
 authenticated health in the same bounded poll instead of accepting process
 existence alone.
 
+Runs `44562479141` and `44562458199` reproduced the same stale-listener
+pattern during crash recovery. The correction is exact-PID Windows process-tree
+cleanup for the captured backend, without terminating by process name or
+touching unrelated infrastructure.
+
 ### Desktop integration coverage — pending hosted rerun
 
 - Deterministic local coverage includes authenticated loopback, SQLite session

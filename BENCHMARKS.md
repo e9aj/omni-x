@@ -203,6 +203,13 @@ It failed at hosted sidecar observation/recovery. Commit `c3efda6` changes only
 the test launch to preserve the normal inherited environment; the validation
 rerun remains pending. No live desktop inference is claimed.
 
+Supervisor investigation found two independent symptoms: a dead child could be
+cleared without a reliable bounded recovery outcome, and some hosted launches
+reached WebView2 without an observable managed child. The correction uses
+bounded startup/recovery attempts, explicit ownership and authenticated health
+sequencing; hosted confirmation is pending and no production readiness is
+claimed.
+
 ### Desktop integration coverage — pending hosted rerun
 
 - Deterministic local coverage includes authenticated loopback, SQLite session

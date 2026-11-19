@@ -70,6 +70,13 @@ preferences, unknown approval rejection, stop signaling and controlled
 owned-backend crash recovery. Live chat remains conditional on an eligible
 OmniRoute route being available on the hosted runner.
 
+Supervisor hardening adds bounded startup retries, explicit restart-attempt
+tracking, authenticated ownership checks and terminal recovery diagnostics.
+Deterministic Rust state-machine tests cover missing children, unexpected exit,
+live children and shutdown suppression. Hosted run `44554580840` still failed
+before validation completed, so Windows crash recovery remains pending hosted
+confirmation.
+
 ## Phase 3 desktop foundation
 
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.

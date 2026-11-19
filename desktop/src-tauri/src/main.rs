@@ -96,6 +96,28 @@ fn request(
     Ok(value)
 }
 
+fn terminate_authenticated_orphan(pid: u32) -> Result<(), String> {
+    if pid == std::process::id() {
+        return Err("refusing to terminate the desktop process".into());
+    }
+    #[cfg(windows)]
+    {
+        let status = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .status()
+            .map_err(|error| format!("failed to terminate owned backend {pid}: {error}"))?;
+        if status.success() {
+            return Ok(());
+        }
+        return Err(format!("taskkill failed for owned backend {pid}: {status}"));
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = pid;
+        Err("orphan backend recovery is only supported on Windows".into())
+    }
+}
+
 fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     if state.stopping.load(Ordering::SeqCst) {
         return Err("backend is stopping".into());
@@ -109,11 +131,21 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     {
         return Ok(());
     }
-    if request(state, "GET", "/v1/health", None).is_ok() {
-        supervisor_log("startup refused: authenticated backend reachable without owned child");
-        return Err(
-            "authenticated backend is reachable but is not owned by this desktop instance".into(),
-        );
+    if let Ok(value) = request(state, "GET", "/v1/health", None) {
+        if let Some(pid) = value["pid"].as_u64().map(|value| value as u32) {
+            supervisor_log(&format!(
+                "authenticated orphan detected pid={pid}; terminating exact PID"
+            ));
+            terminate_authenticated_orphan(pid)?;
+            for _ in 0..20 {
+                if request(state, "GET", "/v1/health", None).is_err() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
+        } else {
+            return Err("authenticated backend is reachable without a verifiable PID".into());
+        }
     }
     if TcpStream::connect(("127.0.0.1", PORT)).is_ok() {
         return Err("loopback backend port is occupied by an unauthorised process".into());
@@ -437,5 +469,10 @@ mod tests {
     fn supervisor_does_not_restart_live_child_or_during_shutdown() {
         assert!(!should_restart(true, false, false));
         assert!(!should_restart(false, true, true));
+    }
+
+    #[test]
+    fn orphan_cleanup_never_targets_desktop_process() {
+        assert!(terminate_authenticated_orphan(std::process::id()).is_err());
     }
 }

@@ -77,6 +77,13 @@ live children and shutdown suppression. Hosted run `44554580840` still failed
 before validation completed, so Windows crash recovery remains pending hosted
 confirmation.
 
+Run `44559468651` supplied precise supervisor evidence: captured child PID
+`2852` exited while authenticated `/v1/health` continued returning PID `696`
+on the same loopback port. Recovery correctly refused to spawn over that
+listener but did not remove the stale same-token backend. The next correction
+uses the authenticated token plus reported PID to terminate only that exact
+owned orphan before spawning a replacement; hosted confirmation is pending.
+
 ## Phase 3 desktop foundation
 
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.

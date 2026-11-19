@@ -210,6 +210,13 @@ bounded startup/recovery attempts, explicit ownership and authenticated health
 sequencing; hosted confirmation is pending and no production readiness is
 claimed.
 
+Run `44559468651` narrowed the recovery failure to an authenticated stale
+listener: child PID `2852` exited, but the health endpoint reported PID `696`.
+The supervisor rejected the listener as unowned and exhausted its bounded
+retries. The correction authorizes exact-PID cleanup only after the same
+OMNI-X IPC token authenticates the health response, then requires a new PID
+and matching health response. No unrelated process is targeted.
+
 ### Desktop integration coverage — pending hosted rerun
 
 - Deterministic local coverage includes authenticated loopback, SQLite session

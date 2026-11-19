@@ -128,7 +128,10 @@ class Store:
         self.db.commit()
 
     def skill_events(self, skill: str | None = None) -> list[dict]:
-        rows = self.db.execute("SELECT * FROM skill_events" + (" WHERE skill=?" if skill else "") + " ORDER BY id", (skill,) if skill else ()).fetchall()
+        if skill:
+            rows = self.db.execute("SELECT * FROM skill_events WHERE skill=? ORDER BY id", (skill,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM skill_events ORDER BY id").fetchall()
         return [dict(row) for row in rows]
 
     def remember(self, key: str, value: str) -> None:
@@ -172,8 +175,10 @@ class Store:
         self.db.commit()
 
     def provider_health(self, provider: str | None = None) -> dict[str, dict[str, object]]:
-        query = "SELECT * FROM provider_health" + (" WHERE provider=?" if provider else "")
-        rows = self.db.execute(query, (provider,) if provider else ()).fetchall()
+        if provider:
+            rows = self.db.execute("SELECT * FROM provider_health WHERE provider=?", (provider,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM provider_health").fetchall()
         return {row["provider"]: dict(row) for row in rows}
 
     def record_provider_failure(self, provider: str, category: str, error: str, latency_ms: float) -> None:
@@ -209,8 +214,10 @@ class Store:
             self.db.commit()
 
     def model_health(self, model: str | None = None) -> dict[str, dict[str, object]]:
-        query = "SELECT * FROM model_health" + (" WHERE model=?" if model else "")
-        rows = self.db.execute(query, (model,) if model else ()).fetchall()
+        if model:
+            rows = self.db.execute("SELECT * FROM model_health WHERE model=?", (model,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM model_health").fetchall()
         return {row["model"]: dict(row) for row in rows}
 
     def record_model_tool_result(self, model: str, success: bool) -> None:

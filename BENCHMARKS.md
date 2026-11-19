@@ -217,6 +217,12 @@ retries. The correction authorizes exact-PID cleanup only after the same
 OMNI-X IPC token authenticates the health response, then requires a new PID
 and matching health response. No unrelated process is targeted.
 
+The first orphan-cleanup rerun reached a replacement process, then the harness
+called health before readiness and recorded connection refused. This was a
+test sequencing defect; recovery validation now combines process identity and
+authenticated health in the same bounded poll instead of accepting process
+existence alone.
+
 ### Desktop integration coverage — pending hosted rerun
 
 - Deterministic local coverage includes authenticated loopback, SQLite session

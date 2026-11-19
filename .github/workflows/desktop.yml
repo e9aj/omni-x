@@ -129,14 +129,19 @@ jobs:
           $oldBackendPid = $ownedBackendIds[0]
           Stop-Process -Id $oldBackendPid -Force
           $restarted = $null
+          $healthAfterRestart = $null
           for ($attempt = 0; $attempt -lt 90; $attempt++) {
             Start-Sleep -Milliseconds 500
             $candidate = Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'omnix-backend.exe' -and $_.ParentProcessId -eq $desktop.Id }
-            if ($candidate -and @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid }).Count -gt 0) { $restarted = @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid })[0]; break }
+            $replacement = @($candidate | Where-Object { [int]$_.ProcessId -ne $oldBackendPid })[0]
+            if ($replacement) {
+              try {
+                $candidateHealth = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 2
+                if ($candidateHealth.status -eq 'ok' -and [int]$candidateHealth.pid -eq [int]$replacement.ProcessId) { $restarted = $replacement; $healthAfterRestart = $candidateHealth; break }
+              } catch { }
+            }
           }
           if (-not $restarted) { Write-Host 'Supervisor log after recovery failure:'; if (Test-Path $supervisorLog) { Get-Content $supervisorLog -Tail 100 }; throw 'Desktop did not restart its owned backend after a controlled crash' }
-          $healthAfterRestart = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 5
-          if ($healthAfterRestart.status -ne 'ok') { throw 'Restarted backend failed authenticated health check' }
           Write-Host "Backend crash recovery passed: old=$oldBackendPid new=$($restarted.ProcessId)"
           $gatewayAvailable = $false
           try { $models = Invoke-RestMethod -Uri 'http://127.0.0.1:20128/v1/models' -TimeoutSec 3; $gatewayAvailable = $true } catch { Write-Host 'Live OmniRoute route unavailable on hosted runner; live desktop inference skipped' }

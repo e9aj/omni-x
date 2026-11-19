@@ -84,6 +84,12 @@ listener but did not remove the stale same-token backend. The next correction
 uses the authenticated token plus reported PID to terminate only that exact
 owned orphan before spawning a replacement; hosted confirmation is pending.
 
+The first rerun after that correction reached a replacement process but failed
+at the smoke harness's immediate post-recovery health request with connection
+refused. The process-name/PID observation preceded authenticated readiness.
+The harness now requires the replacement PID and matching authenticated health
+PID in one bounded polling loop.
+
 ## Phase 3 desktop foundation
 
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.

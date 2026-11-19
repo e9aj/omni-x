@@ -31,6 +31,7 @@ class Settings:
     request_timeout_seconds: int = 120
     retry_limit: int = 2
     free_models: list[str] = field(default_factory=list)
+    content_preference: str = "creative"
 
 
 def config_path() -> Path:

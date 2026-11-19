@@ -82,6 +82,14 @@ fn backend_approval_decide(id: String, decision: String, state: State<'_, Backen
     request(&state, "POST", &format!("/v1/approvals/{id}"), Some(json!({"decision": decision})))
 }
 
+#[tauri::command]
+fn backend_settings(state: State<'_, BackendState>) -> Result<Value, String> { request(&state, "GET", "/v1/settings", None) }
+
+#[tauri::command]
+fn backend_set_content_preference(preference: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "POST", "/v1/settings", Some(json!({"content_preference": preference})))
+}
+
 fn main() {
     let state = BackendState { child: Mutex::new(None), token: token(), stopping: AtomicBool::new(false) };
     tauri::Builder::default()
@@ -100,7 +108,7 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| { if matches!(event, WindowEvent::CloseRequested { .. }) { let state = window.app_handle().state::<BackendState>(); shutdown_backend(&state); } })
-        .invoke_handler(tauri::generate_handler![backend_status, backend_chat, backend_stop, backend_approvals, backend_approval_decide])
+        .invoke_handler(tauri::generate_handler![backend_status, backend_chat, backend_stop, backend_approvals, backend_approval_decide, backend_settings, backend_set_content_preference])
         .run(tauri::generate_context!())
         .expect("error while running OMNI-X");
 }

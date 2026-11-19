@@ -17,6 +17,11 @@ from .hermes_backend import HermesExecutionBackend
 
 
 SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. When a task asks for a specialist, invoke the supplied delegate_task function immediately; do not merely narrate that you will delegate. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this Hermes-compatible contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
+CONTENT_INSTRUCTIONS = {
+    "standard": "Use a balanced, factual tone and avoid unnecessary stylistic flourishes.",
+    "creative": "Use an imaginative, expressive tone when useful while remaining accurate and safe.",
+    "open": "Use the user's requested tone and format flexibly, while preserving accuracy, safety, permissions and provider rules.",
+}
 
 
 _PSEUDO_TOOLS = {
@@ -55,7 +60,9 @@ class AgentRuntime:
         self.last_task_id = task_id
         if not self.store.messages(session_id):
             skills = relevant_instructions(discover_skills(self.workspace), prompt)
-            self.store.add_message(session_id, "system", SYSTEM + (f"\n\n{skills}" if skills else ""))
+            preference = self.settings.content_preference if self.settings.content_preference in CONTENT_INSTRUCTIONS else "creative"
+            content = SYSTEM + "\n\nContent preference: " + CONTENT_INSTRUCTIONS[preference] + (f"\n\n{skills}" if skills else "")
+            self.store.add_message(session_id, "system", content)
         self.store.add_message(session_id, "user", prompt)
         messages = self.store.messages(session_id)
         try:

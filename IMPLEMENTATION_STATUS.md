@@ -34,7 +34,13 @@ Last reviewed: 2026-11-19
   Integrity policy (`thiserror`/`proc-macro2`, event 3077). The next hosted run
   is the authoritative compilation result. The workflow now builds a
   PyInstaller `omnix-backend.exe` sidecar and bundles it as an NSIS resource;
-  a successful rerun is still required before claiming an installer artifact.
+  hosted run `44525198666` passed and produced `OMNI-X_0.1.0_x64-setup.exe`.
+  The artifact was downloaded locally, but Windows Application Control blocked
+  launching the installer before installation, so clean-install launch,
+  sidecar startup and persistence remain unvalidated on this host.
+- Added backend-owned content preferences: Standard, Creative (default) and
+  Open. They affect OMNI-X system prompting only and remain separate from tool,
+  browser, terminal, filesystem and provider permissions.
 
 ## Phase 2 release-candidate classification
 

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .config import Settings, config_path, load_settings
+from .config import Settings, config_path, load_settings, save_settings
 from .runtime import AgentRuntime
 from .store import Store
 
@@ -96,6 +96,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"status": "ok", "version": __version__, "pid": os.getpid()})
         elif self.path == "/v1/approvals":
             self._json(200, {"approvals": self.server.approvals.list()})
+        elif self.path == "/v1/settings":
+            settings = load_settings()
+            if not config_path().exists() and settings.provider == "openai":
+                settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
+            self._json(200, {"mode": settings.mode, "provider": settings.provider, "model": settings.model, "content_preference": settings.content_preference, "allow_paid": settings.allow_paid})
         else:
             self._json(404, {"error": "not found"})
 
@@ -121,6 +126,14 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(404, {"error": "approval is missing or expired"})
                 else:
                     self._json(200, {"id": ident, "decision": decision})
+            elif self.path == "/v1/settings":
+                preference = self._body().get("content_preference")
+                if preference not in {"standard", "creative", "open"}:
+                    raise ValueError("content_preference must be standard, creative or open")
+                settings = load_settings()
+                settings.content_preference = preference
+                save_settings(settings)
+                self._json(200, {"content_preference": preference})
             else:
                 self._json(404, {"error": "not found"})
         except (ValueError, OSError, RuntimeError) as exc:

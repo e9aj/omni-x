@@ -183,4 +183,9 @@ Release-candidate conclusion: suitable as a clearly labelled Phase 2 development
   exact action, expire after 60 seconds, deny by default, and are auditable via
   the authenticated approval endpoint. The UI surface is implemented; a real
   packaged Windows approval interaction remains unvalidated.
+- Hosted Windows run `44525198666` passed and produced the NSIS artifact
+  `OMNI-X_0.1.0_x64-setup.exe`. Attempted silent installation on this Windows 11
+  host was blocked by enterprise Application Control before the installer
+  started. No policy bypass was attempted; launch, restart, SQLite update
+  persistence and owned-process shutdown are therefore not live-validated.
 

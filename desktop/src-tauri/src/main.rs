@@ -96,6 +96,18 @@ fn request(
     Ok(value)
 }
 
+fn encode_query(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'/' => {
+                (byte as char).to_string()
+            }
+            _ => format!("%{byte:02X}"),
+        })
+        .collect()
+}
+
 fn terminate_authenticated_orphan(pid: u32) -> Result<(), String> {
     if pid == std::process::id() {
         return Err("refusing to terminate the desktop process".into());
@@ -429,6 +441,35 @@ fn backend_set_model(model: String, state: State<'_, BackendState>) -> Result<Va
 }
 
 #[tauri::command]
+fn backend_brain_notes(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/brain/notes", None)
+}
+
+#[tauri::command]
+fn backend_brain_note(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/note?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_save(
+    path: String,
+    content: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    request(
+        &state,
+        "POST",
+        "/v1/brain/notes",
+        Some(json!({"path": path, "content": content})),
+    )
+}
+
+#[tauri::command]
 fn backend_session(session_id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if session_id.trim().is_empty() || session_id.len() > 200 {
         return Err("session id is invalid".into());
@@ -556,6 +597,9 @@ fn main() {
             backend_settings,
             backend_models,
             backend_set_model,
+            backend_brain_notes,
+            backend_brain_note,
+            backend_brain_save,
             backend_session,
             backend_set_content_preference
         ])

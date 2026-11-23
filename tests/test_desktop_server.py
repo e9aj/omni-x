@@ -230,3 +230,24 @@ def test_desktop_models_discovery_and_free_selection(monkeypatch, tmp_path):
         server.shutdown()
         thread.join(timeout=2)
         server.server_close()
+
+
+def test_desktop_brain_vault_endpoint_is_contained_and_persistent(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("OMNIX_VAULT_DIR", str(tmp_path / "vault"))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/brain/notes", data=json.dumps({"path": "alpha.md", "content": "# Alpha\nlocal evidence"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["path"] == "alpha.md"
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/brain/note?path=alpha.md", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["content"] == "# Alpha\nlocal evidence"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()

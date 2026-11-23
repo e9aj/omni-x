@@ -430,3 +430,8 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** authenticated model discovery through the existing OmniRoute catalogue, explicit FREE-model display, backend-validated model selection, and a desktop Models panel showing provider ownership, free eligibility, context length and capability metadata.
 - **Security boundary:** the settings endpoint applies the same default FREE configuration used by chat/discovery and rejects undiscovered paid identifiers in FREE mode. Credentials remain backend-only.
 - **Not claimed:** live gateway availability or installer validation for this panel.
+
+### Brain Markdown vault — 2026-11-23
+
+- **Implemented and deterministic-tested:** local Markdown vault storage, strict path containment, `.md` type enforcement, size limits, atomic writes, note listing/reading/search, authenticated desktop note endpoints and a basic Brain note editor/list view.
+- **Not claimed:** graph, canvas, embeddings, document extraction or hosted Windows installer validation for the Brain panel.

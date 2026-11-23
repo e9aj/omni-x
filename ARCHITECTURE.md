@@ -252,6 +252,12 @@ current catalogue. Model selection is persisted by the Python backend and is
 rejected when it is not explicitly free while FREE mode is active; the React
 layer never receives provider credentials.
 
+Brain notes use a portable Markdown vault under the OMNI-X data area. The
+Python backend is the only writer, resolves every path beneath the vault root,
+rejects non-Markdown files and writes through an fsynced temporary file followed
+by an atomic replace. SQLite remains available for agent memory and metadata;
+Markdown remains the user-visible note source of truth.
+
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the

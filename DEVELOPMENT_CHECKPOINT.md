@@ -17,6 +17,7 @@ Updated: 2026-11-23
 - Full Python suite passes with existing skips.
 - Council endpoint uses the existing authenticated loopback bridge, SQLite task/usage/event tables, Router, credentials and FREE policy.
 - Desktop model discovery and FREE-only model selection are implemented and deterministic-tested.
+- Brain Markdown vault, authenticated note endpoints and basic note editor are implemented and deterministic-tested.
 
 ## Known limitations
 
@@ -25,9 +26,10 @@ Updated: 2026-11-23
 - Local `cargo check` reaches the Tauri build script but is blocked because the CI-generated target-specific backend sidecar is absent from this checkout; no security policy was changed.
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.
+- Brain graph, canvas, embeddings and document extraction remain incomplete.
 
 ## Exact next action
 
 Run full Python regression tests, inspect the desktop diff, commit and push the
-Council/model desktop slice, then use hosted Windows CI to validate the packaged
-panels before starting the next P2/P3 slice.
+Council/model/Brain desktop slice, then use hosted Windows CI to validate the
+packaged panels before starting the next P2/P3 slice.

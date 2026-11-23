@@ -8,6 +8,7 @@ import os
 import threading
 import time
 import uuid
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ from .runtime import AgentRuntime
 from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
 from .council import CouncilConfig, CouncilService, ModelRef
 from .discovery import discover_omniroute
+from .brain import MarkdownVault
 from .store import Store
 
 
@@ -114,6 +116,13 @@ class Handler(BaseHTTPRequestHandler):
                       for item in discovery.models if isinstance(item, dict) and item.get("id")]
             self._json(200, {"reachable": discovery.reachable, "error": discovery.error, "latency_ms": discovery.latency_ms,
                              "provider": settings.provider, "selected": settings.model, "mode": settings.mode, "models": models})
+        elif self.path == "/v1/brain/notes":
+            self._json(200, {"notes": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_notes()})
+        elif self.path.startswith("/v1/brain/note"):
+            query = parse_qs(urlsplit(self.path).query)
+            relative = query.get("path", [""])[0]
+            vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
+            self._json(200, {"path": relative, "content": vault.read(relative)})
         elif self.path.startswith("/v1/sessions/"):
             session_id = self.path.rsplit("/", 1)[-1]
             if not session_id or len(session_id) > 200 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in session_id):
@@ -172,6 +181,10 @@ class Handler(BaseHTTPRequestHandler):
                     settings.model = model.strip()
                 save_settings(settings)
                 self._json(200, {"content_preference": settings.content_preference, "runtime": settings.runtime, "model": settings.model})
+            elif self.path == "/v1/brain/notes":
+                body = self._body()
+                vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
+                self._json(200, {"path": vault.write(body.get("path", ""), body.get("content", ""))})
             else:
                 self._json(404, {"error": "not found"})
         except (ValueError, OSError, RuntimeError) as exc:

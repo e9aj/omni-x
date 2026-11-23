@@ -46,7 +46,7 @@ def test_desktop_server_requires_loopback_token(monkeypatch):
         thread.join(timeout=2)
 
 
-def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch):
+def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch, tmp_path):
     class FakeRuntime:
         def __init__(self, *_args, **_kwargs):
             pass
@@ -56,6 +56,7 @@ def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch):
             return "real-runtime-result", session_id or "session-1"
 
     monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
     monkeypatch.setattr("omnix.desktop_server.AgentRuntime", FakeRuntime)
     with closing(socket()) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -73,6 +74,7 @@ def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch):
     finally:
         server.shutdown()
         thread.join(timeout=2)
+        server.server_close()
 
 
 def test_desktop_approval_is_explicit_scoped_and_time_limited():

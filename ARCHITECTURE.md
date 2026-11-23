@@ -247,6 +247,11 @@ creates an existing SQLite task ledger entry, records per-candidate usage and
 latency, and stores a completion/failure audit event. It cannot alter the
 backend permission policy or credential scope.
 
+The desktop Models panel uses the same authenticated bridge to query OmniRoute's
+current catalogue. Model selection is persisted by the Python backend and is
+rejected when it is not explicitly free while FREE mode is active; the React
+layer never receives provider credentials.
+
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the

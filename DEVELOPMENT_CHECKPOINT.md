@@ -16,6 +16,7 @@ Updated: 2026-11-23
 - React/TypeScript production build passes.
 - Full Python suite passes with existing skips.
 - Council endpoint uses the existing authenticated loopback bridge, SQLite task/usage/event tables, Router, credentials and FREE policy.
+- Desktop model discovery and FREE-only model selection are implemented and deterministic-tested.
 
 ## Known limitations
 
@@ -28,5 +29,5 @@ Updated: 2026-11-23
 ## Exact next action
 
 Run full Python regression tests, inspect the desktop diff, commit and push the
-Council desktop slice, then use hosted Windows CI to validate the packaged
-panel before starting the next P2/P3 slice.
+Council/model desktop slice, then use hosted Windows CI to validate the packaged
+panels before starting the next P2/P3 slice.

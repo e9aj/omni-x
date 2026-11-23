@@ -200,3 +200,33 @@ def test_desktop_council_persists_candidates_and_enforces_free_mode(monkeypatch,
         server.shutdown()
         thread.join(timeout=2)
         server.server_close()
+
+
+def test_desktop_models_discovery_and_free_selection(monkeypatch, tmp_path):
+    from omnix.discovery import Discovery
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("omnix.desktop_server.discover_omniroute", lambda settings: Discovery(
+        "http://127.0.0.1:20128/v1", True, False,
+        [{"id": "free-a", "owned_by": "test", "free": True, "context_length": 8000, "capabilities": {"tool_calling": True}}],
+        [{"id": "free-a", "owned_by": "test", "free": True, "context_length": 8000, "capabilities": {"tool_calling": True}}], 2.0))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/models", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["models"][0]["free"] is True
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/settings", data=json.dumps({"model": "paid-model"}).encode(), headers=headers, method="POST")
+        try:
+            urllib.request.urlopen(request, timeout=2)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400
+        else:
+            raise AssertionError("FREE mode accepted an undiscovered paid model")
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()

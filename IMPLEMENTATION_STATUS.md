@@ -424,3 +424,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** authenticated `/v1/council` backend endpoint, bounded model identifier validation, SQLite task/usage/event records, and a desktop Council panel exposing Standard, Council, Advanced and Research selection plus per-model score, latency and token metrics.
 - **Preserved:** existing Tauri IPC authentication, OMNI-X Router/provider credentials, FREE mode, zero-spend policy and default chat runtime. The UI cannot grant tools, credentials or paid inference.
 - **Not claimed:** live multi-model inference or production Windows installer validation for this new panel; those require hosted Windows CI and an eligible authorised free route.
+
+### Desktop model catalogue — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated model discovery through the existing OmniRoute catalogue, explicit FREE-model display, backend-validated model selection, and a desktop Models panel showing provider ownership, free eligibility, context length and capability metadata.
+- **Security boundary:** the settings endpoint applies the same default FREE configuration used by chat/discovery and rejects undiscovered paid identifiers in FREE mode. Credentials remain backend-only.
+- **Not claimed:** live gateway availability or installer validation for this panel.

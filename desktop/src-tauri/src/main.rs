@@ -411,6 +411,24 @@ fn backend_settings(state: State<'_, BackendState>) -> Result<Value, String> {
 }
 
 #[tauri::command]
+fn backend_models(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/models", None)
+}
+
+#[tauri::command]
+fn backend_set_model(model: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if model.trim().is_empty() || model.len() > 200 {
+        return Err("model is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/settings",
+        Some(json!({"model": model})),
+    )
+}
+
+#[tauri::command]
 fn backend_session(session_id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if session_id.trim().is_empty() || session_id.len() > 200 {
         return Err("session id is invalid".into());
@@ -536,6 +554,8 @@ fn main() {
             backend_approvals,
             backend_approval_decide,
             backend_settings,
+            backend_models,
+            backend_set_model,
             backend_session,
             backend_set_content_preference
         ])

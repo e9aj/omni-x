@@ -17,6 +17,7 @@ from .config import Settings, config_path, load_settings, save_settings
 from .runtime import AgentRuntime
 from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
 from .council import CouncilConfig, CouncilService, ModelRef
+from .discovery import discover_omniroute
 from .store import Store
 
 
@@ -103,6 +104,16 @@ class Handler(BaseHTTPRequestHandler):
             if not config_path().exists() and settings.provider == "openai":
                 settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
             self._json(200, {"mode": settings.mode, "provider": settings.provider, "model": settings.model, "runtime": settings.runtime, "content_preference": settings.content_preference, "allow_paid": settings.allow_paid})
+        elif self.path == "/v1/models":
+            settings = load_settings()
+            if not config_path().exists() and settings.provider == "openai":
+                settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
+            discovery = discover_omniroute(settings)
+            models = [{"id": item.get("id"), "owned_by": item.get("owned_by", "unknown"), "free": item in discovery.free_models,
+                       "context_length": item.get("context_length"), "capabilities": item.get("capabilities") or {}}
+                      for item in discovery.models if isinstance(item, dict) and item.get("id")]
+            self._json(200, {"reachable": discovery.reachable, "error": discovery.error, "latency_ms": discovery.latency_ms,
+                             "provider": settings.provider, "selected": settings.model, "mode": settings.mode, "models": models})
         elif self.path.startswith("/v1/sessions/"):
             session_id = self.path.rsplit("/", 1)[-1]
             if not session_id or len(session_id) > 200 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in session_id):
@@ -141,17 +152,26 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._body()
                 preference = body.get("content_preference")
                 runtime = body.get("runtime")
+                model = body.get("model")
                 if preference is not None and preference not in {"standard", "creative", "open"}:
                     raise ValueError("content_preference must be standard, creative or open")
                 if runtime is not None and runtime not in {"omnix", "hermes", "auto"}:
                     raise ValueError("runtime must be omnix, hermes or auto")
+                if model is not None and (not isinstance(model, str) or not model.strip() or len(model) > 200):
+                    raise ValueError("model must be a non-empty identifier under 200 characters")
                 settings = load_settings()
+                if not config_path().exists() and settings.provider == "openai":
+                    settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
                 if preference is not None:
                     settings.content_preference = preference
                 if runtime is not None:
                     settings.runtime = runtime
+                if model is not None:
+                    if settings.mode == "FREE" and model not in settings.free_models and ":free" not in model.lower() and not model.lower().endswith("-free") and not model.lower().startswith("auto/"):
+                        raise ValueError("FREE mode only permits a discovered free model")
+                    settings.model = model.strip()
                 save_settings(settings)
-                self._json(200, {"content_preference": settings.content_preference, "runtime": settings.runtime})
+                self._json(200, {"content_preference": settings.content_preference, "runtime": settings.runtime, "model": settings.model})
             else:
                 self._json(404, {"error": "not found"})
         except (ValueError, OSError, RuntimeError) as exc:

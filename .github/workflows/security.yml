@@ -48,15 +48,14 @@ jobs:
         run: npm run build
   rust-audit:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: desktop/src-tauri
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.21.2 --locked
+      - name: Audit Rust dependencies
+        working-directory: desktop/src-tauri
+        run: cargo audit --locked
   sbom:
     runs-on: ubuntu-latest
     steps:

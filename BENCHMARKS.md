@@ -453,3 +453,11 @@ Live multi-model inference, provider capability scores and live robustness
 testing remain unverified. The Council does not inherit GODMOD3 telemetry,
 public dataset publishing, jailbreak prompts or safeguard-circumvention logic.
 
+## Desktop SkillsManager validation — 2026-11-23
+
+The authenticated SkillsManager endpoint and desktop panel were validated with
+deterministic tests. The endpoint returned reviewed skill metadata and changed
+enablement through the existing manager; malformed names/actions are rejected.
+The frontend production build passed. No third-party skill was installed and no
+live Hermes skill execution is claimed.
+

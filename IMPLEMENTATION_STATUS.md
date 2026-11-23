@@ -441,3 +441,9 @@ Automated tests use local servers or injected test clients where needed and are 
 
 - **Implemented and deterministic-tested:** local Markdown vault storage, strict path containment, `.md` type enforcement, size limits, atomic writes, note listing/reading/search, authenticated desktop note endpoints and a basic Brain note editor/list view.
 - **Not claimed:** graph, canvas, embeddings, document extraction or hosted Windows installer validation for the Brain panel.
+
+### Desktop SkillsManager path — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated desktop browsing of the existing SkillsManager catalogue and enable/disable operations for reviewed skills, including source, installation state, declared permissions, credentials and dependencies.
+- **Preserved:** skills remain disabled by default; installation still requires explicit review in the backend; no credentials or skill contents are exposed to the frontend; Hermes/OMNI-X runtime boundaries are unchanged.
+- **Not claimed:** automatic third-party skill installation, live skill execution through Hermes, or MCP lifecycle management.

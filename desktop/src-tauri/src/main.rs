@@ -525,6 +525,31 @@ fn backend_skill_action(
 }
 
 #[tauri::command]
+fn backend_integrations(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/integrations", None)
+}
+
+#[tauri::command]
+fn backend_integration_action(
+    name: String,
+    action: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if name.trim().is_empty()
+        || name.len() > 120
+        || !matches!(action.as_str(), "install" | "enable" | "disable" | "revoke")
+    {
+        return Err("integration action is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        &format!("/v1/integrations/{}", encode_query(&name)),
+        Some(json!({"action": action})),
+    )
+}
+
+#[tauri::command]
 fn backend_session(session_id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if session_id.trim().is_empty() || session_id.len() > 200 {
         return Err("session id is invalid".into());
@@ -659,6 +684,8 @@ fn main() {
             backend_task_action,
             backend_skills,
             backend_skill_action,
+            backend_integrations,
+            backend_integration_action,
             backend_session,
             backend_set_content_preference
         ])

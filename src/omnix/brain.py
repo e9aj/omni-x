@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 import uuid
+import re
 from pathlib import Path
 
 
@@ -74,3 +75,28 @@ class MarkdownVault:
             if needle in content.casefold() or needle in path.casefold():
                 results.append({"path": path, "snippet": content[:300]})
         return results[:100]
+
+    def graph(self) -> dict[str, list[dict[str, str]]]:
+        """Build a bounded wikilink graph from Markdown source, without AI calls."""
+        notes = {str(item["path"]): item for item in self.list_notes()}
+        edges: list[dict[str, str]] = []
+        for path in notes:
+            for target in re.findall(r"\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]", self.read(path)):
+                candidate = target.strip().replace("\\", "/")
+                if not candidate.lower().endswith(".md"):
+                    candidate += ".md"
+                if candidate in notes:
+                    edges.append({"source": path, "target": candidate})
+        return {"nodes": [{"path": path} for path in sorted(notes)], "edges": edges}
+
+    def backlinks(self, relative: str) -> list[str]:
+        target = self._path(relative).relative_to(self.root).as_posix()
+        stem = target[:-3] if target.lower().endswith(".md") else target
+        return [edge["source"] for edge in self.graph()["edges"] if edge["target"] in {target, stem + ".md"}]
+
+    def inspect(self, relative: str) -> dict[str, object]:
+        """Return deterministic document intelligence suitable for local UI."""
+        content = self.read(relative)
+        headings = [line.lstrip("#").strip() for line in content.splitlines() if line.startswith("#")]
+        return {"path": relative, "headings": headings[:100], "links": self.backlinks(relative),
+                "word_count": len(content.split()), "character_count": len(content)}

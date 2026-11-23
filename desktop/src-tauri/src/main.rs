@@ -446,6 +446,34 @@ fn backend_brain_notes(state: State<'_, BackendState>) -> Result<Value, String> 
 }
 
 #[tauri::command]
+fn backend_brain_graph(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/brain/graph", None)
+}
+
+#[tauri::command]
+fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if query.trim().is_empty() || query.len() > 200 {
+        return Err("search query is invalid".into());
+    }
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/search?q={}", encode_query(&query)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_inspect(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/note/inspect?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
 fn backend_brain_note(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
     request(
         &state,
@@ -678,6 +706,9 @@ fn main() {
             backend_models,
             backend_set_model,
             backend_brain_notes,
+            backend_brain_graph,
+            backend_brain_search,
+            backend_brain_inspect,
             backend_brain_note,
             backend_brain_save,
             backend_tasks,

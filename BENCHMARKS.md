@@ -461,3 +461,10 @@ enablement through the existing manager; malformed names/actions are rejected.
 The frontend production build passed. No third-party skill was installed and no
 live Hermes skill execution is claimed.
 
+## Brain graph/search validation — 2026-11-23
+
+Deterministic tests passed for Markdown lexical search, wikilink edge creation,
+backlinks and document inspection. The desktop Memory view now reports graph
+node/link counts and searches the local vault. No embeddings, external document
+service or live AI memory is claimed.
+

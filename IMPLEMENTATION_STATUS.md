@@ -447,3 +447,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** authenticated desktop browsing of the existing SkillsManager catalogue and enable/disable operations for reviewed skills, including source, installation state, declared permissions, credentials and dependencies.
 - **Preserved:** skills remain disabled by default; installation still requires explicit review in the backend; no credentials or skill contents are exposed to the frontend; Hermes/OMNI-X runtime boundaries are unchanged.
 - **Not claimed:** automatic third-party skill installation, live skill execution through Hermes, or MCP lifecycle management.
+
+### Brain graph and search path — 2026-11-23
+
+- **Implemented and deterministic-tested:** local lexical Brain search, bounded Markdown wikilink graph generation, backlinks and deterministic document inspection (headings and counts), exposed through authenticated desktop endpoints and the Memory view.
+- **Preserved:** Markdown remains the source of truth with strict vault containment and size limits; no embedding service or external document processor is invoked.
+- **Not claimed:** semantic embeddings, infinite-canvas persistence, OCR/document extraction or AI-generated memory.

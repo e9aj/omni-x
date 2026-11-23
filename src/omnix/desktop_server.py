@@ -128,11 +128,21 @@ class Handler(BaseHTTPRequestHandler):
                              "provider": settings.provider, "selected": settings.model, "mode": settings.mode, "models": models})
         elif self.path == "/v1/brain/notes":
             self._json(200, {"notes": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_notes()})
+        elif self.path == "/v1/brain/graph":
+            self._json(200, MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).graph())
+        elif urlsplit(self.path).path == "/v1/brain/search":
+            query = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
+            self._json(200, {"results": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).search(query)})
         elif self.path.startswith("/v1/brain/note"):
             query = parse_qs(urlsplit(self.path).query)
             relative = query.get("path", [""])[0]
             vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
-            self._json(200, {"path": relative, "content": vault.read(relative)})
+            if urlsplit(self.path).path == "/v1/brain/note/inspect":
+                self._json(200, vault.inspect(relative))
+            elif urlsplit(self.path).path == "/v1/brain/note/backlinks":
+                self._json(200, {"path": relative, "backlinks": vault.backlinks(relative)})
+            else:
+                self._json(200, {"path": relative, "content": vault.read(relative)})
         elif self.path == "/v1/tasks":
             self._json(200, {"tasks": self.server.tasks.status()})
         elif self.path == "/v1/skills":

@@ -17,3 +17,14 @@ def test_vault_rejects_escape_and_non_markdown(tmp_path):
         vault.write("../outside.md", "no")
     with pytest.raises(VaultError):
         vault.write("unsafe.txt", "no")
+
+
+def test_brain_graph_backlinks_and_document_inspection(tmp_path):
+    vault = MarkdownVault(tmp_path / "brain")
+    vault.write("alpha.md", "# Alpha\nLinks to [[beta]].")
+    vault.write("beta.md", "## Beta\nKnowledge.")
+    assert vault.graph()["edges"] == [{"source": "alpha.md", "target": "beta.md"}]
+    assert vault.backlinks("beta.md") == ["alpha.md"]
+    inspected = vault.inspect("beta.md")
+    assert inspected["headings"] == ["Beta"]
+    assert inspected["word_count"] == 3

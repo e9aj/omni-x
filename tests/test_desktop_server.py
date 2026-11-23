@@ -251,3 +251,27 @@ def test_desktop_brain_vault_endpoint_is_contained_and_persistent(monkeypatch, t
         server.shutdown()
         thread.join(timeout=2)
         server.server_close()
+
+
+def test_desktop_tasks_use_existing_task_service_and_cancel(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/tasks", data=json.dumps({"action": "enqueue", "prompt": "queued task"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            task_id = json.loads(response.read())["task_id"]
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/tasks/{task_id}", data=json.dumps({"action": "cancel"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["cancelled"] is True
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/tasks", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            tasks = json.loads(response.read())["tasks"]
+        assert any(item["id"] == task_id and item["state"] == "cancelled" for item in tasks)
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()

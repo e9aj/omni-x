@@ -470,6 +470,36 @@ fn backend_brain_save(
 }
 
 #[tauri::command]
+fn backend_tasks(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/tasks", None)
+}
+
+#[tauri::command]
+fn backend_task_action(
+    action: String,
+    task_id: Option<String>,
+    prompt: Option<String>,
+    schedule: Option<String>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if action == "cancel" {
+        let id = task_id.ok_or("task id is required")?;
+        return request(
+            &state,
+            "POST",
+            &format!("/v1/tasks/{id}"),
+            Some(json!({"action": "cancel"})),
+        );
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/tasks",
+        Some(json!({"action": action, "prompt": prompt, "schedule": schedule})),
+    )
+}
+
+#[tauri::command]
 fn backend_session(session_id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if session_id.trim().is_empty() || session_id.len() > 200 {
         return Err("session id is invalid".into());
@@ -600,6 +630,8 @@ fn main() {
             backend_brain_notes,
             backend_brain_note,
             backend_brain_save,
+            backend_tasks,
+            backend_task_action,
             backend_session,
             backend_set_content_preference
         ])

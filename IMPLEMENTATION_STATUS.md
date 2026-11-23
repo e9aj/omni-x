@@ -431,6 +431,12 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Security boundary:** the settings endpoint applies the same default FREE configuration used by chat/discovery and rejects undiscovered paid identifiers in FREE mode. Credentials remain backend-only.
 - **Not claimed:** live gateway availability or installer validation for this panel.
 
+### Tasks and Agents desktop path — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated task listing, enqueue, cancellation and task-detail endpoints backed by the existing durable `TaskService`; the desktop Tasks and Agents views now display real SQLite job states and results.
+- **Preserved:** one scheduler/worker authority, persisted policies, cancellation and existing runtime selection. Agent activity is a view over TaskService, not a second agent engine.
+- **Not claimed:** hosted Windows packaging for this UI or live Hermes child-agent execution.
+
 ### Brain Markdown vault — 2026-11-23
 
 - **Implemented and deterministic-tested:** local Markdown vault storage, strict path containment, `.md` type enforcement, size limits, atomic writes, note listing/reading/search, authenticated desktop note endpoints and a basic Brain note editor/list view.

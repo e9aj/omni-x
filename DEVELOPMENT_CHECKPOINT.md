@@ -18,6 +18,7 @@ Updated: 2026-11-23
 - Council endpoint uses the existing authenticated loopback bridge, SQLite task/usage/event tables, Router, credentials and FREE policy.
 - Desktop model discovery and FREE-only model selection are implemented and deterministic-tested.
 - Brain Markdown vault, authenticated note endpoints and basic note editor are implemented and deterministic-tested.
+- Tasks and Agents screens now use authenticated TaskService queue/status/cancellation endpoints.
 
 ## Known limitations
 
@@ -27,9 +28,10 @@ Updated: 2026-11-23
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.
 - Brain graph, canvas, embeddings and document extraction remain incomplete.
+- Live Hermes tool execution and delegated workflows remain experimental.
 
 ## Exact next action
 
-Run hosted Windows CI for `5d6aa37`, then implement the next complete P2 slice:
-real task/agent activity visibility in the desktop Tasks/Agents screens, using
-existing TaskService APIs and no new scheduler or runtime.
+Run hosted Windows CI for the latest task-screen commit, then implement the
+next complete P2 slice: SkillsManager-backed desktop skills discovery and
+enablement, with disabled-by-default and permission/credential checks.

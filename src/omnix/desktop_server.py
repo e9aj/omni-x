@@ -20,6 +20,7 @@ from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
 from .council import CouncilConfig, CouncilService, ModelRef
 from .discovery import discover_omniroute
 from .brain import MarkdownVault
+from .task_service import TaskService
 from .store import Store
 
 
@@ -78,12 +79,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def _json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            # The desktop may stop/cancel a request while the backend is
+            # finishing its response. Do not attempt a second error response
+            # on a socket the client has already closed.
+            return
 
     def _body(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0"))
@@ -123,6 +130,15 @@ class Handler(BaseHTTPRequestHandler):
             relative = query.get("path", [""])[0]
             vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
             self._json(200, {"path": relative, "content": vault.read(relative)})
+        elif self.path == "/v1/tasks":
+            self._json(200, {"tasks": self.server.tasks.status()})
+        elif self.path.startswith("/v1/tasks/"):
+            task_id = self.path.rsplit("/", 1)[-1]
+            task = self.server.tasks.status(task_id)
+            if task is None:
+                self._json(404, {"error": "task not found"})
+            else:
+                self._json(200, {"task": task, "delegations": self.server.tasks.store.delegations(task_id)})
         elif self.path.startswith("/v1/sessions/"):
             session_id = self.path.rsplit("/", 1)[-1]
             if not session_id or len(session_id) > 200 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in session_id):
@@ -185,6 +201,28 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._body()
                 vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
                 self._json(200, {"path": vault.write(body.get("path", ""), body.get("content", ""))})
+            elif self.path == "/v1/tasks":
+                body = self._body()
+                action = body.get("action", "enqueue")
+                if action == "enqueue":
+                    prompt = body.get("prompt")
+                    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 100_000:
+                        raise ValueError("task prompt is invalid")
+                    task_id = self.server.tasks.enqueue(prompt, deadline_seconds=body.get("deadline_seconds"))
+                    self._json(200, {"task_id": task_id})
+                elif action == "schedule":
+                    prompt, schedule = body.get("prompt"), body.get("schedule")
+                    if not isinstance(prompt, str) or not isinstance(schedule, str) or not prompt.strip() or len(prompt) > 100_000:
+                        raise ValueError("scheduled task is invalid")
+                    self._json(200, {"schedule_id": self.server.tasks.schedule(prompt, schedule)})
+                else:
+                    raise ValueError("task action must be enqueue or schedule")
+            elif self.path.startswith("/v1/tasks/"):
+                task_id = self.path.rsplit("/", 1)[-1]
+                if self._body().get("action") != "cancel":
+                    raise ValueError("task action must be cancel")
+                self.server.tasks.cancel(task_id)
+                self._json(200, {"task_id": task_id, "cancelled": True})
             else:
                 self._json(404, {"error": "not found"})
         except (ValueError, OSError, RuntimeError) as exc:
@@ -294,6 +332,14 @@ class DesktopServer(ThreadingHTTPServer):
         super().__init__(address, handler)
         self.state = DesktopState()
         self.approvals = ApprovalManager()
+        settings = load_settings()
+        if not config_path().exists() and settings.provider == "openai":
+            settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
+        self.tasks = TaskService(settings, Store(), Path.cwd(), approver=self.approvals.request)
+
+    def server_close(self) -> None:
+        self.tasks.close()
+        super().server_close()
 
 
 def main() -> int:

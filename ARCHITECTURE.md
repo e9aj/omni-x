@@ -4,6 +4,16 @@ OMNI-X remains one unified CLI-first runtime. The Hermes integration is an
 internal compatibility layer, not a second permanently running agent engine and
 not a public Hermes fork.
 
+## Optional integration boundary — 2026-11-23
+
+`IntegrationRegistry` is the single lifecycle boundary for external projects.
+Its SQLite state and audit tables record metadata-only installation,
+configuration, enablement, disablement and revocation. Entries are disabled by
+default; registry registration does not install software, connect to services,
+load secret values or execute MCP/tools. External adapters must call through
+OMNI-X credentials, approvals, permissions, TaskService and audit history.
+See `docs/INTEGRATION_COMPATIBILITY.md` for the ten-project review.
+
 ## Assessment
 
 Hermes Agent is MIT-licensed and currently provides a mature execution loop,

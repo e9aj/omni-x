@@ -385,6 +385,16 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Live tool execution remains unverified. Hermes remains experimental and is
   not ready to replace the default OMNI-X runtime.
 
+## Optional integrations — 2026-11-23
+
+- Implemented: persistent, audited, disabled-by-default integration lifecycle
+  in `IntegrationRegistry` and SQLite, including metadata-only install,
+  configuration, enable/disable, revocation and gated health checks.
+- Research complete: ten requested projects are recorded in
+  `docs/INTEGRATION_COMPATIBILITY.md` and `MASTER_INTEGRATIONS.md`.
+- Not implemented: third-party installation, OpenWhispr/VoiceStudio/Chatwoot/
+  OpenClaw/OpenSEO/Cap service connections, MCP execution and media generation.
+
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.

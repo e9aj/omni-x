@@ -169,14 +169,17 @@ class TaskService:
                     result, session_id = self._run_omnix_job(row, cancel, job_id)
             else:
                 result, session_id = self._run_omnix_job(row, cancel, job_id)
-            db.finish_job(job_id, "completed", result=result)
             if row.get("parent_job_id"):
                 self._settle_child(db, row["parent_job_id"], job_id, "completed", result, None)
+            # Settle the delegation before exposing the child as completed.
+            # Observers can then aggregate a terminal child without seeing a
+            # transient `running` delegation row.
+            db.finish_job(job_id, "completed", result=result)
         except Exception as exc:
             state = "cancelled" if cancel.is_set() or str(exc) == "Task cancelled" else "failed"
-            db.finish_job(job_id, state, error=str(exc))
             if row.get("parent_job_id"):
                 self._settle_child(db, row["parent_job_id"], job_id, state, None, str(exc))
+            db.finish_job(job_id, state, error=str(exc))
         finally:
             with self._inflight_lock: self._inflight.discard(job_id)
 

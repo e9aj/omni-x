@@ -110,7 +110,10 @@ class ToolRegistry:
         if not self.approver(f"run command: {command}"):
             raise PermissionDenied("command execution requires explicit approval")
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        process = subprocess.Popen(command, cwd=self.workspace, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=os.environ.copy(), creationflags=flags, start_new_session=(os.name != "nt"))
+        # The command is a deliberately explicit, approval-gated tool.  The
+        # dangerous-command denylist, workspace cwd, owned-process tracking and
+        # cancellation controls are applied before shell execution.
+        process = subprocess.Popen(command, cwd=self.workspace, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=os.environ.copy(), creationflags=flags, start_new_session=(os.name != "nt"))  # nosec B602
         with self._active_lock: self._active.add(process)
         try:
             _, stopped = wait_owned_process(process, self.cancel_event, 120)

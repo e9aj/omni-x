@@ -37,6 +37,8 @@ class Store:
         CREATE TABLE IF NOT EXISTS schedules (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, schedule TEXT NOT NULL, kind TEXT NOT NULL, next_run_at REAL NOT NULL, last_run_at REAL, enabled INTEGER NOT NULL DEFAULT 1, missed_runs INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, schedule_id TEXT, parent_job_id TEXT, session_id TEXT, prompt TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, attempts INTEGER NOT NULL DEFAULT 0, deadline REAL, created REAL NOT NULL, started REAL, finished REAL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS delegations (id TEXT PRIMARY KEY, parent_job_id TEXT NOT NULL, child_job_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS hermes_session_map (omnix_session_id TEXT PRIMARY KEY, hermes_session_id TEXT NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS skill_events (id INTEGER PRIMARY KEY, skill TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, task_id TEXT, created REAL NOT NULL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
@@ -71,12 +73,10 @@ class Store:
         row = self.db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone(); return dict(row) if row else None
 
     def jobs(self, limit: int = 50) -> list[dict]:
-        # SQLite 3.13 runners have intermittently reported API misuse for a
-        # bound LIMIT while another worker connection is closing.  The value
-        # is an internal bounded integer, so embedding it avoids that driver
-        # edge case without accepting SQL text from callers.
         safe_limit = max(1, min(int(limit), 1000))
-        return [dict(r) for r in self.db.execute(f"SELECT * FROM jobs ORDER BY created DESC LIMIT {safe_limit}").fetchall()]
+        # safe_limit is an internal bounded integer, never caller-supplied SQL.
+        # Parameterised LIMIT has triggered sqlite API misuse on worker restart.
+        return [dict(r) for r in self.db.execute(f"SELECT * FROM jobs ORDER BY created DESC LIMIT {safe_limit}").fetchall()]  # nosec B608
 
     def claim_job(self, job_id: str) -> bool:
         with self._lock:
@@ -113,6 +113,25 @@ class Store:
         rows = self.db.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id", (session_id,)).fetchall()
         return [{"role": row["role"], "content": row["content"]} for row in rows]
 
+    def bind_hermes_session(self, omnix_session_id: str, hermes_session_id: str) -> None:
+        self.db.execute("INSERT OR REPLACE INTO hermes_session_map VALUES (?,?,?)", (omnix_session_id, hermes_session_id, time.time()))
+        self.db.commit()
+
+    def hermes_session(self, omnix_session_id: str) -> str | None:
+        row = self.db.execute("SELECT hermes_session_id FROM hermes_session_map WHERE omnix_session_id=?", (omnix_session_id,)).fetchone()
+        return row["hermes_session_id"] if row else None
+
+    def record_skill_event(self, skill: str, event: str, detail: str = "", task_id: str | None = None) -> None:
+        self.db.execute("INSERT INTO skill_events(skill,event,detail,task_id,created) VALUES (?,?,?,?,?)", (skill, event, detail[:2000], task_id, time.time()))
+        self.db.commit()
+
+    def skill_events(self, skill: str | None = None) -> list[dict]:
+        if skill:
+            rows = self.db.execute("SELECT * FROM skill_events WHERE skill=? ORDER BY id", (skill,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM skill_events ORDER BY id").fetchall()
+        return [dict(row) for row in rows]
+
     def remember(self, key: str, value: str) -> None:
         now = time.time()
         self.db.execute("INSERT INTO memories(key,value,created,updated) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated", (key, value, now, now))
@@ -134,8 +153,12 @@ class Store:
         self.db.commit()
 
     def event(self, task_id: str, kind: str, detail: str) -> None:
-        self.db.execute("INSERT INTO events(task_id,kind,detail,created) VALUES (?,?,?,?)", (task_id, kind, detail, time.time()))
-        self.db.commit()
+        # Task workers and the control path can share this Store connection.
+        # Serialize the write so cancellation cannot interleave a commit with
+        # runtime lifecycle/audit events on Windows SQLite.
+        with self._lock:
+            self.db.execute("INSERT INTO events(task_id,kind,detail,created) VALUES (?,?,?,?)", (task_id, kind, detail, time.time()))
+            self.db.commit()
 
     def record_usage(self, task_id: str | None, provider: str, model: str, input_tokens: int, output_tokens: int, estimated_cost: float = 0.0) -> None:
         self.db.execute("INSERT INTO usage(task_id,provider,model,input_tokens,output_tokens,estimated_cost,created) VALUES (?,?,?,?,?,?,?)", (task_id, provider, model, input_tokens, output_tokens, estimated_cost, time.time()))
@@ -154,8 +177,10 @@ class Store:
         self.db.commit()
 
     def provider_health(self, provider: str | None = None) -> dict[str, dict[str, object]]:
-        query = "SELECT * FROM provider_health" + (" WHERE provider=?" if provider else "")
-        rows = self.db.execute(query, (provider,) if provider else ()).fetchall()
+        if provider:
+            rows = self.db.execute("SELECT * FROM provider_health WHERE provider=?", (provider,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM provider_health").fetchall()
         return {row["provider"]: dict(row) for row in rows}
 
     def record_provider_failure(self, provider: str, category: str, error: str, latency_ms: float) -> None:
@@ -191,8 +216,10 @@ class Store:
             self.db.commit()
 
     def model_health(self, model: str | None = None) -> dict[str, dict[str, object]]:
-        query = "SELECT * FROM model_health" + (" WHERE model=?" if model else "")
-        rows = self.db.execute(query, (model,) if model else ()).fetchall()
+        if model:
+            rows = self.db.execute("SELECT * FROM model_health WHERE model=?", (model,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM model_health").fetchall()
         return {row["model"]: dict(row) for row in rows}
 
     def record_model_tool_result(self, model: str, success: bool) -> None:

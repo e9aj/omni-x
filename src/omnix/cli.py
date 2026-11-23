@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import os
 import sys
 import subprocess
 from dataclasses import replace
+from pathlib import Path
 
 from . import __version__
 from .config import Settings, load_settings, save_settings
@@ -38,7 +40,10 @@ def main(argv: list[str] | None = None) -> int:
     memory = sub.add_parser("memory", help="manage persistent memory")
     memory.add_argument("action", choices=["remember", "recall"])
     memory.add_argument("value", nargs="*")
-    sub.add_parser("skills", help="list discovered skills")
+    skills = sub.add_parser("skills", help="browse and manage reviewed skills")
+    skills.add_argument("action", nargs="?", choices=["list", "inspect", "install", "enable", "disable"], default="list")
+    skills.add_argument("value", nargs="?")
+    skills.add_argument("--reviewed", action="store_true", help="confirm a local skill source was reviewed")
     sub.add_parser("tools", help="list built-in tools")
     models = sub.add_parser("models", help="discover models or check provider health")
     models.add_argument("action", choices=["list", "health", "probe"], nargs="?", default="health")
@@ -46,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("discover", help="show provider and free-model availability without exposing credentials")
     sub.add_parser("doctor", help="check local runtime readiness")
     hermes = sub.add_parser("hermes", help="install or inspect the managed Hermes backend")
-    hermes.add_argument("action", choices=["install", "status"])
+    hermes.add_argument("action", choices=["install", "status", "probe"])
     schedule = sub.add_parser("schedule", help="manage persistent scheduled tasks")
     schedule.add_argument("action", choices=["add", "list"])
     schedule.add_argument("prompt", nargs="?")
@@ -137,9 +142,35 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{item['key']}: {item['value']}")
         return 0
     if args.command == "skills":
-        from .skills import discover_skills
-        for skill in discover_skills(os.getcwd()):
-            print(f"{skill.name}: {skill.description or skill.path}")
+        from .skills_manager import SkillsManager
+        manager = SkillsManager(Path(os.getcwd()))
+        if args.action == "install":
+            if not args.value:
+                parser.error("skills install requires a local skill directory or SKILL.md")
+            try:
+                record = manager.install(Path(args.value), reviewed=args.reviewed)
+            except (OSError, ValueError, PermissionError) as exc:
+                print(f"omnix: {exc}", file=sys.stderr)
+                return 1
+            print(f"Installed reviewed skill: {record.name} (disabled by default)")
+        elif args.action in {"enable", "disable"}:
+            if not args.value:
+                parser.error(f"skills {args.action} requires a skill name")
+            try:
+                record = manager.set_enabled(args.value, args.action == "enable")
+            except KeyError as exc:
+                print(f"omnix: {exc}", file=sys.stderr)
+                return 1
+            print(f"{record.name}: {'enabled' if record.enabled else 'disabled'}")
+        elif args.action == "inspect":
+            record = next((item for item in manager.browse() if item.name == args.value), None)
+            if record is None:
+                print(f"omnix: unknown skill {args.value}", file=sys.stderr)
+                return 1
+            print(json.dumps(record.__dict__, indent=2))
+        else:
+            for record in manager.browse():
+                print(f"{record.name}: source={record.source} installed={record.installed} enabled={record.enabled} permissions={','.join(record.permissions) or 'none'} credentials={','.join(record.credentials) or 'none'}")
         return 0
     if args.command == "tools":
         from .tools import ToolRegistry
@@ -189,6 +220,18 @@ def main(argv: list[str] | None = None) -> int:
             if source:
                 print(f"Source: {source}")
             return 0 if source else 1
+        if args.action == "probe":
+            if os.environ.get("OMNIX_HERMES_PRIMARY") != "1":
+                print("Hermes primary probe is opt-in; set OMNIX_HERMES_PRIMARY=1 to run it.", file=sys.stderr)
+                return 2
+            from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
+            try:
+                result = run_hermes_primary_probe(load_settings(), "Reply with exactly HERMES-PRIMARY-OK.")
+            except HermesPrimaryError as exc:
+                print(f"Hermes primary probe unavailable: {exc}", file=sys.stderr)
+                return 1
+            print(json.dumps(result))
+            return 0
         if os.name != "nt":
             print("Hermes installer integration currently supports native Windows only.", file=sys.stderr)
             return 1

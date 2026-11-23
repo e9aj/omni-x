@@ -1,0 +1,71 @@
+name: Security and compliance checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check bandit==1.7.9 pip-audit==2.7.3 pip-licenses==5.0.0
+      - run: bandit -r src -q --severity-level medium
+      - run: pip-audit --strict
+      - run: pip-licenses --format=markdown --with-urls
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  frontend-and-rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - working-directory: desktop
+        run: npm ci
+      - working-directory: desktop
+        run: npm audit --audit-level=high --omit=dev
+      - working-directory: desktop
+        run: npm run typecheck
+      - working-directory: desktop
+        run: npm run build
+  rust-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.23.0 --locked
+      - name: Audit Rust dependencies
+        working-directory: desktop/src-tauri
+        run: cargo audit
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check cyclonedx-bom==4.6.0
+      - run: cyclonedx-py environment --output-format json > omnix-python-sbom.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: omnix-python-sbom
+          path: omnix-python-sbom.json

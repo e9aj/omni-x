@@ -5,6 +5,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,6 +38,15 @@ PROVIDERS = {
 
 class ProviderError(RuntimeError):
     pass
+
+
+def _validate_http_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ProviderError("provider URL must use HTTP(S)")
+    if parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+        raise ProviderError("unencrypted provider URLs are limited to loopback")
+    return url
 
 
 class ModelClient:
@@ -94,10 +104,11 @@ class ModelClient:
         return self._request_json(url, headers, body)
 
     def _request_json(self, url: str, headers: dict[str, str], body: dict[str, Any] | None = None) -> dict[str, Any]:
+        url = _validate_http_url(url)
         for attempt in range(self.settings.retry_limit + 1):
             request = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, headers={"Content-Type": "application/json", **headers}, method="POST" if body is not None else "GET")
             try:
-                with urllib.request.urlopen(request, timeout=self.settings.request_timeout_seconds) as response:
+                with urllib.request.urlopen(request, timeout=getattr(self.settings, "provider_request_timeout_seconds", self.settings.request_timeout_seconds)) as response:  # nosec B310
                     return json.loads(response.read())
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode(errors="replace")

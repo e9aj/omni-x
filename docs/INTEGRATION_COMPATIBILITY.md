@@ -36,3 +36,12 @@ No OpenWhispr, VoiceStudio, Chatwoot, OpenClaw, OpenSEO or media-generation
 runtime is claimed as executable yet. The next safe implementation is a small
 OpenWhispr local-service/CLI adapter after its exact protocol and permission
 boundary are verified.
+## GODMOD3 reference architecture and OMNI-X Council
+
+| Candidate | Licence | Reviewed finding | OMNI-X decision |
+|---|---|---|---|
+| [MSL135/GODMOD3](https://github.com/MSL135/GODMOD3) | AGPL-3.0 | Useful reference patterns for parallel model opinions, evaluation, ranking, adaptive parameters, metrics and bounded robustness research. The repository also contains behaviours OMNI-X must not inherit, including telemetry, optional public dataset publishing and dual-use safeguard-circumvention prompts. | Reference only. No GODMOD3 code is imported or bundled. |
+
+OMNI-X now provides an independent `CouncilService` over the existing `Router`. It supports Standard (one model and the default), Council (three), Advanced (five) and Research (an explicit bounded model group), with bounded concurrency, free-only enforcement, response scoring, deterministic best-response synthesis, adaptive generation parameters, token/latency capture and an explicit authorisation gate for robustness tests. Provider credentials, FREE policy, permissions and spending limits remain OMNI-X-owned.
+
+Local models are compatible only through an already configured OMNI-X-compatible provider route; the Council does not install or expose a new local server. Live multi-model inference remains unvalidated until an eligible authorised route is available.

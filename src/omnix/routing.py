@@ -58,7 +58,9 @@ class Router:
         latency = float(row.get("p95_latency_ms", 999999) or 999999)
         return (tool_verified * 100 + available * 20 + tested * 5 - min(failures, 20) * 10, int(row.get("successes", 0) or 0), -latency)
 
-    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None, record=None, requires_tools: bool = False) -> tuple[dict[str, Any], Route]:
+    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
+                 record=None, requires_tools: bool = False,
+                 parameters: dict[str, Any] | None = None) -> tuple[dict[str, Any], Route]:
         errors = []
         for route in self.routes[:5]:
             provider = PROVIDERS[route.provider]
@@ -84,7 +86,7 @@ class Router:
             started = time.perf_counter()
             try:
                 client = ModelClient(self.settings.__class__(**{**self.settings.__dict__, "provider": route.provider, "model": route.model}))
-                result = client.complete(messages, tools)
+                result = client.complete(messages, tools, parameters)
                 usage = result.get("usage", {})
                 latency_ms = (time.perf_counter() - started) * 1000
                 actual_model = result.get("model") if isinstance(result, dict) else None

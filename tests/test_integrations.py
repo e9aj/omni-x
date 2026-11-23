@@ -8,9 +8,10 @@ from omnix.store import Store
 def test_researched_catalogue_is_disabled_by_default(tmp_path):
     registry = register_researched_integrations(IntegrationRegistry(Store(tmp_path / "state.sqlite3")))
     items = registry.list()
-    assert len(items) == 10
+    assert len(items) == 11
     assert all(not item.enabled and not item.installed for item in items)
     assert registry.health("openwhispr")["status"] == "disabled"
+    assert registry.get("godmod3-council-reference").enabled is False
 
 
 def test_integration_lifecycle_is_explicit_and_audited(tmp_path):

@@ -80,6 +80,14 @@ def register_researched_integrations(registry: IntegrationRegistry) -> Integrati
             operating_systems=("windows", "linux", "macos"), version=CATALOGUE_VERSION,
             interface="desktop-api-or-service",
         ),
+        IntegrationSpec(
+            "godmod3-council-reference", "multi-model-evaluation",
+            credentials=("OMNI-X-scoped provider credentials",),
+            permissions=("model.inference", "usage.read", "robustness-test.authorised"),
+            dependencies=("OMNI-X Router/OmniRoute", "explicit robustness-test authorisation"),
+            endpoints=("https://github.com/MSL135/GODMOD3",),
+            version=CATALOGUE_VERSION, interface="internal-council-api",
+        ),
         # No canonical upstream was verified for the name supplied by the
         # request. The archived higgsfield-ai/higgsfield repository is a GPU
         # orchestration framework, not a media-generation service.

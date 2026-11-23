@@ -38,3 +38,12 @@ and installer build.
 user-supplied project policy reference copied byte-for-byte from the supplied
 source. It is not an OMNI-X dependency and is not represented as legal advice,
 a certification, or a third-party licence grant.
+### GODMOD3 reference architecture
+
+OMNI-X reviewed [MSL135/GODMOD3](https://github.com/MSL135/GODMOD3), identified
+by its upstream repository as AGPL-3.0. No GODMOD3 source code is included in
+OMNI-X. The independent OMNI-X Council implementation does not inherit its
+telemetry, public dataset publishing, jailbreak prompts or safeguard-
+circumvention mechanisms. Any future source reuse requires a separate legal
+review and preservation of applicable AGPL-3.0 obligations.
+

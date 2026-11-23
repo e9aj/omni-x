@@ -227,6 +227,20 @@ session database is not substituted for OMNI-X history.
 SQLite `memories` table. The `hermes_session_map` and `skill_events` tables are
 additive migrations and support recovery/audit without changing desktop IPC.
 
+### Council boundary — 2026-11-23
+
+`CouncilService` is an independent OMNI-X capability informed by the reviewed
+GODMOD3 reference architecture. It calls the existing `Router` in bounded
+parallelism and never creates a model gateway, credential store or agent
+runtime. Standard (one model) is the default; Council (three), Advanced (five)
+and Research (explicit bounded count) are opt-in. OMNI-X retains free-first
+routing, zero-spend enforcement, provider credentials, latency/token records,
+permissions and approvals. Response evaluation and synthesis are deterministic
+selection steps by default, so a hidden synthesis call cannot bypass policy or
+inflate usage. Robustness testing requires explicit authorisation and accepts
+ordinary capability probes only; GODMOD3 telemetry, public dataset publishing,
+jailbreak prompts and safeguard-circumvention mechanisms are excluded.
+
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the

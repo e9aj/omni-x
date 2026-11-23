@@ -413,3 +413,8 @@ Automated tests use local servers or injected test clients where needed and are 
   prompt-injection detection, sandboxed subprocesses, live Hermes tools, or live
   desktop inference. Owner/legal decisions and external-provider assessments
   remain required.
+## GODMOD3 reference and Council — 2026-11-23
+
+- **Implemented and deterministic-tested:** independent `CouncilService` using the existing Router; Standard/Council/Advanced/Research modes; bounded parallel calls; model groups; deterministic response scoring and ranking; best-response synthesis; adaptive bounded generation parameters; token and latency aggregation; free-only and zero-spend enforcement; explicit authorisation gate for robustness testing.
+- **Reviewed only:** `MSL135/GODMOD3` is an AGPL-3.0 reference architecture. No GODMOD3 source, telemetry, public dataset publishing, jailbreak prompts or safeguard-circumvention mechanisms are included.
+- **Not claimed:** live multi-model provider validation, provider-specific capability benchmarks, or generative answer synthesis through an extra model. The current synthesis deliberately selects the highest-ranked verified response to avoid hidden calls and uncontrolled token use.

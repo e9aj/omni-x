@@ -439,3 +439,17 @@ conversation-persistence-after-live-chat result is claimed.
   `pip-audit` was also blocked by the pre-existing editable `omnix` install.
   These are validation limitations, not clean security results.
 
+## GODMOD3 reference / Council deterministic validation — 2026-11-23
+
+The official [MSL135/GODMOD3](https://github.com/MSL135/GODMOD3) repository was
+reviewed as an AGPL-3.0 reference architecture. No third-party source was
+executed or copied. Deterministic tests for the independent OMNI-X
+`CouncilService` passed: Standard used one model; Council used three bounded
+workers; token counts and per-model latency were captured; adaptive parameters
+were bounded; ranking selected a non-empty response; paid Council mode was
+denied without explicit policy; and unauthorised robustness testing was denied.
+
+Live multi-model inference, provider capability scores and live robustness
+testing remain unverified. The Council does not inherit GODMOD3 telemetry,
+public dataset publishing, jailbreak prompts or safeguard-circumvention logic.
+

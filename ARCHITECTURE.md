@@ -241,6 +241,12 @@ inflate usage. Robustness testing requires explicit authorisation and accepts
 ordinary capability probes only; GODMOD3 telemetry, public dataset publishing,
 jailbreak prompts and safeguard-circumvention mechanisms are excluded.
 
+The desktop path exposes this service only through the authenticated Python
+loopback API and Tauri command bridge. Each run receives a bounded model group,
+creates an existing SQLite task ledger entry, records per-candidate usage and
+latency, and stores a completion/failure audit event. It cannot alter the
+backend permission policy or credential scope.
+
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and
 returned no native calls. The only other declared-tool route rejected the

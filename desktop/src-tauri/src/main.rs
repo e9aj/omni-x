@@ -358,6 +358,27 @@ fn backend_chat(
 }
 
 #[tauri::command]
+fn backend_council(
+    prompt: String,
+    mode: String,
+    models: Vec<String>,
+    session_id: Option<String>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if prompt.trim().is_empty() || models.len() > 5 {
+        return Err("invalid Council request".into());
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/council",
+        Some(json!({
+            "prompt": prompt, "mode": mode, "models": models, "session_id": session_id
+        })),
+    )
+}
+
+#[tauri::command]
 fn backend_stop(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "POST", "/v1/stop", Some(json!({})))
 }
@@ -510,6 +531,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             backend_status,
             backend_chat,
+            backend_council,
             backend_stop,
             backend_approvals,
             backend_approval_decide,

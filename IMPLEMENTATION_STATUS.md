@@ -418,3 +418,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** independent `CouncilService` using the existing Router; Standard/Council/Advanced/Research modes; bounded parallel calls; model groups; deterministic response scoring and ranking; best-response synthesis; adaptive bounded generation parameters; token and latency aggregation; free-only and zero-spend enforcement; explicit authorisation gate for robustness testing.
 - **Reviewed only:** `MSL135/GODMOD3` is an AGPL-3.0 reference architecture. No GODMOD3 source, telemetry, public dataset publishing, jailbreak prompts or safeguard-circumvention mechanisms are included.
 - **Not claimed:** live multi-model provider validation, provider-specific capability benchmarks, or generative answer synthesis through an extra model. The current synthesis deliberately selects the highest-ranked verified response to avoid hidden calls and uncontrolled token use.
+
+### Council desktop path — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated `/v1/council` backend endpoint, bounded model identifier validation, SQLite task/usage/event records, and a desktop Council panel exposing Standard, Council, Advanced and Research selection plus per-model score, latency and token metrics.
+- **Preserved:** existing Tauri IPC authentication, OMNI-X Router/provider credentials, FREE mode, zero-spend policy and default chat runtime. The UI cannot grant tools, credentials or paid inference.
+- **Not claimed:** live multi-model inference or production Windows installer validation for this new panel; those require hosted Windows CI and an eligible authorised free route.

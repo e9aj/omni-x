@@ -165,3 +165,38 @@ def test_desktop_session_messages_are_available_after_restart(monkeypatch, tmp_p
         server.shutdown()
         thread.join(timeout=2)
         server.server_close()
+
+
+def test_desktop_council_persists_candidates_and_enforces_free_mode(monkeypatch, tmp_path):
+    from omnix.council import Candidate, CouncilResult
+    from omnix.store import Store
+
+    class FakeCouncil:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def run(self, messages, config):
+            assert config.free_only is True and config.max_cost_usd == 0.0
+            return CouncilResult("council answer", [Candidate("omniroute", "free-a", "answer", 80.0, 2, 3, 4.0)], config.mode, 2, 3, 5.0, [])
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("omnix.desktop_server.CouncilService", FakeCouncil)
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/council", data=json.dumps({"prompt": "compare", "mode": "council", "models": ["free-a", "free-b", "free-c"]}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["answer"] == "council answer"
+        assert payload["candidates"][0]["model"] == "free-a"
+        row = Store().job(payload["task_id"])
+        assert row is None  # Council uses the existing task ledger, not durable worker jobs.
+        task = Store().db.execute("SELECT state FROM tasks WHERE id=?", (payload["task_id"],)).fetchone()
+        assert task["state"] == "completed"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()

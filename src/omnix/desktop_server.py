@@ -16,6 +16,7 @@ from . import __version__
 from .config import Settings, config_path, load_settings, save_settings
 from .runtime import AgentRuntime
 from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
+from .council import CouncilConfig, CouncilService, ModelRef
 from .store import Store
 
 
@@ -118,6 +119,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.path == "/v1/chat":
                 self._chat(self._body())
+            elif self.path == "/v1/council":
+                self._council(self._body())
             elif self.path == "/v1/stop":
                 with self.server.state.lock:
                     event = self.server.state.cancel_event
@@ -209,6 +212,43 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             with self.server.state.lock:
                 self.server.state.cancel_event = None
+
+    def _council(self, body: dict[str, Any]) -> None:
+        prompt = body.get("prompt")
+        mode = body.get("mode", "standard")
+        raw_models = body.get("models", [])
+        session_id = body.get("session_id")
+        if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 100_000:
+            raise ValueError("prompt must be a non-empty string under 100000 characters")
+        if mode not in {"standard", "council", "advanced", "research"}:
+            raise ValueError("mode must be standard, council, advanced or research")
+        if not isinstance(raw_models, list) or len(raw_models) > 5 or any(not isinstance(item, str) or not item.strip() or len(item) > 200 for item in raw_models):
+            raise ValueError("models must contain at most five model identifiers")
+        settings = load_settings()
+        if not config_path().exists() and settings.provider == "openai":
+            settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
+        models = tuple(ModelRef(settings.provider, item.strip()) for item in raw_models)
+        config = CouncilConfig(mode=mode, models=models, free_only=True, max_cost_usd=0.0,
+                               max_models=5, max_concurrency=min(5, max(1, int(body.get("max_concurrency", 3)))))
+        store = Store()
+        result_session = session_id if isinstance(session_id, str) and session_id else store.new_session("Council session")
+        task_id = store.start_task(result_session)
+        try:
+            result = CouncilService(settings).run([{"role": "user", "content": prompt}], config)
+            store.add_message(result_session, "user", prompt)
+            store.add_message(result_session, "assistant", result.answer)
+            for candidate in result.candidates:
+                store.record_usage(task_id, candidate.provider, candidate.model, candidate.input_tokens, candidate.output_tokens, 0.0)
+                store.event(task_id, "council_candidate", json.dumps({"provider": candidate.provider, "model": candidate.model, "score": candidate.score, "latency_ms": candidate.latency_ms, "error": candidate.error}, sort_keys=True))
+            store.event(task_id, "council_completed", json.dumps({"mode": result.mode, "latency_ms": result.latency_ms, "errors": result.errors}, sort_keys=True))
+            store.update_task(task_id, "completed")
+            self._json(200, {"answer": result.answer, "session_id": result_session, "task_id": task_id, "mode": result.mode,
+                             "candidates": [{"provider": item.provider, "model": item.model, "score": item.score, "latency_ms": item.latency_ms, "input_tokens": item.input_tokens, "output_tokens": item.output_tokens, "error": item.error} for item in result.candidates],
+                             "usage": [{"provider": item.provider, "model": item.model, "input_tokens": item.input_tokens, "output_tokens": item.output_tokens, "estimated_cost": 0.0} for item in result.candidates]})
+        except Exception as exc:
+            store.update_task(task_id, "failed", str(exc))
+            store.event(task_id, "council_failed", type(exc).__name__)
+            raise
 
     def log_message(self, *_: object) -> None:
         pass

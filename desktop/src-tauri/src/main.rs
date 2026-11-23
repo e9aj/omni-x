@@ -510,7 +510,10 @@ fn backend_skill_action(
     action: String,
     state: State<'_, BackendState>,
 ) -> Result<Value, String> {
-    if name.trim().is_empty() || name.len() > 120 || !matches!(action.as_str(), "enable" | "disable") {
+    if name.trim().is_empty()
+        || name.len() > 120
+        || !matches!(action.as_str(), "enable" | "disable")
+    {
         return Err("skill action is invalid".into());
     }
     request(

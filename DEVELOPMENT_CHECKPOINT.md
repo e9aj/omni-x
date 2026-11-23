@@ -5,7 +5,7 @@ Updated: 2026-11-23
 ## Current state
 
 - Branch: `feat/modular-integrations-framework-clean`
-- Head: `cb68f7f`.
+- Head: `f90c7e6`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -22,6 +22,7 @@ Updated: 2026-11-23
 - SkillsManager-backed authenticated desktop endpoints now expose reviewed skill metadata and enable/disable state; installation remains an explicit reviewed backend action.
 - Targeted desktop server, manager and frontend build validation passes after the SkillsManager endpoint slice.
 - The existing IntegrationRegistry catalogue is now visible through an authenticated desktop Integrations view; lifecycle actions remain explicit and metadata-only.
+- Brain now includes deterministic lexical search, Markdown wikilinks, backlinks and document inspection in the authenticated desktop Memory view.
 
 ## Known limitations
 
@@ -29,6 +30,7 @@ Updated: 2026-11-23
 - The new Council panel has not yet passed hosted Windows installer validation.
 - The SkillsManager catalogue is backend-complete for browse/enable/disable, but the desktop screen still needs its dedicated skill-list presentation.
 - Optional integrations are catalogue/lifecycle interfaces only; no external service adapter, MCP connection or third-party software installation is claimed.
+- Brain embeddings, infinite-canvas persistence, OCR/document extraction and AI-generated memory remain incomplete.
 - Local `cargo check` reaches the Tauri build script but is blocked because the CI-generated target-specific backend sidecar is absent from this checkout; no security policy was changed.
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.
@@ -37,6 +39,6 @@ Updated: 2026-11-23
 
 ## Exact next action
 
-Poll hosted Windows CI for `cb68f7f`, then implement the next complete slice:
+Poll hosted Windows CI for `f90c7e6`, then implement the next complete slice:
 MCP connection declarations and health inspection through IntegrationRegistry,
 with no automatic connection or credential exposure.

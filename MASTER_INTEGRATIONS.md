@@ -77,6 +77,13 @@ The initial approved direction is:
 
 No repository in this register is automatically installed, executed, copied, or treated as production-ready solely because it appears here. Every accepted integration still requires source review, dependency pinning, licence attribution, security checks, tests, and documented limitations.
 
+## 2026-11-23 compatibility review: requested modular platform projects
+
+The detailed matrix is maintained in [`docs/INTEGRATION_COMPATIBILITY.md`](docs/INTEGRATION_COMPATIBILITY.md).
+The requested names were resolved to these repositories where an official identity could be verified: `openclaw/openclaw`, `debpalash/VoiceStudio`, `every-app/open-seo`, `AppFlowy-IO/AppFlowy`, `OpenWhispr/openwhispr`, `opf/openproject`, `calcom/cal.diy`, `chatwoot/chatwoot`, and `CapSoftware/Cap`. “Open Higgsfield” did not resolve to a canonical upstream; the similarly named archived `higgsfield-ai/higgsfield` repository is GPU orchestration rather than a media-generation application and is rejected for this scope.
+
+The registry catalogue is metadata-only and disabled by default. It does not grant permission to copy code, install binaries, connect services or access credentials. OpenWhispr is the first adapter candidate. VoiceStudio, AppFlowy and OpenProject require additional licence-boundary review; Chatwoot and Cap require licence-file review; Cal.diy must not introduce a second scheduler; and OpenClaw must not introduce a competing agent runtime.
+
 ## Change log
 
 The security hardening branch adds a separate security/compliance evidence set;
@@ -108,6 +115,8 @@ default. The register remains authoritative for accept/defer/reject decisions.
 | 2026-11-19 | Added controlled `omnix`/`hermes`/`auto` runtime selection at `TaskService`. Hermes child jobs invoke the actual installer-managed AIAgent probe when explicitly selected, inherit the parent policy snapshot, record usage/events and cancel only their owned process tree. `auto` falls back to OMNI-X on Hermes/provider failure. Deterministic evidence passes; live child inference/delegation remains unaccepted. |
 | 2026-11-19 | Live bounded Hermes child validation through OmniRoute `auto/coding:free` timed out after 30 seconds before a response. Parent/child lifecycle and failure were persisted; no usage, tool execution or live delegation success was claimed. Desktop runtime selection was also wired through the existing authenticated IPC contract. |
 | 2026-11-19 | Split timeout budgets into provider, agent, child and parent boundaries. One bounded live Hermes child through `auto/best-free` completed `HERMES-TIMING-OK` with 1,488 tokens, 28,736 ms probe latency and `$0` cost. Provider reported `custom` without an upstream model identifier; no tool execution was claimed. |
+
+| 2026-11-23 | Reviewed the ten requested modular projects, recorded exact repository/licence/interface/Windows/dependency decisions in `docs/INTEGRATION_COMPATIBILITY.md`, and added a persistent disabled-by-default IntegrationRegistry lifecycle with SQLite audit events. No third-party software was installed or enabled. |
 
 ## OMNI-X implementation status
 

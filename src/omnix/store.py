@@ -39,6 +39,8 @@ class Store:
         CREATE TABLE IF NOT EXISTS delegations (id TEXT PRIMARY KEY, parent_job_id TEXT NOT NULL, child_job_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS hermes_session_map (omnix_session_id TEXT PRIMARY KEY, hermes_session_id TEXT NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS skill_events (id INTEGER PRIMARY KEY, skill TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, task_id TEXT, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS integration_states (name TEXT PRIMARY KEY, installed INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 0, revoked INTEGER NOT NULL DEFAULT 0, configured INTEGER NOT NULL DEFAULT 0, version TEXT, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS integration_events (id INTEGER PRIMARY KEY, name TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
@@ -130,6 +132,50 @@ class Store:
             rows = self.db.execute("SELECT * FROM skill_events WHERE skill=? ORDER BY id", (skill,)).fetchall()
         else:
             rows = self.db.execute("SELECT * FROM skill_events ORDER BY id").fetchall()
+        return [dict(row) for row in rows]
+
+    def integration_state(self, name: str) -> dict | None:
+        row = self.db.execute("SELECT * FROM integration_states WHERE name=?", (name,)).fetchone()
+        return dict(row) if row else None
+
+    def set_integration_state(self, name: str, *, installed: bool | None = None,
+                              enabled: bool | None = None, revoked: bool | None = None,
+                              configured: bool | None = None, version: str | None = None) -> None:
+        current = self.integration_state(name) or {
+            "installed": 0, "enabled": 0, "revoked": 0, "configured": 0, "version": None,
+        }
+        values = {
+            "installed": int(current["installed"] if installed is None else installed),
+            "enabled": int(current["enabled"] if enabled is None else enabled),
+            "revoked": int(current["revoked"] if revoked is None else revoked),
+            "configured": int(current["configured"] if configured is None else configured),
+            "version": current["version"] if version is None else version,
+        }
+        with self._lock:
+            self.db.execute(
+                """INSERT INTO integration_states(name,installed,enabled,revoked,configured,version,updated)
+                   VALUES (?,?,?,?,?,?,?)
+                   ON CONFLICT(name) DO UPDATE SET installed=excluded.installed,
+                   enabled=excluded.enabled, revoked=excluded.revoked, configured=excluded.configured,
+                   version=excluded.version, updated=excluded.updated""",
+                (name, values["installed"], values["enabled"], values["revoked"],
+                 values["configured"], values["version"], time.time()),
+            )
+            self.db.commit()
+
+    def record_integration_event(self, name: str, event: str, detail: str = "") -> None:
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO integration_events(name,event,detail,created) VALUES (?,?,?,?)",
+                (name, event, detail[:2000], time.time()),
+            )
+            self.db.commit()
+
+    def integration_events(self, name: str | None = None) -> list[dict]:
+        if name:
+            rows = self.db.execute("SELECT * FROM integration_events WHERE name=? ORDER BY id", (name,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM integration_events ORDER BY id").fetchall()
         return [dict(row) for row in rows]
 
     def remember(self, key: str, value: str) -> None:

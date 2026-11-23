@@ -6,6 +6,7 @@ import urllib.request
 from contextlib import closing
 from http.server import ThreadingHTTPServer
 from socket import socket
+from types import SimpleNamespace
 
 from omnix.desktop_server import DesktopServer, Handler
 from omnix.config import Settings, save_settings
@@ -109,6 +110,39 @@ def test_desktop_content_preference_is_backend_owned(monkeypatch, tmp_path):
         request = urllib.request.Request(base + "/v1/settings", headers=headers)
         with urllib.request.urlopen(request, timeout=2) as response:
             assert json.loads(response.read())["content_preference"] == "standard"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_skills_endpoint_exposes_reviewed_state_and_toggle(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    record = SimpleNamespace(name="review", path=str(tmp_path / "SKILL.md"), source="omnix-custom",
+                             description="Review code", permissions=("filesystem.read",), credentials=(),
+                             dependencies=(), enabled=False, installed=True)
+    class FakeSkills:
+        def browse(self):
+            return [record]
+        def set_enabled(self, name, enabled):
+            assert name == "review"
+            record.enabled = enabled
+            return record
+    server.skills = FakeSkills()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/skills", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["skills"][0]["enabled"] is False
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/skills/review", data=json.dumps({"action": "enable"}).encode(), headers={**headers, "Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["skill"]["enabled"] is True
     finally:
         server.shutdown()
         thread.join(timeout=2)

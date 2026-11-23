@@ -21,6 +21,7 @@ from .council import CouncilConfig, CouncilService, ModelRef
 from .discovery import discover_omniroute
 from .brain import MarkdownVault
 from .task_service import TaskService
+from .skills_manager import SkillsManager
 from .store import Store
 
 
@@ -132,6 +133,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"path": relative, "content": vault.read(relative)})
         elif self.path == "/v1/tasks":
             self._json(200, {"tasks": self.server.tasks.status()})
+        elif self.path == "/v1/skills":
+            self._json(200, {"skills": [self.server.skill_payload(item) for item in self.server.skills.browse()]})
         elif self.path.startswith("/v1/tasks/"):
             task_id = self.path.rsplit("/", 1)[-1]
             task = self.server.tasks.status(task_id)
@@ -223,6 +226,14 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("task action must be cancel")
                 self.server.tasks.cancel(task_id)
                 self._json(200, {"task_id": task_id, "cancelled": True})
+            elif self.path.startswith("/v1/skills/"):
+                name = self.path.rsplit("/", 1)[-1]
+                body = self._body()
+                action = body.get("action")
+                if action not in {"enable", "disable"} or not name or len(name) > 120 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ ." for char in name):
+                    raise ValueError("skill action or name is invalid")
+                record = self.server.skills.set_enabled(name, action == "enable")
+                self._json(200, {"skill": self.server.skill_payload(record)})
             else:
                 self._json(404, {"error": "not found"})
         except (ValueError, OSError, RuntimeError) as exc:
@@ -336,10 +347,18 @@ class DesktopServer(ThreadingHTTPServer):
         if not config_path().exists() and settings.provider == "openai":
             settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
         self.tasks = TaskService(settings, Store(), Path.cwd(), approver=self.approvals.request)
+        self.skills = SkillsManager(Path.cwd())
 
     def server_close(self) -> None:
         self.tasks.close()
         super().server_close()
+
+    @staticmethod
+    def skill_payload(item: Any) -> dict[str, Any]:
+        return {"name": item.name, "path": item.path, "source": item.source,
+                "description": item.description, "permissions": list(item.permissions),
+                "credentials": list(item.credentials), "dependencies": list(item.dependencies),
+                "enabled": item.enabled, "installed": item.installed}
 
 
 def main() -> int:

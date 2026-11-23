@@ -500,6 +500,28 @@ fn backend_task_action(
 }
 
 #[tauri::command]
+fn backend_skills(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/skills", None)
+}
+
+#[tauri::command]
+fn backend_skill_action(
+    name: String,
+    action: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if name.trim().is_empty() || name.len() > 120 || !matches!(action.as_str(), "enable" | "disable") {
+        return Err("skill action is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        &format!("/v1/skills/{}", encode_query(&name)),
+        Some(json!({"action": action})),
+    )
+}
+
+#[tauri::command]
 fn backend_session(session_id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if session_id.trim().is_empty() || session_id.len() > 200 {
         return Err("session id is invalid".into());
@@ -632,6 +654,8 @@ fn main() {
             backend_brain_save,
             backend_tasks,
             backend_task_action,
+            backend_skills,
+            backend_skill_action,
             backend_session,
             backend_set_content_preference
         ])

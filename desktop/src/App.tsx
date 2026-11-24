@@ -609,6 +609,10 @@ export function App() {
     try { await invoke("backend_workflow_run", { id }); const result = await invoke<{ runs: WorkflowRun[] }>("backend_workflow_runs", { id }); setWorkflowRuns((items) => ({ ...items, [id]: result.runs })); }
     catch (error) { setModelsError(String(error)); }
   }
+  async function cancelWorkflow(runId: string, workflowId: string) {
+    try { await invoke("backend_workflow_cancel", { runId }); await loadWorkflowRuns(workflowId); }
+    catch (error) { setModelsError(String(error)); }
+  }
   async function loadWorkflowRuns(id: string) {
     try { const result = await invoke<{ runs: WorkflowRun[] }>("backend_workflow_runs", { id }); setWorkflowRuns((items) => ({ ...items, [id]: result.runs })); }
     catch (error) { setModelsError(String(error)); }
@@ -917,7 +921,7 @@ export function App() {
                 <strong>{workflow.name}</strong>
                 <span>{workflow.definition.nodes.length} steps</span>
                 <button onClick={() => void runWorkflow(workflow.id)}>Run workflow</button><button onClick={() => void loadWorkflowRuns(workflow.id)}>Refresh history</button>
-                {(workflowRuns[workflow.id] ?? []).map((run) => <small key={run.id}>{run.state}{run.error ? ` · ${run.error}` : ""}</small>)}
+                {(workflowRuns[workflow.id] ?? []).map((run) => <span key={run.id}><small>{run.state}{run.error ? ` · ${run.error}` : ""}</small>{run.state === "running" && <button onClick={() => void cancelWorkflow(run.id, workflow.id)}>Stop</button>}</span>)}
               </article>
             ))}
           </section>

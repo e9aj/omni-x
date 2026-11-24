@@ -353,7 +353,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {"workflow_id": ident})
             elif self.path.startswith("/v1/workflows/") and self.path.endswith("/run"):
                 workflow_id = self.path.split("/")[3]
-                self._json(200, self.server.tasks.run_workflow(workflow_id))
+                self._json(200, {"run_id": self.server.tasks.start_workflow(workflow_id), "state": "running"})
+            elif self.path.startswith("/v1/workflow-runs/") and self.path.endswith("/cancel"):
+                run_id = self.path.split("/")[3]
+                self.server.tasks.cancel_workflow(run_id)
+                self._json(200, {"run_id": run_id, "state": "cancelled"})
             elif self.path == "/v1/tasks":
                 body = self._body()
                 action = body.get("action", "enqueue")

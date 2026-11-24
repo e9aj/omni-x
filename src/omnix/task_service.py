@@ -42,6 +42,7 @@ class TaskService:
         self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="omnix-worker")
         self._stop = threading.Event(); self._wake = threading.Event(); self._thread: threading.Thread | None = None
         self._cancel: dict[str, threading.Event] = {}
+        self._workflow_cancel: dict[str, threading.Event] = {}
         self._inflight: set[str] = set()
         self._inflight_lock = threading.Lock()
         self.store.recover_orphaned_jobs()
@@ -98,12 +99,36 @@ class TaskService:
     def status(self, job_id: str | None = None) -> dict | list[dict] | None:
         return self.store.job(job_id) if job_id else self.store.jobs()
 
-    def run_workflow(self, workflow_id: str, cancel: threading.Event | None = None) -> dict:
+    def start_workflow(self, workflow_id: str) -> str:
+        run_id = self.store.start_workflow_run(workflow_id)
+        cancel = threading.Event()
+        self._workflow_cancel[run_id] = cancel
+        self._pool.submit(self._run_workflow_background, workflow_id, run_id, cancel)
+        return run_id
+
+    def cancel_workflow(self, run_id: str) -> None:
+        event = self._workflow_cancel.get(run_id)
+        row = next((item for item in self.store.workflow_runs() if item["id"] == run_id), None)
+        if not row or row["state"] != "running":
+            raise KeyError("workflow run is not active")
+        if event:
+            event.set()
+        self.store.finish_workflow_run(run_id, "cancelled", error="cancelled by user")
+
+    def _run_workflow_background(self, workflow_id: str, run_id: str, cancel: threading.Event) -> None:
+        try:
+            self.run_workflow(workflow_id, cancel=cancel, run_id=run_id)
+        except Exception:
+            pass
+        finally:
+            self._workflow_cancel.pop(run_id, None)
+
+    def run_workflow(self, workflow_id: str, cancel: threading.Event | None = None, run_id: str | None = None) -> dict:
         definitions = {item["id"]: item for item in self.store.workflows()}
         definition = definitions.get(workflow_id)
         if not definition:
             raise KeyError("workflow not found")
-        run_id = self.store.start_workflow_run(workflow_id)
+        run_id = run_id or self.store.start_workflow_run(workflow_id)
         cancel = cancel or threading.Event()
         steps = []
         for item in definition["definition"].get("nodes", []):

@@ -753,6 +753,22 @@ fn backend_workflow_run(id: String, state: State<'_, BackendState>) -> Result<Va
 }
 
 #[tauri::command]
+fn backend_workflow_cancel(
+    run_id: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if run_id.trim().is_empty() || run_id.len() > 100 {
+        return Err("workflow run id is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        &format!("/v1/workflow-runs/{run_id}/cancel"),
+        Some(json!({})),
+    )
+}
+
+#[tauri::command]
 fn backend_workflow_runs(id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if id.trim().is_empty() || id.len() > 100 {
         return Err("workflow id is invalid".into());
@@ -936,6 +952,7 @@ fn main() {
             backend_workflows,
             backend_workflow_save,
             backend_workflow_run,
+            backend_workflow_cancel,
             backend_workflow_runs,
             backend_integration_action,
             backend_session,

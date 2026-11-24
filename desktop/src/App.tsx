@@ -177,6 +177,10 @@ export function App() {
   const [memorySuggestions, setMemorySuggestions] = useState<MemorySuggestion[]>([]);
   const [canvasSelected, setCanvasSelected] = useState<string>();
   const [canvasZoom, setCanvasZoom] = useState(1);
+  const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
+  const [documentPath, setDocumentPath] = useState("");
+  const [documentResult, setDocumentResult] = useState<string>();
+  const [ocrEnabled, setOcrEnabled] = useState(false);
   const [voiceCapabilities, setVoiceCapabilities] =
     useState<VoiceCapabilities>();
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
@@ -461,6 +465,14 @@ export function App() {
       }));
     }
     setCanvasSelected(undefined);
+  }
+  function moveCanvas(dx: number, dy: number) { setCanvasPan((value) => ({ x: value.x + dx, y: value.y + dy })); }
+  async function inspectDocument() {
+    if (!documentPath.trim()) return;
+    try {
+      const result = await invoke<{ text: string }>("backend_brain_document", { path: documentPath.trim(), allowOcr: ocrEnabled });
+      setDocumentResult(result.text.slice(0, 4000));
+    } catch (error) { setModelsError(String(error)); }
   }
   function addCanvasNote(path: string) {
     setBrainCanvas((canvas) => ({
@@ -925,11 +937,13 @@ export function App() {
               )}
             </div>
             <h3>Infinite canvas</h3>
-            <div className="workflow-canvas" style={{ transform: `scale(${canvasZoom})`, transformOrigin: "top left" }}>
-              {brainCanvas.nodes.map((node) => <article className={`candidate workflow-node${canvasSelected === node.path ? " active" : ""}`} draggable key={node.id} style={{ left: node.x, top: node.y }} onClick={() => connectCanvasNode(node.path)} onDragEnd={(event) => { const rect = event.currentTarget.parentElement?.getBoundingClientRect(); if (rect) setBrainCanvas((canvas) => ({ ...canvas, nodes: canvas.nodes.map((item) => item.id === node.id ? { ...item, x: Math.max(0, event.clientX - rect.left - 60), y: Math.max(0, event.clientY - rect.top - 30) } : item) })); }}><strong>{node.path}</strong></article>)}
+            <div className="workflow-canvas" style={{ transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`, transformOrigin: "top left" }}>
+              <svg className="canvas-links" aria-hidden="true">{brainCanvas.edges.map((edge) => { const source = brainCanvas.nodes.find((node) => node.path === edge.source); const target = brainCanvas.nodes.find((node) => node.path === edge.target); return source && target ? <line key={`${edge.source}-${edge.target}`} x1={source.x + 60} y1={source.y + 30} x2={target.x + 60} y2={target.y + 30} /> : null; })}</svg>
+              {brainCanvas.nodes.map((node) => <article className={`candidate workflow-node${canvasSelected === node.path ? " active" : ""}`} draggable key={node.id} style={{ left: node.x, top: node.y }} onClick={() => connectCanvasNode(node.path)} onDragEnd={(event) => { const rect = event.currentTarget.parentElement?.getBoundingClientRect(); if (rect) setBrainCanvas((canvas) => ({ ...canvas, nodes: canvas.nodes.map((item) => item.id === node.id ? { ...item, x: Math.max(0, (event.clientX - rect.left - canvasPan.x) / canvasZoom - 60), y: Math.max(0, (event.clientY - rect.top - canvasPan.y) / canvasZoom - 30) } : item) })); }}><strong>{node.path}</strong></article>)}
             </div>
-            <p className="muted">Click two notes to connect them. Drag cards to reposition.</p>
-            <button onClick={() => setCanvasZoom((value) => Math.min(2, value + 0.1))}>Zoom in</button><button onClick={() => setCanvasZoom((value) => Math.max(0.5, value - 0.1))}>Zoom out</button><button onClick={() => void saveCanvas()}>Save layout</button>
+            <p className="muted">Click two notes to connect them. Drag cards to reposition. Use pan controls to navigate the canvas.</p>
+            <button onClick={() => setCanvasZoom((value) => Math.min(2, value + 0.1))}>Zoom in</button><button onClick={() => setCanvasZoom((value) => Math.max(0.5, value - 0.1))}>Zoom out</button><button onClick={() => moveCanvas(-80, 0)}>Pan left</button><button onClick={() => moveCanvas(80, 0)}>Pan right</button><button onClick={() => moveCanvas(0, -80)}>Pan up</button><button onClick={() => moveCanvas(0, 80)}>Pan down</button><button onClick={() => void saveCanvas()}>Save layout</button>
+            <h3>Document import and OCR</h3><p className="muted">Documents are read locally from the backend workspace. OCR is opt-in and requires reviewed local OCR engines.</p><input value={documentPath} onChange={(event) => setDocumentPath(event.target.value)} placeholder="relative/path/to/document.pdf" /><label><input type="checkbox" checked={ocrEnabled} onChange={(event) => setOcrEnabled(event.target.checked)} /> Enable local OCR</label><button onClick={() => void inspectDocument()}>Inspect document</button>{documentResult && <pre className="document-preview">{documentResult}</pre>}
             {selectedNote && (
               <>
                 <input value={selectedNote} readOnly />

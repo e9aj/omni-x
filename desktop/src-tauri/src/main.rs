@@ -586,11 +586,19 @@ fn backend_brain_from_session(
 }
 
 #[tauri::command]
-fn backend_brain_document(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+fn backend_brain_document(
+    path: String,
+    allow_ocr: bool,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
     request(
         &state,
         "GET",
-        &format!("/v1/brain/document?path={}", encode_query(&path)),
+        &format!(
+            "/v1/brain/document?path={}&ocr={}",
+            encode_query(&path),
+            if allow_ocr { 1 } else { 0 }
+        ),
         None,
     )
 }

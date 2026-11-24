@@ -143,8 +143,10 @@ class Handler(BaseHTTPRequestHandler):
             relative = parse_qs(urlsplit(self.path).query).get("path", [""])[0]
             self._json(200, {"history": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).history(relative)})
         elif urlsplit(self.path).path == "/v1/brain/document":
-            relative = parse_qs(urlsplit(self.path).query).get("path", [""])[0]
-            self._json(200, DocumentExtractor(Path.cwd()).extract(relative))
+            query = parse_qs(urlsplit(self.path).query)
+            relative = query.get("path", [""])[0]
+            allow_ocr = query.get("ocr", ["0"])[0] == "1"
+            self._json(200, DocumentExtractor(Path.cwd(), allow_ocr=allow_ocr).extract(relative))
         elif urlsplit(self.path).path == "/v1/brain/search":
             query = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
             self._json(200, {"results": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).search(query)})

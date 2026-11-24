@@ -41,14 +41,38 @@ class SemanticIndex:
         self.store = store
         self.vault_root = vault_root.expanduser().resolve()
 
-    def rebuild(self, sources: Iterable[tuple[str, str]]) -> int:
+    @staticmethod
+    def neural_available() -> bool:
+        try:
+            import importlib.util
+            return importlib.util.find_spec("sentence_transformers") is not None
+        except (ImportError, ModuleNotFoundError):
+            return False
+
+    @staticmethod
+    def neural_vector(text: str, model_dir: Path) -> list[float]:
+        """Embed with an already-downloaded local model; never fetch weights."""
+        model_dir = model_dir.expanduser().resolve()
+        if not model_dir.is_dir():
+            raise ValueError("a local embedding model directory is required")
+        if not SemanticIndex.neural_available():
+            raise RuntimeError("sentence-transformers is not installed")
+        from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+        model = SentenceTransformer(str(model_dir), device="cpu", local_files_only=True)
+        values = [float(item) for item in model.encode([text], normalize_embeddings=True)[0]]
+        if not values or len(values) > 4096:
+            raise ValueError("embedding dimensions are invalid")
+        return values
+
+    def rebuild(self, sources: Iterable[tuple[str, str]], *, model_dir: Path | None = None) -> int:
         count = 0
         for path, content in list(sources)[:1000]:
             if not isinstance(path, str) or not isinstance(content, str):
                 continue
             if len(content.encode("utf-8")) > 5_000_000:
                 continue
-            self.store.upsert_embedding(path, "brain-note", content, _vector(content))
+            vector = self.neural_vector(content, model_dir) if model_dir is not None else _vector(content)
+            self.store.upsert_embedding(path, "brain-note-neural" if model_dir else "brain-note-local", content, vector)
             count += 1
         return count
 

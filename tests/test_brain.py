@@ -2,8 +2,8 @@ import base64
 import pytest
 
 from omnix.brain import MarkdownVault, VaultError
-from omnix.semantic_index import SemanticIndex
 from omnix.store import Store
+from omnix.semantic_index import SemanticIndex
 
 
 def test_vault_writes_reads_lists_and_searches(tmp_path):
@@ -61,3 +61,8 @@ def test_local_semantic_index_is_persistent_and_deterministic(tmp_path):
     assert index.search("Windows Python")[0]["path"] == "python.md"
     reopened = SemanticIndex(Store(tmp_path / "state.sqlite3"), tmp_path / "brain")
     assert reopened.search("garden")[0]["path"] == "garden.md"
+
+
+def test_neural_embedding_requires_an_existing_local_model(tmp_path):
+    with pytest.raises(ValueError, match="local embedding model"):
+        SemanticIndex.neural_vector("private note", tmp_path / "missing-model")

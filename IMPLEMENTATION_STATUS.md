@@ -98,6 +98,18 @@ matching the runtime's safe orphan-cleanup boundary.
 
 ## Phase 3 desktop foundation
 
+## Brain incremental validation
+
+- Persistent canvas storage is implemented additively in SQLite (`brain_canvas`)
+  with bounded nodes/edges, authenticated API access and a Tauri bridge. The
+  desktop state loads and saves layouts; a polished visual canvas panel remains
+  in progress.
+- Local feature-hash semantic search is available without network access.
+  Optional neural embeddings are supported only through an already-present
+  `sentence-transformers` model directory with offline loading. OMNI-X never
+  downloads model weights implicitly. Neural execution is not validated on this
+  machine.
+
 - Created `feat/windows-desktop` from the merged Phase 2 `main` tip.
 - Tauri 2/React/TypeScript/Vite/Tailwind shell is implemented with OMNI-X
   branding, navigation sections and backend connection status.

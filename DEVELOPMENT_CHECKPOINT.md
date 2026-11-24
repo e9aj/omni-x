@@ -5,8 +5,8 @@ Updated: 2026-11-24
 ## Current state
 
 - Branch: `codex/alpha-candidate`
-- Head: `1d0e0d8`.
-- Consolidated alpha branch is pushed at `1d0e0d8`; PR creation via the current GitHub integration returned HTTP 403 (`Resource not accessible by integration`) and requires repository write permission through another authorised route.
+- Head: `836116e`.
+- Consolidated alpha branch is pushed at `836116e`; PR creation via the current GitHub integration returned HTTP 403 (`Resource not accessible by integration`) and requires repository write permission through another authorised route.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -45,6 +45,9 @@ Updated: 2026-11-24
 - A read-only Codex Security Standard scan was started for this head (scan `63065c13-7b43-4926-89b1-6610de5df075`); findings are not available yet and PR readiness is therefore still pending.
 - Security scan `51568aee-c1a5-45da-b4a7-24fc81d0c69e` remains stuck in threat modelling with zero reported findings; it has not been treated as a completed review.
 - Replacement consolidated-candidate scan `3e8ad111-2ab4-4794-8325-46aa6148da48` is running read-only. Full Python regression and desktop Vite build pass; local Cargo test is blocked by the OneDrive build-script output-path permission error.
+- The alpha workflow-trigger commit `07689ea` exposed a Python 3.11 Windows regression: the chat test stalled while opening a second SQLite store during an HTTP request. The fix in `836116e` reuses the DesktopServer-owned TaskService store for chat persistence, with a fallback for the lightweight test server. The focused regression and full local suite pass.
+- Messaging and external-service adapters now reject HTTP redirects using a no-redirect opener, preventing a validated HTTPS host from forwarding requests to another endpoint. Focused adapter tests pass.
+- Hosted runs for `836116e` are pending: Security/compliance `45508066734`, Windows Desktop `45508066985`, and CI `45508066729`.
 
 ## Known limitations
 
@@ -72,6 +75,7 @@ Updated: 2026-11-24
 
 ## Exact next action
 
-Continue with messaging adapter slices and persistent canvas/memory approval
-flows without claiming live external connectivity; then implement remaining
-independently testable desktop functionality.
+Await hosted validation for `836116e`, complete the current-head security scan,
+and obtain authorised repository write access before creating the consolidated
+alpha pull request. No live provider, external integration, installer artifact,
+or signed release is claimed until the corresponding hosted evidence exists.

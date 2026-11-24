@@ -4,8 +4,8 @@ Updated: 2026-11-24
 
 ## Current state
 
-- Branch: `feat/modular-integrations-framework-clean`
-- Head: `3f05632`.
+- Branch: `codex/brain-persistent-canvas`
+- Head: `b2cd8c5`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -35,6 +35,7 @@ Updated: 2026-11-24
 - Hosted Security run 95 found unsafe DOCX XML parsing; the fix uses defusedxml with ZIP/PDF resource limits and added regression coverage.
 - The local Brain semantic index now persists deterministic feature-hash vectors in SQLite, ranks note results locally and is exposed through the authenticated desktop API; it is not a neural embedding service.
 - Voice input now validates bounded WAV fixtures and requires an explicitly local faster-whisper model directory with offline loading; no implicit model download or remote audio upload is permitted.
+- Focused Brain branch commits: `827d801` adds bounded persistent canvas storage and Tauri bridge state; `dcfaae3` adds optional offline-only neural embedding support; `e13dfd7` adds opt-in bounded OCR; `6815578` adds governed memory suggestions with explicit approval/rejection/deletion; `b2cd8c5` connects saved workflows to TaskService execution and SQLite run history.
 - Hosted validation for `3f05632`: CI run 238 completed successfully; Windows Desktop run 117 remains in progress; Security/compliance run 103 has passed Python security, secret scan and SBOM while Rust audit remains in progress.
 - A read-only Codex Security Standard scan was started for this head (scan `63065c13-7b43-4926-89b1-6610de5df075`); findings are not available yet and PR readiness is therefore still pending.
 
@@ -54,6 +55,7 @@ Updated: 2026-11-24
 - Optional external integrations remain disabled/configuration-dependent.
 - Brain graph and document extraction are implemented; persistent canvas, OCR execution and AI memory suggestions remain incomplete.
 - Live Hermes tool execution and delegated workflows remain experimental.
+- The visual canvas controls are not yet fully polished in the desktop render; messaging and external-service adapters remain unimplemented rather than represented as working integrations.
 
 ## Exact next action
 

@@ -451,6 +451,22 @@ fn backend_brain_graph(state: State<'_, BackendState>) -> Result<Value, String> 
 }
 
 #[tauri::command]
+fn backend_brain_canvas(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/brain/canvas", None)
+}
+
+#[tauri::command]
+fn backend_brain_save_canvas(
+    canvas: Value,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if !canvas.is_object() {
+        return Err("canvas payload is invalid".into());
+    }
+    request(&state, "POST", "/v1/brain/canvas", Some(canvas))
+}
+
+#[tauri::command]
 fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if query.trim().is_empty() || query.len() > 200 {
         return Err("search query is invalid".into());
@@ -790,6 +806,8 @@ fn main() {
             backend_set_model,
             backend_brain_notes,
             backend_brain_graph,
+            backend_brain_canvas,
+            backend_brain_save_canvas,
             backend_brain_search,
             backend_brain_semantic_search,
             backend_brain_inspect,

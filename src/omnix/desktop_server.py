@@ -135,6 +135,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).graph())
         elif self.path == "/v1/brain/attachments":
             self._json(200, {"attachments": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_attachments()})
+        elif self.path == "/v1/brain/canvas":
+            self._json(200, Store().canvas())
         elif urlsplit(self.path).path == "/v1/brain/history":
             relative = parse_qs(urlsplit(self.path).query).get("path", [""])[0]
             self._json(200, {"history": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).history(relative)})
@@ -253,6 +255,13 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._body()
                 vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
                 self._json(200, {"path": vault.save_attachment(body.get("path", ""), body.get("data", ""))})
+            elif self.path == "/v1/brain/canvas":
+                body = self._body()
+                nodes, edges, viewport = body.get("nodes", []), body.get("edges", []), body.get("viewport", {})
+                if not isinstance(nodes, list) or not isinstance(edges, list) or not isinstance(viewport, dict):
+                    raise ValueError("canvas payload is invalid")
+                Store().save_canvas(nodes, edges, viewport)
+                self._json(200, {"canvas": Store().canvas()})
             elif self.path == "/v1/brain/from-session":
                 body = self._body()
                 session_id, relative = body.get("session_id"), body.get("path")

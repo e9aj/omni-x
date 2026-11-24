@@ -12,6 +12,7 @@ type TaskItem = { id: string; prompt: string; state: string; result?: string | n
 type SkillItem = { name: string; path: string; source: string; description: string; permissions: string[]; credentials: string[]; dependencies: string[]; enabled: boolean; installed: boolean };
 type IntegrationItem = { name: string; kind: string; interface: string; credentials: string[]; permissions: string[]; dependencies: string[]; endpoints: string[]; installed: boolean; enabled: boolean; revoked: boolean; configured: boolean; version: string; health: { healthy: boolean; status?: string; error?: string } };
 type BrainGraph = { nodes: Array<{ path: string }>; edges: Array<{ source: string; target: string }> };
+type BrainCanvas = { nodes: Array<{ id: string; path: string; x: number; y: number }>; edges: Array<{ source: string; target: string }>; viewport: { x: number; y: number; zoom: number } };
 type VoiceCapabilities = { local_stt: boolean; local_tts: boolean; audio_devices: boolean; wake_word: boolean; remote_upload: boolean };
 type WorkflowNode = { id: string; action: string; x: number; y: number; depends_on: string[] };
 type WorkflowItem = { id: string; name: string; definition: { nodes: WorkflowNode[] } };
@@ -45,6 +46,7 @@ export function App() {
   const [brainGraph, setBrainGraph] = useState<BrainGraph>({ nodes: [], edges: [] });
   const [brainQuery, setBrainQuery] = useState("");
   const [brainResults, setBrainResults] = useState<Array<{ path: string; snippet: string }>>([]);
+  const [brainCanvas, setBrainCanvas] = useState<BrainCanvas>({ nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
   const [voiceCapabilities, setVoiceCapabilities] = useState<VoiceCapabilities>();
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [workflowName, setWorkflowName] = useState("My workflow");
@@ -59,7 +61,7 @@ export function App() {
   useEffect(() => { async function refresh() { try { const result = await invoke<{ approvals: Approval[] }>("backend_approvals"); setApprovals(result.approvals); } catch { /* backend status displays the connection error */ } } void refresh(); const timer = window.setInterval(() => void refresh(), 1000); return () => window.clearInterval(timer); }, []);
   useEffect(() => { void invoke<{ content_preference: string; model: string }>("backend_settings").then((result) => { setContentPreference(result.content_preference); setModel(result.model); }).catch(() => undefined); }, []);
   useEffect(() => { if (section !== "Models") return; void invoke<{ models: ModelInfo[]; error?: string }>("backend_models").then((result) => { setModels(result.models); setModelsError(result.error); }).catch((error) => setModelsError(String(error))); }, [section]);
-  useEffect(() => { if (section !== "Memory") return; void Promise.all([invoke<{ notes: BrainNote[] }>("backend_brain_notes"), invoke<BrainGraph>("backend_brain_graph")]).then(([noteResult, graphResult]) => { setNotes(noteResult.notes); setBrainGraph(graphResult); }).catch((error) => setModelsError(String(error))); }, [section]);
+  useEffect(() => { if (section !== "Memory") return; void Promise.all([invoke<{ notes: BrainNote[] }>("backend_brain_notes"), invoke<BrainGraph>("backend_brain_graph"), invoke<BrainCanvas>("backend_brain_canvas")]).then(([noteResult, graphResult, canvas]) => { setNotes(noteResult.notes); setBrainGraph(graphResult); setBrainCanvas(canvas); }).catch((error) => setModelsError(String(error))); }, [section]);
   useEffect(() => { if (section !== "Tasks" && section !== "Agents") return; void invoke<{ tasks: TaskItem[] }>("backend_tasks").then((result) => setTasks(result.tasks)).catch((error) => setModelsError(String(error))); }, [section]);
   useEffect(() => { if (section !== "Tools & Skills") return; void invoke<{ skills: SkillItem[] }>("backend_skills").then((result) => setSkills(result.skills)).catch((error) => setModelsError(String(error))); }, [section]);
   useEffect(() => { if (section !== "Integrations") return; void invoke<{ integrations: IntegrationItem[] }>("backend_integrations").then((result) => setIntegrations(result.integrations)).catch((error) => setModelsError(String(error))); }, [section]);
@@ -84,6 +86,8 @@ export function App() {
   async function openNote(path: string) { try { const result = await invoke<{ content: string }>("backend_brain_note", { path }); setSelectedNote(path); setNoteContent(result.content); } catch (error) { setModelsError(String(error)); } }
   async function saveNote() { if (!selectedNote) return; try { await invoke("backend_brain_save", { path: selectedNote, content: noteContent }); } catch (error) { setModelsError(String(error)); } }
   async function createNote() { const path = newNotePath.trim(); if (!path) return; try { await invoke("backend_brain_save", { path, content: "# New note\n" }); setSelectedNote(path); setNoteContent("# New note\n"); setNotes((items) => [...items.filter((item) => item.path !== path), { path, size: 12, updated: Date.now() / 1000 }]); } catch (error) { setModelsError(String(error)); } }
+  async function saveCanvas() { try { await invoke("backend_brain_save_canvas", { canvas: brainCanvas }); } catch (error) { setModelsError(String(error)); } }
+  function addCanvasNote(path: string) { setBrainCanvas((canvas) => ({ ...canvas, nodes: [...canvas.nodes.filter((item) => item.path !== path), { id: `canvas-${Date.now()}`, path, x: 30 + (canvas.nodes.length % 4) * 180, y: 30 + Math.floor(canvas.nodes.length / 4) * 100 }] })); }
   async function enqueueTask(event: FormEvent) { event.preventDefault(); const promptText = taskPrompt.trim(); if (!promptText) return; try { await invoke("backend_task_action", { action: "enqueue", prompt: promptText, taskId: null, schedule: null }); setTaskPrompt(""); const result = await invoke<{ tasks: TaskItem[] }>("backend_tasks"); setTasks(result.tasks); } catch (error) { setModelsError(String(error)); } }
   async function cancelTask(id: string) { try { await invoke("backend_task_action", { action: "cancel", taskId: id, prompt: null, schedule: null }); setTasks((items) => items.map((item) => item.id === id ? { ...item, state: "cancelled" } : item)); } catch (error) { setModelsError(String(error)); } }
   async function setSkill(name: string, action: "enable" | "disable") { try { const result = await invoke<{ skill: SkillItem }>("backend_skill_action", { name, action }); setSkills((items) => items.map((item) => item.name === name ? result.skill : item)); } catch (error) { setModelsError(String(error)); } }

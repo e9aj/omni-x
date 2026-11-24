@@ -45,6 +45,7 @@ class Store:
         CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, name TEXT NOT NULL, definition_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, state TEXT NOT NULL, result_json TEXT, error TEXT, created REAL NOT NULL, finished REAL);
         CREATE TABLE IF NOT EXISTS brain_embeddings (source_id TEXT PRIMARY KEY, source_type TEXT NOT NULL, content_hash TEXT NOT NULL, vector_json TEXT NOT NULL, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS brain_canvas (id INTEGER PRIMARY KEY CHECK(id=1), nodes_json TEXT NOT NULL, edges_json TEXT NOT NULL, viewport_json TEXT NOT NULL, updated REAL NOT NULL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
@@ -66,6 +67,25 @@ class Store:
         safe_limit = max(1, min(int(limit), 1000))
         rows = self.db.execute(f"SELECT * FROM brain_embeddings ORDER BY updated DESC LIMIT {safe_limit}").fetchall()  # nosec B608
         return [{**dict(row), "vector": json.loads(row["vector_json"])} for row in rows]
+
+    def save_canvas(self, nodes: list[dict], edges: list[dict], viewport: dict) -> None:
+        if len(nodes) > 1000 or len(edges) > 3000:
+            raise ValueError("canvas is too large")
+        with self._lock:
+            self.db.execute(
+                """INSERT INTO brain_canvas(id,nodes_json,edges_json,viewport_json,updated)
+                   VALUES (1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET nodes_json=excluded.nodes_json,
+                   edges_json=excluded.edges_json, viewport_json=excluded.viewport_json, updated=excluded.updated""",
+                (json.dumps(nodes, sort_keys=True), json.dumps(edges, sort_keys=True), json.dumps(viewport, sort_keys=True), time.time()),
+            )
+            self.db.commit()
+
+    def canvas(self) -> dict:
+        row = self.db.execute("SELECT nodes_json, edges_json, viewport_json, updated FROM brain_canvas WHERE id=1").fetchone()
+        if not row:
+            return {"nodes": [], "edges": [], "viewport": {"x": 0, "y": 0, "zoom": 1}, "updated": None}
+        return {"nodes": json.loads(row["nodes_json"]), "edges": json.loads(row["edges_json"]),
+                "viewport": json.loads(row["viewport_json"]), "updated": row["updated"]}
 
     def save_workflow(self, name: str, definition: dict, workflow_id: str | None = None) -> str:
         ident, now = workflow_id or str(uuid.uuid4()), time.time()

@@ -58,3 +58,10 @@ def test_store_backup_and_restore(tmp_path: Path):
     store.backup(backup)
     Store.restore(backup, restored)
     assert Store(restored).messages(session)[0]["content"] == "preserve me"
+
+
+def test_canvas_layout_is_persistent_and_bounded(tmp_path: Path):
+    store = Store(tmp_path / "canvas.sqlite3")
+    store.save_canvas([{"id": "note-1", "path": "alpha.md", "x": 20, "y": 30}], [], {"x": 0, "y": 0, "zoom": 1})
+    reopened = Store(tmp_path / "canvas.sqlite3")
+    assert reopened.canvas()["nodes"][0]["path"] == "alpha.md"

@@ -4,8 +4,8 @@ Updated: 2026-11-24
 
 ## Current state
 
-- Branch: `codex/voice-desktop-controls`
-- Head: `95c9a8a`.
+- Branch: `codex/voice-capture`
+- Head: `e6b98c1`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -39,6 +39,7 @@ Updated: 2026-11-24
 - The Memory desktop screen now exposes semantic search, pending-memory approval/edit/reject/delete controls, draggable canvas cards, two-note connections, zoom controls and authenticated layout saving. The UI build and targeted backend tests pass.
 - Brain desktop controls now include bounded canvas panning, rendered SVG connections, layout zooming and explicit local OCR inspection controls. OCR remains disabled unless the user enables it and the optional local engines are installed.
 - Voice desktop controls now expose authenticated local transcription, speech output and input-device enumeration through approval-gated Tauri commands; model paths and audio files remain local and bounded. Workflow screens now expose run and persisted history controls through TaskService.
+- Voice capture now supports bounded local WAV recording/voice notes through an approval-gated `sounddevice` path; official Telegram, Discord, Slack and WhatsApp HTTP adapters plus SMTP email are implemented as credential-supplied, host-policy-gated transports with local fixture tests. They remain disabled until IntegrationRegistry authorisation and credentials are provided.
 - Hosted validation for `3f05632`: CI run 238 completed successfully; Windows Desktop run 117 remains in progress; Security/compliance run 103 has passed Python security, secret scan and SBOM while Rust audit remains in progress.
 - A read-only Codex Security Standard scan was started for this head (scan `63065c13-7b43-4926-89b1-6610de5df075`); findings are not available yet and PR readiness is therefore still pending.
 
@@ -59,7 +60,7 @@ Updated: 2026-11-24
 - Brain graph and document extraction are implemented; persistent canvas, OCR execution and AI memory suggestions remain incomplete.
 - Live Hermes tool execution and delegated workflows remain experimental.
 - Voice execution controls, messaging/external-service adapters and live inference remain incomplete rather than represented as working integrations.
-- Push-to-talk capture, voice-note recording and workflow cancellation/scheduling UI remain incomplete; current controls accurately expose only verified operations.
+- Physical capture and live speech engines remain unverified; messaging adapters have no live account validation and do not connect by default. Workflow cancellation and scheduling UI remain incomplete.
 
 ## Exact next action
 

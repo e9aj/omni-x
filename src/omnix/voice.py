@@ -7,6 +7,7 @@ only after the caller's microphone/filesystem permission callback approves it.
 from __future__ import annotations
 
 import importlib.util
+import wave
 from pathlib import Path
 from typing import Any, Callable
 
@@ -48,10 +49,23 @@ class VoiceService:
         audio_path = audio_path.expanduser().resolve()
         if not audio_path.is_file() or audio_path.stat().st_size > 50_000_000:
             raise ValueError("audio file is missing or exceeds the 50 MB limit")
+        if audio_path.suffix.lower() != ".wav":
+            raise ValueError("voice input must be a WAV file for the local-first boundary")
+        try:
+            with wave.open(str(audio_path), "rb") as handle:
+                if handle.getnchannels() < 1 or handle.getsampwidth() < 1 or handle.getframerate() < 1:
+                    raise ValueError("WAV audio metadata is invalid")
+                if handle.getnframes() > handle.getframerate() * 1800:
+                    raise ValueError("audio exceeds the 30 minute limit")
+        except (wave.Error, EOFError) as exc:
+            raise ValueError("audio is not a valid WAV file") from exc
         if importlib.util.find_spec("faster_whisper") is None:
             raise VoiceUnavailable("faster-whisper is not installed; no audio was uploaded")
+        model_path = Path(model).expanduser().resolve()
+        if not model_path.is_dir():
+            raise VoiceUnavailable("a local faster-whisper model directory is required; no download was attempted")
         from faster_whisper import WhisperModel  # type: ignore[import-not-found]
-        engine = WhisperModel(model, device="cpu", compute_type="int8")
+        engine = WhisperModel(str(model_path), device="cpu", compute_type="int8", local_files_only=True)
         segments, _ = engine.transcribe(str(audio_path), vad_filter=True)
         result = " ".join(segment.text.strip() for segment in segments).strip()
         self._record("transcribed", "local")

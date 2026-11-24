@@ -5,7 +5,7 @@ Updated: 2026-11-24
 ## Current state
 
 - Branch: `feat/modular-integrations-framework-clean`
-- Head: `18e5954` before the semantic-index slice below; update after commit.
+- Head: `2aa946e` before the current voice-boundary slice; update after commit.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -34,6 +34,7 @@ Updated: 2026-11-24
 - Brain document extraction now passes deterministic TXT, DOCX and PDF tests through a contained read-only path.
 - Hosted Security run 95 found unsafe DOCX XML parsing; the fix uses defusedxml with ZIP/PDF resource limits and added regression coverage.
 - The local Brain semantic index now persists deterministic feature-hash vectors in SQLite, ranks note results locally and is exposed through the authenticated desktop API; it is not a neural embedding service.
+- Voice input now validates bounded WAV fixtures and requires an explicitly local faster-whisper model directory with offline loading; no implicit model download or remote audio upload is permitted.
 
 ## Known limitations
 
@@ -42,6 +43,7 @@ Updated: 2026-11-24
 - The SkillsManager catalogue is backend-complete for browse/enable/disable, but the desktop screen still needs its dedicated skill-list presentation.
 - Optional integrations are catalogue/lifecycle interfaces only; no external service adapter, MCP connection or third-party software installation is claimed.
 - Neural embeddings, infinite-canvas persistence, OCR execution and AI-generated memory remain incomplete. Local feature-hash semantic-style search is implemented and tested.
+- Live microphone capture, local engine execution, push-to-talk and TTS remain unverified; deterministic permission and synthetic-WAV boundary tests pass.
 - Third-party MCP connectivity and desktop connection persistence remain unverified; no external MCP endpoint was contacted.
 - Full JSON Schema validation and DNS/IP pinning remain open remote-MCP risks requiring owner-controlled network policy.
 - MCP now uses `jsonschema` Draft 2020-12 validation and pins resolved host addresses for the lifetime of a connection; live remote validation remains outstanding.
@@ -53,6 +55,6 @@ Updated: 2026-11-24
 
 ## Exact next action
 
-Continue with bounded local voice execution tests/adapters and messaging
-adapter slices without claiming live external connectivity; then implement
-persistent canvas and explicit memory approval flows.
+Continue with messaging adapter slices and persistent canvas/memory approval
+flows without claiming live external connectivity; then implement remaining
+independently testable desktop functionality.

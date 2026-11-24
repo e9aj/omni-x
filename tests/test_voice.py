@@ -1,4 +1,5 @@
 from pathlib import Path
+import wave
 
 import pytest
 
@@ -23,7 +24,18 @@ def test_voice_requires_permission_before_transcription(tmp_path: Path):
 
 def test_voice_reports_missing_local_engine_without_upload(tmp_path: Path, monkeypatch):
     source = tmp_path / "sample.wav"
-    source.write_bytes(b"audio")
+    with wave.open(str(source), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(16_000)
+        handle.writeframes(b"\x00\x00" * 160)
     monkeypatch.setattr("omnix.voice.importlib.util.find_spec", lambda name: None)
     with pytest.raises(VoiceUnavailable, match="not installed"):
+        VoiceService().transcribe(source)
+
+
+def test_voice_rejects_non_wav_before_optional_engine_lookup(tmp_path: Path):
+    source = tmp_path / "sample.mp3"
+    source.write_bytes(b"audio")
+    with pytest.raises(ValueError, match="WAV"):
         VoiceService().transcribe(source)

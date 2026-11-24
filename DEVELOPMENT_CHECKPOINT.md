@@ -49,6 +49,9 @@ Updated: 2026-11-24
 - Messaging and external-service adapters now reject HTTP redirects using a no-redirect opener, preventing a validated HTTPS host from forwarding requests to another endpoint. Focused adapter tests pass.
 - Hosted CI for `5f155cf` passed as run `45508609612`. Security/compliance `45508609668` and Windows Desktop `45508610044` remain in progress; no installer artifact or completed current-head security result is available yet.
 - Local `npm audit --audit-level=high --omit=dev` reports zero vulnerabilities. Local `pip-audit` cannot audit the editable `omnix` distribution; the hosted security workflow is the authoritative Python dependency audit.
+- Hosted security run `45510089307` passed all jobs, including Bandit after the B608 remediation, secret scanning, Rust audit and SBOM generation. Hosted CI run `45510089397` passed. Hosted Windows Desktop run `45510089296` passed installation, launch, managed sidecar startup, authenticated health, crash recovery, shutdown and silent uninstall, and uploaded artifact `14974788456`.
+- Local Cargo compilation and NSIS packaging succeed when `CARGO_TARGET_DIR` is set outside OneDrive. The exact local installer for `6346f4e` is `C:\Users\jibad\AppData\Local\Temp\omnix-cargo-target-3\release\bundle\nsis\OMNI-X_0.1.0_x64-setup.exe`, 15,408,331 bytes, SHA-256 `F7AE343212CC46A5190336652FD7674AA8F2F98BD1882295F62CA87F715D07E4`, unsigned. It installed and launched locally; the owned backend exited cleanly and unauthenticated health returned 401.
+- Current-head Codex Security scan `259f6166-f5a0-4216-a7e6-333bdbec6399` is running read-only against `6346f4e`; it has no final findings yet and is not represented as complete.
 
 ## Known limitations
 
@@ -61,7 +64,7 @@ Updated: 2026-11-24
 - Third-party MCP connectivity and desktop connection persistence remain unverified; no external MCP endpoint was contacted.
 - Full JSON Schema validation and DNS/IP pinning remain open remote-MCP risks requiring owner-controlled network policy.
 - MCP now uses `jsonschema` Draft 2020-12 validation and pins resolved host addresses for the lifetime of a connection; live remote validation remains outstanding.
-- Local `cargo check` reaches the Tauri build script but is blocked because the CI-generated target-specific backend sidecar is absent from this checkout; no security policy was changed.
+- Local Cargo requires an external target directory and a locally generated sidecar for packaging; no security policy was changed. The sidecar and generated spec were moved back out of the repository after packaging.
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.
 - Brain graph and document extraction are implemented; persistent canvas, OCR execution and AI memory suggestions remain incomplete.
@@ -76,7 +79,7 @@ Updated: 2026-11-24
 
 ## Exact next action
 
-Await hosted validation for `836116e`, complete the current-head security scan,
-and obtain authorised repository write access before creating the consolidated
-alpha pull request. No live provider, external integration, installer artifact,
-or signed release is claimed until the corresponding hosted evidence exists.
+Complete or record the current-head Codex Security scan, then obtain authorised
+repository write access before creating the consolidated alpha pull request.
+Hosted Windows validation and an unsigned installer artifact are now available;
+live provider inference and signed-release readiness remain unverified.

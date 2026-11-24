@@ -83,3 +83,15 @@ def test_mcp_rejects_unauthorised_executable_and_unallowlisted_http():
     connection = MCPConnection(name="remote", transport="http", endpoint="http://127.0.0.1:9/mcp", allowed_hosts=("example.com",))
     with pytest.raises(PermissionError):
         connection._request("initialize", {})
+
+
+def test_mcp_rejects_schema_invalid_arguments():
+    connection = MCPConnection(name="fixture", transport="stdio", command=sys.executable,
+                               args=("-u", "-c", SERVER), command_authorised=True)
+    try:
+        connection.connect()
+        connection.discover_tools()
+        with pytest.raises(MCPError):
+            connection.call_tool("read_note", {"path": 42})
+    finally:
+        connection.close()

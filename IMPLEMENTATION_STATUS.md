@@ -464,7 +464,7 @@ Automated tests use local servers or injected test clients where needed and are 
 
 - **Corrected:** stdio servers now require explicit executable authorisation; HTTP MCP endpoints require an explicit hostname allowlist, reject URL credentials and redirects, cap response size, and use generic errors without response-body leakage.
 - **Corrected:** discovered tool arguments are checked against basic object schemas before permission callbacks and dispatch. Regression tests cover unauthorised commands and unallowlisted HTTP destinations.
-- **Remaining risk:** DNS/IP pinning and full JSON Schema validation are not implemented; remote MCP use requires an owner-controlled network policy and remains unvalidated.
+- **Remaining risk:** remote MCP use remains unvalidated against a third-party server and still requires an owner-controlled network policy; resolver pinning is per connection, not a full enterprise network control.
 
 ### Brain attachments and recovery — 2026-11-24
 

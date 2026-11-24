@@ -5,7 +5,7 @@ Updated: 2026-11-23
 ## Current state
 
 - Branch: `feat/modular-integrations-framework-clean`
-- Head: `3b4780b`.
+- Head: `ba8e800`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -39,6 +39,7 @@ Updated: 2026-11-23
 - Brain embeddings, infinite-canvas persistence, OCR/document extraction and AI-generated memory remain incomplete.
 - Third-party MCP connectivity and desktop connection persistence remain unverified; no external MCP endpoint was contacted.
 - Full JSON Schema validation and DNS/IP pinning remain open remote-MCP risks requiring owner-controlled network policy.
+- MCP now uses `jsonschema` Draft 2020-12 validation and pins resolved host addresses for the lifetime of a connection; live remote validation remains outstanding.
 - Local `cargo check` reaches the Tauri build script but is blocked because the CI-generated target-specific backend sidecar is absent from this checkout; no security policy was changed.
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.
@@ -47,6 +48,5 @@ Updated: 2026-11-23
 
 ## Exact next action
 
-Add deterministic SQLite backup/recovery and attachment handling, then continue
-with local-first voice capability detection without claiming unavailable audio
-hardware support.
+Build the usable desktop workflow editor over the existing workflow runner,
+then add Brain note history/templates and deterministic document fixtures.

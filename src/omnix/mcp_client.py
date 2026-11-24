@@ -13,11 +13,13 @@ import queue
 import subprocess
 import threading
 import time
+import socket
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 from dataclasses import dataclass
 from typing import Any, Callable
+from jsonschema import Draft202012Validator, SchemaError
 
 
 class MCPError(RuntimeError):
@@ -54,6 +56,7 @@ class MCPConnection:
         self.args, self.headers = args, dict(headers or {})
         self.permission, self.audit, self.timeout = permission, audit, timeout
         self.allowed_hosts, self.command_authorised = tuple(allowed_hosts), command_authorised
+        self._resolved_ips: tuple[str, ...] | None = None
         self._process: subprocess.Popen[str] | None = None
         self._reader: threading.Thread | None = None
         self._messages: queue.Queue[dict[str, Any]] = queue.Queue()
@@ -101,6 +104,14 @@ class MCPConnection:
                 parsed = urlsplit(self.endpoint)
                 if parsed.username or parsed.password or parsed.hostname not in self.allowed_hosts:
                     raise PermissionError("MCP HTTP host is not explicitly allowlisted")
+                try:
+                    resolved = tuple(sorted({item[4][0] for item in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)}))
+                except OSError as exc:
+                    raise MCPError("MCP host could not be resolved") from exc
+                if self._resolved_ips is None:
+                    self._resolved_ips = resolved
+                elif resolved != self._resolved_ips:
+                    raise PermissionError("MCP host resolution changed during the connection")
                 request = urllib.request.Request(self.endpoint, data=payload.encode(), headers={"Content-Type": "application/json", **self.headers}, method="POST")
                 try:
                     opener = urllib.request.build_opener(_NoRedirect)
@@ -151,13 +162,14 @@ class MCPConnection:
             raise MCPError("MCP tool is not discovered or allowlisted")
         if not isinstance(arguments, dict):
             raise MCPError("MCP tool arguments must be an object")
-        schema = self._tools[name].input_schema or {}
-        if schema.get("type") not in (None, "object"):
-            raise MCPError("MCP tool schema is unsupported")
-        required = schema.get("required", [])
-        properties = schema.get("properties", {})
-        if any(key not in arguments for key in required) or any(key not in properties for key in arguments):
-            raise MCPError("MCP tool arguments do not match the discovered schema")
+        schema = self._tools[name].input_schema or {"type": "object"}
+        try:
+            Draft202012Validator.check_schema(schema)
+            Draft202012Validator(schema).validate(arguments)
+        except SchemaError as exc:
+            raise MCPError("MCP tool schema is invalid") from exc
+        except Exception as exc:
+            raise MCPError("MCP tool arguments do not match the discovered schema") from exc
         if self.permission and not self.permission(name, arguments):
             self._record("tool_denied", name)
             raise PermissionError("MCP tool permission denied")

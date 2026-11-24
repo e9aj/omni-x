@@ -463,6 +463,10 @@ connections. No third-party MCP server or credentialed endpoint was contacted.
 MCP security regression tests also passed for unauthorised executable rejection,
 unallowlisted HTTP destinations, redirect refusal and basic tool-schema checks.
 
+The MCP client now validates discovered arguments with JSON Schema Draft 2020-12
+and pins DNS results for each connection. These controls are deterministic-tested;
+no remote MCP server was contacted.
+
 ## Brain recovery validation — 2026-11-24
 
 Deterministic tests passed for contained atomic attachment writes and SQLite

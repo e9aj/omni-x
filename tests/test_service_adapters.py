@@ -14,7 +14,11 @@ class Response:
 
 def test_github_adapter_uses_allowlisted_official_api(monkeypatch):
     seen = {}
-    monkeypatch.setattr("omnix.service_adapters.urlopen", lambda request, timeout: seen.update(url=request.full_url) or Response())
+    class Opener:
+        def open(self, request, timeout):
+            seen.update(url=request.full_url)
+            return Response()
+    monkeypatch.setattr("omnix.service_adapters.urllib.request.build_opener", lambda *_: Opener())
     result = GitHubAdapter("https://api.github.com", "scoped-token", {"api.github.com"}).repository("e9aj", "omni-x")
     assert result.body == {"ok": True}
     assert seen["url"] == "https://api.github.com/repos/e9aj/omni-x"

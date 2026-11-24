@@ -10,11 +10,17 @@ import json
 from dataclasses import dataclass
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin, urlsplit
-from urllib.request import Request, urlopen
+import urllib.request
+from urllib.request import Request
 
 
 class ServiceAdapterError(RuntimeError):
     pass
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 @dataclass(frozen=True)
@@ -43,7 +49,8 @@ class AuthorizedRestAdapter:
         data = json.dumps(payload).encode() if payload is not None else None
         request = Request(url, data=data, method=method.upper(), headers={"Authorization": f"Bearer {self.token}", "Accept": "application/json", "Content-Type": "application/json"})
         try:
-            with urlopen(request, timeout=self.timeout) as response:  # nosec B310 - exact HTTPS host allowlist
+            opener = urllib.request.build_opener(_NoRedirect)
+            with opener.open(request, timeout=self.timeout) as response:
                 raw = response.read(2_000_000)
                 if len(raw) >= 2_000_000:
                     raise ServiceAdapterError("service response exceeds 2 MB")

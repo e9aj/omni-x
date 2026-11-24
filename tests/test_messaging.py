@@ -15,7 +15,11 @@ class Response:
 
 def test_telegram_fixture_uses_official_endpoint_and_never_logs_token(monkeypatch):
     seen = {}
-    monkeypatch.setattr("omnix.messaging.urlopen", lambda request, timeout: seen.update(url=request.full_url, body=request.data) or Response())
+    class Opener:
+        def open(self, request, timeout):
+            seen.update(url=request.full_url, body=request.data)
+            return Response()
+    monkeypatch.setattr("omnix.messaging.urllib.request.build_opener", lambda *_: Opener())
     result = TelegramAdapter(credential="secret-token", allowed_hosts={"api.telegram.org"}).send(MessageRequest("", "hello", "123"))
     assert result == {"ok": True}
     assert seen["url"].startswith("https://api.telegram.org/bot")

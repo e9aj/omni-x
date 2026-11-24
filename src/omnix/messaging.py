@@ -14,11 +14,17 @@ from dataclasses import dataclass
 from email.message import EmailMessage
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+import urllib.request
+from urllib.request import Request
 
 
 class MessagingError(RuntimeError):
     pass
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 @dataclass(frozen=True)
@@ -42,7 +48,8 @@ class OfficialMessaging:
         body = json.dumps(payload).encode("utf-8")
         request = Request(url, data=body, headers={**headers, "Content-Type": "application/json"}, method="POST")
         try:
-            with urlopen(request, timeout=self.timeout) as response:  # nosec B310 - HTTPS host allowlist enforced above
+            opener = urllib.request.build_opener(_NoRedirect)
+            with opener.open(request, timeout=self.timeout) as response:
                 if int(response.headers.get("Content-Length", "0") or 0) > 2_000_000:
                     raise MessagingError("messaging response is too large")
                 return json.loads(response.read(2_000_000).decode("utf-8"))

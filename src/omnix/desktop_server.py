@@ -424,7 +424,12 @@ class Handler(BaseHTTPRequestHandler):
             settings = load_settings()
             if not config_path().exists() and settings.provider == "openai":
                 settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
-            store = Store()
+            # Reuse the server-owned SQLite connection.  Opening a second
+            # connection and replaying migrations for every chat can block on
+            # Windows file locks while the durable TaskService is active.
+            # TaskService is the server's authoritative persistence owner.
+            task_service = getattr(self.server, "tasks", None)
+            store = task_service.store if task_service is not None else Store()
             approver = self.server.approvals.request if hasattr(self.server, "approvals") else (lambda _: False)
             hermes_result = None
             if settings.runtime in {"hermes", "auto"} and settings.mode == "FREE" and not settings.allow_paid and settings.max_cost_usd == 0:

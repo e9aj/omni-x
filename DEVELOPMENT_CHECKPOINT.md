@@ -5,7 +5,7 @@ Updated: 2026-11-23
 ## Current state
 
 - Branch: `feat/modular-integrations-framework-clean`
-- Head: `b0d2c42`.
+- Head: `ffdc452`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 

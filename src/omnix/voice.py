@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import importlib.util
 import wave
+import threading
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -43,6 +45,37 @@ class VoiceService:
         import sounddevice  # type: ignore[import-not-found]
         return [{"name": str(item.get("name", "")), "index": item.get("index"), "max_input_channels": item.get("max_input_channels", 0)}
                 for item in sounddevice.query_devices() if item.get("max_input_channels", 0) > 0]
+
+    def record(self, output_path: Path, *, duration_seconds: float = 5.0,
+               stop_event: threading.Event | None = None, device: int | None = None) -> str:
+        """Record a bounded local WAV after explicit microphone approval."""
+        self._allow("microphone.record")
+        if duration_seconds <= 0 or duration_seconds > 300:
+            raise ValueError("recording duration must be between 0 and 300 seconds")
+        if importlib.util.find_spec("sounddevice") is None:
+            raise VoiceUnavailable("sounddevice is not installed; no microphone was accessed")
+        import sounddevice  # type: ignore[import-not-found]
+        output_path = output_path.expanduser().resolve()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        sample_rate, channels = 16_000, 1
+        chunks: list[bytes] = []
+        def callback(indata, _frames, _time, status):
+            if status:
+                self._record("record_status", str(status))
+            chunks.append(bytes(indata))
+        try:
+            with sounddevice.RawInputStream(samplerate=sample_rate, blocksize=800, device=device,
+                                            channels=channels, dtype="int16", callback=callback):
+                deadline = time.monotonic() + duration_seconds
+                while time.monotonic() < deadline and not (stop_event and stop_event.is_set()):
+                    time.sleep(0.05)
+        except Exception as exc:
+            raise VoiceUnavailable("local microphone recording failed") from exc
+        with wave.open(str(output_path), "wb") as handle:
+            handle.setnchannels(channels); handle.setsampwidth(2); handle.setframerate(sample_rate)
+            handle.writeframes(b"".join(chunks))
+        self._record("recorded", "local")
+        return str(output_path)
 
     def transcribe(self, audio_path: Path, *, model: str = "base") -> str:
         self._allow("microphone.transcribe")

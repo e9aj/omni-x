@@ -39,3 +39,15 @@ def test_voice_rejects_non_wav_before_optional_engine_lookup(tmp_path: Path):
     source.write_bytes(b"audio")
     with pytest.raises(ValueError, match="WAV"):
         VoiceService().transcribe(source)
+
+
+def test_record_requires_permission_before_optional_microphone(tmp_path: Path):
+    service = VoiceService(permission=lambda action: False)
+    with pytest.raises(PermissionError):
+        service.record(tmp_path / "voice-note.wav", duration_seconds=1)
+
+
+def test_record_reports_missing_audio_engine_without_access(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr("omnix.voice.importlib.util.find_spec", lambda name: None)
+    with pytest.raises(VoiceUnavailable, match="sounddevice"):
+        VoiceService().record(tmp_path / "voice-note.wav", duration_seconds=1)

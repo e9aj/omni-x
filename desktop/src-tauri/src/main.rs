@@ -688,6 +688,21 @@ fn backend_voice_transcribe(
 }
 
 #[tauri::command]
+fn backend_voice_record(
+    path: String,
+    duration_seconds: f64,
+    device: Option<i32>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    request(
+        &state,
+        "POST",
+        "/v1/voice/record",
+        Some(json!({"path": path, "duration_seconds": duration_seconds, "device": device})),
+    )
+}
+
+#[tauri::command]
 fn backend_voice_speak(
     text: String,
     output_path: Option<String>,
@@ -916,6 +931,7 @@ fn main() {
             backend_voice_capabilities,
             backend_voice_devices,
             backend_voice_transcribe,
+            backend_voice_record,
             backend_voice_speak,
             backend_workflows,
             backend_workflow_save,

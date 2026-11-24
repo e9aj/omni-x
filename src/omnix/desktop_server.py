@@ -277,6 +277,22 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("voice model path is invalid")
                 result = VoiceService(permission=self.server.approvals.request).transcribe(audio, model=model)
                 self._json(200, {"text": result, "local": True})
+            elif self.path == "/v1/voice/record":
+                body = self._body()
+                relative = body.get("path", "voice-notes/recording.wav")
+                if not isinstance(relative, str) or not relative.strip() or Path(relative).is_absolute():
+                    raise ValueError("voice-note path must be relative to the workspace")
+                workspace = Path.cwd().resolve()
+                output = (workspace / relative).resolve()
+                try:
+                    output.relative_to(workspace)
+                except ValueError as exc:
+                    raise ValueError("voice-note path escapes the workspace") from exc
+                duration, device = body.get("duration_seconds", 5), body.get("device")
+                if not isinstance(duration, (int, float)) or isinstance(duration, bool) or not isinstance(device, (int, type(None))):
+                    raise ValueError("recording options are invalid")
+                result = VoiceService(permission=self.server.approvals.request).record(output, duration_seconds=float(duration), device=device)
+                self._json(200, {"path": result, "local": True})
             elif self.path == "/v1/voice/speak":
                 body = self._body()
                 text = body.get("text")

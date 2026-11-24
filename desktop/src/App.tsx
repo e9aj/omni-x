@@ -188,6 +188,7 @@ export function App() {
   const [voiceModel, setVoiceModel] = useState("");
   const [voiceText, setVoiceText] = useState("");
   const [voiceDevices, setVoiceDevices] = useState<string[]>([]);
+  const [voiceNotePath, setVoiceNotePath] = useState("voice-notes/recording.wav");
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [workflowName, setWorkflowName] = useState("My workflow");
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([
@@ -490,6 +491,10 @@ export function App() {
   }
   async function listVoiceDevices() {
     try { const result = await invoke<{ devices: Array<{ name: string }> }>("backend_voice_devices"); setVoiceDevices(result.devices.map((item) => item.name)); }
+    catch (error) { setModelsError(String(error)); }
+  }
+  async function recordVoiceNote() {
+    try { await invoke("backend_voice_record", { path: voiceNotePath, durationSeconds: 5, device: null }); setVoicePath(voiceNotePath); }
     catch (error) { setModelsError(String(error)); }
   }
   function addCanvasNote(path: string) {
@@ -841,7 +846,7 @@ export function App() {
             <input value={voiceModel} onChange={(event) => setVoiceModel(event.target.value)} placeholder="C:/local/whisper-model" />
             <button onClick={() => void transcribeVoice()}>Transcribe locally</button>
             <textarea value={voiceText} onChange={(event) => setVoiceText(event.target.value)} rows={4} placeholder="Transcribed text or text to speak" />
-            <button onClick={() => void speakVoice()}>Speak locally</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
+            <button onClick={() => void speakVoice()}>Speak locally</button><input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} aria-label="voice note path" /><button onClick={() => void recordVoiceNote()}>Push-to-talk · record 5 seconds</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
             {voiceDevices.map((device) => <small key={device}>{device}</small>)}
             <p className="muted">Push-to-talk, physical microphone capture and wake-word support remain unavailable until an explicitly approved local audio engine is installed.</p>
           </section>

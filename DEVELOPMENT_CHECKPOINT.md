@@ -4,8 +4,8 @@ Updated: 2026-11-24
 
 ## Current state
 
-- Branch: `codex/workflow-controls`
-- Head: `e05c53a`.
+- Branch: `codex/workflow-scheduling`
+- Head: `ce92531`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -61,7 +61,8 @@ Updated: 2026-11-24
 - Live Hermes tool execution and delegated workflows remain experimental.
 - Voice execution controls, messaging/external-service adapters and live inference remain incomplete rather than represented as working integrations.
 - Physical capture and live speech engines remain unverified; messaging adapters have no live account validation and do not connect by default. Workflow cancellation and scheduling UI remain incomplete.
-- Workflow runs now have durable asynchronous start/cancel endpoints and desktop Stop/history controls. Scheduling still uses the existing TaskService schedule API and is not yet exposed as a workflow-specific desktop control.
+- Workflow runs now have durable asynchronous start/cancel endpoints, desktop Stop/history controls and workflow-specific scheduling through TaskService.
+- Workflow-specific scheduling is now exposed through an additive `schedules.workflow_id` migration, the TaskService scheduling loop, an authenticated backend endpoint and a desktop Schedule control. Existing prompt schedules remain compatible.
 
 ## Exact next action
 

@@ -5,7 +5,7 @@ Updated: 2026-11-24
 ## Current state
 
 - Branch: `codex/brain-persistent-canvas`
-- Head: `b3d6379`.
+- Head: `2d34847`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -37,6 +37,7 @@ Updated: 2026-11-24
 - Voice input now validates bounded WAV fixtures and requires an explicitly local faster-whisper model directory with offline loading; no implicit model download or remote audio upload is permitted.
 - Focused Brain branch commits: `827d801` adds bounded persistent canvas storage and Tauri bridge state; `dcfaae3` adds optional offline-only neural embedding support; `e13dfd7` adds opt-in bounded OCR; `6815578` adds governed memory suggestions with explicit approval/rejection/deletion; `b2cd8c5` connects saved workflows to TaskService execution and SQLite run history.
 - The Memory desktop screen now exposes semantic search, pending-memory approval/edit/reject/delete controls, draggable canvas cards, two-note connections, zoom controls and authenticated layout saving. The UI build and targeted backend tests pass.
+- Brain desktop controls now include bounded canvas panning, rendered SVG connections, layout zooming and explicit local OCR inspection controls. OCR remains disabled unless the user enables it and the optional local engines are installed.
 - Hosted validation for `3f05632`: CI run 238 completed successfully; Windows Desktop run 117 remains in progress; Security/compliance run 103 has passed Python security, secret scan and SBOM while Rust audit remains in progress.
 - A read-only Codex Security Standard scan was started for this head (scan `63065c13-7b43-4926-89b1-6610de5df075`); findings are not available yet and PR readiness is therefore still pending.
 
@@ -56,7 +57,7 @@ Updated: 2026-11-24
 - Optional external integrations remain disabled/configuration-dependent.
 - Brain graph and document extraction are implemented; persistent canvas, OCR execution and AI memory suggestions remain incomplete.
 - Live Hermes tool execution and delegated workflows remain experimental.
-- Canvas panning, OCR import controls, voice execution controls and messaging/external-service adapters remain incomplete rather than represented as working integrations.
+- Voice execution controls, messaging/external-service adapters and live inference remain incomplete rather than represented as working integrations.
 
 ## Exact next action
 

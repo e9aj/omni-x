@@ -62,6 +62,13 @@ class TaskService:
         ident = self.store.create_schedule(prompt, schedule, kind, first)
         self.start(); self._wake.set(); return ident
 
+    def schedule_workflow(self, workflow_id: str, schedule: str) -> str:
+        if not any(item["id"] == workflow_id for item in self.store.workflows()):
+            raise KeyError("workflow not found")
+        kind, first, _ = _parse_schedule(schedule)
+        ident = self.store.create_schedule("workflow:" + workflow_id, schedule, kind, first, workflow_id=workflow_id)
+        self.start(); self._wake.set(); return ident
+
     def enqueue(self, prompt: str, parent_job_id: str | None = None, deadline_seconds: float | None = None) -> str:
         deadline = time.time() + deadline_seconds if deadline_seconds else None
         policy = {"mode": self.settings.mode, "allow_paid": self.settings.allow_paid, "max_cost_usd": self.settings.max_cost_usd, "tool_policy": self.settings.tool_policy}
@@ -191,7 +198,10 @@ class TaskService:
                     # semantics without starting Hermes' scheduler process.
                     next_run = (now + recurrence) if recurrence else (parsed_next if kind == "cron" else None)
                     self.store.advance_schedule(row["id"], next_run, now, missed=0)
-                    self.enqueue(row["prompt"])
+                    if row.get("workflow_id"):
+                        self.start_workflow(row["workflow_id"])
+                    else:
+                        self.enqueue(row["prompt"])
                 except Exception as exc:
                     self.store.event("schedule:" + row["id"], "schedule_error", str(exc))
                     self.store.advance_schedule(row["id"], None, now)

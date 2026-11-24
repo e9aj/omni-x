@@ -354,6 +354,12 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path.startswith("/v1/workflows/") and self.path.endswith("/run"):
                 workflow_id = self.path.split("/")[3]
                 self._json(200, {"run_id": self.server.tasks.start_workflow(workflow_id), "state": "running"})
+            elif self.path.startswith("/v1/workflows/") and self.path.endswith("/schedule"):
+                workflow_id = self.path.split("/")[3]
+                schedule = self._body().get("schedule")
+                if not isinstance(schedule, str) or not schedule.strip() or len(schedule) > 200:
+                    raise ValueError("workflow schedule is invalid")
+                self._json(200, {"schedule_id": self.server.tasks.schedule_workflow(workflow_id, schedule)})
             elif self.path.startswith("/v1/workflow-runs/") and self.path.endswith("/cancel"):
                 run_id = self.path.split("/")[3]
                 self.server.tasks.cancel_workflow(run_id)

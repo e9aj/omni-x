@@ -51,6 +51,9 @@ class Store:
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
             self.db.execute("ALTER TABLE jobs ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'" )
+        schedule_columns = {row["name"] for row in self.db.execute("PRAGMA table_info(schedules)")}
+        if "workflow_id" not in schedule_columns:
+            self.db.execute("ALTER TABLE schedules ADD COLUMN workflow_id TEXT")
         self.db.commit()
 
     def upsert_embedding(self, source_id: str, source_type: str, content: str, vector: list[float]) -> None:
@@ -192,10 +195,10 @@ class Store:
         self.db.commit()
         return cur.rowcount
 
-    def create_schedule(self, prompt: str, schedule: str, kind: str, next_run_at: float) -> str:
+    def create_schedule(self, prompt: str, schedule: str, kind: str, next_run_at: float, workflow_id: str | None = None) -> str:
         with self._lock:
             ident = str(uuid.uuid4()); now = time.time()
-            self.db.execute("INSERT INTO schedules VALUES (?,?,?,?,?,NULL,1,0,?,?)", (ident, prompt, schedule, kind, next_run_at, now, now))
+            self.db.execute("INSERT INTO schedules(prompt,schedule,kind,next_run_at,last_run_at,enabled,missed_runs,created,updated,workflow_id,id) VALUES (?,?,?,?,NULL,1,0,?,?,?,?)", (prompt, schedule, kind, next_run_at, now, now, workflow_id, ident))
             self.db.commit(); return ident
 
     def due_schedules(self, now: float) -> list[dict]:

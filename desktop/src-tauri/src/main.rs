@@ -669,6 +669,39 @@ fn backend_voice_capabilities(state: State<'_, BackendState>) -> Result<Value, S
 }
 
 #[tauri::command]
+fn backend_voice_devices(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/voice/devices", None)
+}
+
+#[tauri::command]
+fn backend_voice_transcribe(
+    path: String,
+    model: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    request(
+        &state,
+        "POST",
+        "/v1/voice/transcribe",
+        Some(json!({"path": path, "model": model})),
+    )
+}
+
+#[tauri::command]
+fn backend_voice_speak(
+    text: String,
+    output_path: Option<String>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    request(
+        &state,
+        "POST",
+        "/v1/voice/speak",
+        Some(json!({"text": text, "output_path": output_path})),
+    )
+}
+
+#[tauri::command]
 fn backend_workflows(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/workflows", None)
 }
@@ -860,6 +893,9 @@ fn main() {
             backend_skill_action,
             backend_integrations,
             backend_voice_capabilities,
+            backend_voice_devices,
+            backend_voice_transcribe,
+            backend_voice_speak,
             backend_workflows,
             backend_workflow_save,
             backend_integration_action,

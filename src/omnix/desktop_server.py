@@ -181,6 +181,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"integrations": [self.server.integration_payload(item) for item in self.server.integrations.list()]})
         elif self.path == "/v1/voice/capabilities":
             self._json(200, {"capabilities": VoiceService().capabilities()})
+        elif self.path == "/v1/voice/devices":
+            service = VoiceService(permission=self.server.approvals.request)
+            self._json(200, {"devices": service.devices()})
         elif self.path == "/v1/workflows":
             self._json(200, {"workflows": Store().workflows()})
         elif self.path.startswith("/v1/workflows/") and self.path.endswith("/runs"):
@@ -259,6 +262,39 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._body()
                 vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
                 self._json(200, {"path": vault.save_attachment(body.get("path", ""), body.get("data", ""))})
+            elif self.path == "/v1/voice/transcribe":
+                body = self._body()
+                relative, model = body.get("path"), body.get("model", "base")
+                if not isinstance(relative, str) or not relative.strip() or Path(relative).is_absolute():
+                    raise ValueError("voice path must be relative to the workspace")
+                workspace = Path.cwd().resolve()
+                audio = (workspace / relative).resolve()
+                try:
+                    audio.relative_to(workspace)
+                except ValueError as exc:
+                    raise ValueError("voice path escapes the workspace") from exc
+                if not isinstance(model, str) or len(model) > 500:
+                    raise ValueError("voice model path is invalid")
+                result = VoiceService(permission=self.server.approvals.request).transcribe(audio, model=model)
+                self._json(200, {"text": result, "local": True})
+            elif self.path == "/v1/voice/speak":
+                body = self._body()
+                text = body.get("text")
+                if not isinstance(text, str) or not text.strip():
+                    raise ValueError("speech text is invalid")
+                output = body.get("output_path")
+                output_path = None
+                if output is not None:
+                    if not isinstance(output, str) or Path(output).is_absolute():
+                        raise ValueError("speech output path must be relative to the workspace")
+                    workspace = Path.cwd().resolve()
+                    output_path = (workspace / output).resolve()
+                    try:
+                        output_path.relative_to(workspace)
+                    except ValueError as exc:
+                        raise ValueError("speech output path escapes the workspace") from exc
+                result = VoiceService(permission=self.server.approvals.request).speak(text, output_path=output_path)
+                self._json(200, {"output_path": result, "local": True})
             elif self.path == "/v1/brain/canvas":
                 body = self._body()
                 nodes, edges, viewport = body.get("nodes", []), body.get("edges", []), body.get("viewport", {})

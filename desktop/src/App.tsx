@@ -183,6 +183,10 @@ export function App() {
   const [ocrEnabled, setOcrEnabled] = useState(false);
   const [voiceCapabilities, setVoiceCapabilities] =
     useState<VoiceCapabilities>();
+  const [voicePath, setVoicePath] = useState("");
+  const [voiceModel, setVoiceModel] = useState("");
+  const [voiceText, setVoiceText] = useState("");
+  const [voiceDevices, setVoiceDevices] = useState<string[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([]);
   const [workflowName, setWorkflowName] = useState("My workflow");
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([
@@ -473,6 +477,18 @@ export function App() {
       const result = await invoke<{ text: string }>("backend_brain_document", { path: documentPath.trim(), allowOcr: ocrEnabled });
       setDocumentResult(result.text.slice(0, 4000));
     } catch (error) { setModelsError(String(error)); }
+  }
+  async function transcribeVoice() {
+    try { const result = await invoke<{ text: string }>("backend_voice_transcribe", { path: voicePath, model: voiceModel }); setVoiceText(result.text); }
+    catch (error) { setModelsError(String(error)); }
+  }
+  async function speakVoice() {
+    try { await invoke("backend_voice_speak", { text: voiceText, outputPath: null }); }
+    catch (error) { setModelsError(String(error)); }
+  }
+  async function listVoiceDevices() {
+    try { const result = await invoke<{ devices: Array<{ name: string }> }>("backend_voice_devices"); setVoiceDevices(result.devices.map((item) => item.name)); }
+    catch (error) { setModelsError(String(error)); }
   }
   function addCanvasNote(path: string) {
     setBrainCanvas((canvas) => ({
@@ -809,11 +825,15 @@ export function App() {
             ) : (
               <p className="muted">Checking local capabilities…</p>
             )}
-            <p className="muted">
-              Push-to-talk, wake-word support and live dictation remain
-              unavailable until a reviewed local engine and audio device are
-              present.
-            </p>
+            <h3>Offline dictation</h3>
+            <p className="muted">Choose a workspace-relative WAV fixture and an existing local Whisper model directory. No weights are downloaded.</p>
+            <input value={voicePath} onChange={(event) => setVoicePath(event.target.value)} placeholder="fixtures/voice.wav" />
+            <input value={voiceModel} onChange={(event) => setVoiceModel(event.target.value)} placeholder="C:/local/whisper-model" />
+            <button onClick={() => void transcribeVoice()}>Transcribe locally</button>
+            <textarea value={voiceText} onChange={(event) => setVoiceText(event.target.value)} rows={4} placeholder="Transcribed text or text to speak" />
+            <button onClick={() => void speakVoice()}>Speak locally</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
+            {voiceDevices.map((device) => <small key={device}>{device}</small>)}
+            <p className="muted">Push-to-talk, physical microphone capture and wake-word support remain unavailable until an explicitly approved local audio engine is installed.</p>
           </section>
         ) : section === "Workflows" ? (
           <section className="panel">

@@ -46,6 +46,7 @@ class Store:
         CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, state TEXT NOT NULL, result_json TEXT, error TEXT, created REAL NOT NULL, finished REAL);
         CREATE TABLE IF NOT EXISTS brain_embeddings (source_id TEXT PRIMARY KEY, source_type TEXT NOT NULL, content_hash TEXT NOT NULL, vector_json TEXT NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS brain_canvas (id INTEGER PRIMARY KEY CHECK(id=1), nodes_json TEXT NOT NULL, edges_json TEXT NOT NULL, viewport_json TEXT NOT NULL, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS memory_suggestions (id TEXT PRIMARY KEY, session_id TEXT, memory_key TEXT NOT NULL, memory_value TEXT NOT NULL, source TEXT NOT NULL, state TEXT NOT NULL, created REAL NOT NULL, updated REAL NOT NULL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
@@ -86,6 +87,37 @@ class Store:
             return {"nodes": [], "edges": [], "viewport": {"x": 0, "y": 0, "zoom": 1}, "updated": None}
         return {"nodes": json.loads(row["nodes_json"]), "edges": json.loads(row["edges_json"]),
                 "viewport": json.loads(row["viewport_json"]), "updated": row["updated"]}
+
+    def add_memory_suggestion(self, memory_key: str, memory_value: str, *, session_id: str | None = None, source: str = "explicit") -> str:
+        if not memory_key.strip() or len(memory_key) > 200 or not memory_value.strip() or len(memory_value) > 10_000:
+            raise ValueError("memory suggestion is invalid")
+        ident, now = str(uuid.uuid4()), time.time()
+        with self._lock:
+            self.db.execute("INSERT INTO memory_suggestions VALUES (?,?,?,?,?,?,?,?)", (ident, session_id, memory_key.strip(), memory_value.strip(), source[:100], "pending", now, now))
+            self.db.commit()
+        return ident
+
+    def memory_suggestions(self, state: str | None = None) -> list[dict]:
+        if state not in {None, "pending", "approved", "rejected", "deleted"}:
+            raise ValueError("memory suggestion state is invalid")
+        rows = self.db.execute("SELECT * FROM memory_suggestions" + (" WHERE state=?" if state else "") + " ORDER BY created DESC", ((state,) if state else ())).fetchall()
+        return [dict(row) for row in rows]
+
+    def decide_memory_suggestion(self, ident: str, state: str, *, memory_key: str | None = None, memory_value: str | None = None) -> dict:
+        if state not in {"approved", "rejected", "deleted"}:
+            raise ValueError("memory decision is invalid")
+        with self._lock:
+            row = self.db.execute("SELECT * FROM memory_suggestions WHERE id=?", (ident,)).fetchone()
+            if not row:
+                raise KeyError("memory suggestion not found")
+            key = memory_key.strip() if isinstance(memory_key, str) and memory_key.strip() else row["memory_key"]
+            value = memory_value.strip() if isinstance(memory_value, str) and memory_value.strip() else row["memory_value"]
+            self.db.execute("UPDATE memory_suggestions SET memory_key=?, memory_value=?, state=?, updated=? WHERE id=?", (key[:200], value[:10_000], state, time.time(), ident))
+            if state == "approved":
+                self.db.execute("INSERT INTO memories(key,value,created,updated) VALUES (?,?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated", (key[:200], value[:10_000], time.time(), time.time()))
+            self.db.commit()
+            result = self.db.execute("SELECT * FROM memory_suggestions WHERE id=?", (ident,)).fetchone()
+        return dict(result)
 
     def save_workflow(self, name: str, definition: dict, workflow_id: str | None = None) -> str:
         ident, now = workflow_id or str(uuid.uuid4()), time.time()

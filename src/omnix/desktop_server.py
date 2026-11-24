@@ -137,6 +137,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"attachments": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_attachments()})
         elif self.path == "/v1/brain/canvas":
             self._json(200, Store().canvas())
+        elif self.path == "/v1/memory/suggestions":
+            self._json(200, {"suggestions": Store().memory_suggestions()})
         elif urlsplit(self.path).path == "/v1/brain/history":
             relative = parse_qs(urlsplit(self.path).query).get("path", [""])[0]
             self._json(200, {"history": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).history(relative)})
@@ -262,6 +264,18 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("canvas payload is invalid")
                 Store().save_canvas(nodes, edges, viewport)
                 self._json(200, {"canvas": Store().canvas()})
+            elif self.path == "/v1/memory/suggestions":
+                body = self._body()
+                session_id = body.get("session_id")
+                if session_id is not None and (not isinstance(session_id, str) or len(session_id) > 200):
+                    raise ValueError("session_id is invalid")
+                ident = Store().add_memory_suggestion(body.get("key", ""), body.get("value", ""), session_id=session_id, source=body.get("source", "explicit"))
+                self._json(200, {"suggestion": Store().memory_suggestions()[0]})
+            elif self.path.startswith("/v1/memory/suggestions/"):
+                ident = self.path.rsplit("/", 1)[-1]
+                body = self._body()
+                result = Store().decide_memory_suggestion(ident, body.get("state", ""), memory_key=body.get("key"), memory_value=body.get("value"))
+                self._json(200, {"suggestion": result})
             elif self.path == "/v1/brain/from-session":
                 body = self._body()
                 session_id, relative = body.get("session_id"), body.get("path")

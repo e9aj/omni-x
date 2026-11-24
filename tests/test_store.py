@@ -65,3 +65,13 @@ def test_canvas_layout_is_persistent_and_bounded(tmp_path: Path):
     store.save_canvas([{"id": "note-1", "path": "alpha.md", "x": 20, "y": 30}], [], {"x": 0, "y": 0, "zoom": 1})
     reopened = Store(tmp_path / "canvas.sqlite3")
     assert reopened.canvas()["nodes"][0]["path"] == "alpha.md"
+
+
+def test_memory_suggestion_requires_explicit_approval(tmp_path: Path):
+    store = Store(tmp_path / "memory.sqlite3")
+    ident = store.add_memory_suggestion("preferred_editor", "Neovim", source="test")
+    assert store.recall("Neovim") == []
+    store.decide_memory_suggestion(ident, "approved")
+    assert store.recall("Neovim") == [{"key": "preferred_editor", "value": "Neovim"}]
+    store.decide_memory_suggestion(ident, "deleted")
+    assert store.memory_suggestions("deleted")[0]["id"] == ident

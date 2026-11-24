@@ -30,7 +30,7 @@ in `docs/security/`.
 
 - The fallback secret store is intended for development on platforms without DPAPI; use a platform keyring before production deployment.
 - Approval is interactive in the CLI and is not yet a durable policy engine.
-- Prompt-injection detection, network egress restrictions, dependency scanning, TruffleHog integration, and sandboxed subprocess execution remain roadmap work.
+- Prompt-injection detection, network egress restrictions, TruffleHog integration, and sandboxed subprocess execution remain roadmap work. Dependency auditing, secret scanning, Rust auditing and SBOM generation are enforced in the hosted security workflow.
 - Live Hermes tool calling and delegated execution remain experimental when the
   selected free provider emits no executable function call.
 - Never run untrusted repository code through `run_command` without reviewing it and approving the operation.

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">OMNI-X lockup</title><desc id="desc">One Agent. Every AI. Infinite Possibilities.</desc>
+  <rect width="1200" height="420" rx="32" fill="#0B0D10"/>
+  <g fill="#F7F7F5"><rect x="100" y="80" width="48" height="48"/><rect x="204" y="80" width="48" height="48"/><rect x="152" y="132" width="48" height="48"/><rect x="100" y="184" width="48" height="48"/><rect x="204" y="184" width="48" height="48"/></g>
+  <text x="320" y="190" fill="#F7F7F5" font-family="Arial,Helvetica,sans-serif" font-size="112" font-weight="700" letter-spacing="12">OMNI-X</text>
+  <text x="326" y="270" fill="#9AA1AA" font-family="Arial,Helvetica,sans-serif" font-size="30" letter-spacing="3">ONE AGENT. EVERY AI. INFINITE POSSIBILITIES.</text>
+</svg>

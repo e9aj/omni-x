@@ -6,12 +6,14 @@ an authenticated loopback health endpoint. Credentials never enter the
 frontend. Chat, tasks, models and settings are being connected incrementally
 to the existing SQLite-backed OMNI-X services.
 
-The current foundation starts and reports the backend during a desktop session;
-crash restart, shutdown-on-exit, duplicate-instance locking and packaged
-sidecars are intentionally deferred to the installer/supervision milestone.
+The Windows alpha packages the Python backend as a managed sidecar. Hosted
+Windows validation covers installation, launch, authenticated health, owned
+process crash recovery, clean shutdown and silent uninstall. The installer is
+currently unsigned; Windows security policy may require an authorised test
+environment.
 
 Development prerequisites: Node.js/npm and Rust/Tauri tooling. From this
-directory run `npm install`, `npm run typecheck`, `npm run build`, or
-`npm run tauri dev`. The current environment has Node/npm, but Cargo execution
-is blocked by Windows Application Control; Tauri compilation therefore remains
-an explicit validation prerequisite on an unrestricted Windows build machine.
+directory run `npm ci`, `npm run typecheck`, `npm run build`, or
+`npm run tauri dev`. For local Windows packaging when the repository is under
+OneDrive, set `CARGO_TARGET_DIR` to a writable path outside OneDrive and create
+the target-specific PyInstaller sidecar described in `.github/workflows/desktop.yml`.

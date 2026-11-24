@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title id="title">OMNI-X symbol</title>
+  <rect width="256" height="256" rx="48" fill="#0B0D10"/>
+  <g fill="#F7F7F5"><rect x="56" y="56" width="40" height="40"/><rect x="160" y="56" width="40" height="40"/><rect x="104" y="104" width="48" height="48"/><rect x="56" y="160" width="40" height="40"/><rect x="160" y="160" width="40" height="40"/></g>
+</svg>

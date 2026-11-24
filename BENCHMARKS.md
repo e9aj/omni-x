@@ -460,6 +460,9 @@ permission-gated execution, unknown-tool rejection, cancellation and bounded
 shutdown. The client supports stdio and HTTP JSON-RPC without automatic
 connections. No third-party MCP server or credentialed endpoint was contacted.
 
+MCP security regression tests also passed for unauthorised executable rejection,
+unallowlisted HTTP destinations, redirect refusal and basic tool-schema checks.
+
 ## Brain recovery validation — 2026-11-24
 
 Deterministic tests passed for contained atomic attachment writes and SQLite

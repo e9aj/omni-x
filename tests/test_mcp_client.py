@@ -16,7 +16,7 @@ for line in sys.stdin:
     if method == 'initialize':
         result = {'serverInfo': {'name': 'fixture'}}
     elif method == 'tools/list':
-        result = {'tools': [{'name': 'read_note', 'description': 'read', 'inputSchema': {'type': 'object'}}]}
+        result = {'tools': [{'name': 'read_note', 'description': 'read', 'inputSchema': {'type': 'object', 'required': ['path'], 'properties': {'path': {'type': 'string'}}}}]}
     elif method == 'tools/call':
         result = {'content': [{'type': 'text', 'text': 'fixture-result'}]}
     else:
@@ -30,7 +30,7 @@ def test_stdio_mcp_connects_discovers_and_executes_with_permission(tmp_path):
     connection = MCPConnection(name="fixture", transport="stdio", command=sys.executable,
                                args=("-u", "-c", SERVER),
                                permission=lambda name, arguments: name == "read_note" and arguments == {"path": "x.md"},
-                               audit=lambda event, detail: events.append((event, detail)))
+                               audit=lambda event, detail: events.append((event, detail)), command_authorised=True)
     try:
         assert connection.connect()["status"] == "connected"
         assert [tool.name for tool in connection.discover_tools()] == ["read_note"]
@@ -58,7 +58,7 @@ for line in sys.stdin:
     print(json.dumps({'jsonrpc': '2.0', 'id': request['id'], 'result': result}), flush=True)
     """)
     connection = MCPConnection(name="fixture", transport="stdio", command=sys.executable,
-                               args=("-u", "-c", slow_server), timeout=0.2)
+                               args=("-u", "-c", slow_server), timeout=0.2, command_authorised=True)
     cancel = Event()
     try:
         connection.connect()
@@ -74,4 +74,12 @@ def test_mcp_manager_requires_reviewed_enabled_configured_entry():
     registry.register(IntegrationSpec("fixture-mcp", "mcp", interface="mcp", enabled=False, configured=False))
     manager = MCPConnectionManager(registry)
     with pytest.raises(PermissionError):
-        manager.connect("fixture-mcp", transport="stdio", command=sys.executable, args=("-u", "-c", SERVER))
+        manager.connect("fixture-mcp", transport="stdio", command=sys.executable, args=("-u", "-c", SERVER), command_authorised=True)
+
+
+def test_mcp_rejects_unauthorised_executable_and_unallowlisted_http():
+    with pytest.raises(PermissionError):
+        MCPConnection(name="fixture", transport="stdio", command=sys.executable).connect()
+    connection = MCPConnection(name="remote", transport="http", endpoint="http://127.0.0.1:9/mcp", allowed_hosts=("example.com",))
+    with pytest.raises(PermissionError):
+        connection._request("initialize", {})

@@ -15,6 +15,9 @@ in `docs/security/`.
 - Tool calls are schema-checked and malformed JSON fails the task instead of executing.
 - Tasks have bounded steps and timeouts and can be cancelled.
 - Skills are read as instructions only; OMNI-X does not automatically execute code discovered in a skill or repository.
+- MCP stdio servers require explicit executable authorisation; HTTP MCP
+  endpoints require an explicit host allowlist, reject redirects and URL
+  credentials, cap response size, and validate discovered tool arguments.
 - Hermes is opt-in and cannot override OMNI-X routing, credentials, permissions,
   SQLite ownership or audit policy. OmniRoute is not trusted to enforce FREE
   mode on OMNI-X's behalf.

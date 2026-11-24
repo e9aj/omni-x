@@ -460,6 +460,12 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Preserved:** IntegrationRegistry remains authoritative; connections require a registered MCP interface that is explicitly configured and enabled. No catalogue entry is auto-connected and credential values are supplied only by the caller boundary.
 - **Not claimed:** production MCP compatibility across every transport/authentication variant, desktop connection persistence, or live third-party MCP execution.
 
+#### MCP security hardening
+
+- **Corrected:** stdio servers now require explicit executable authorisation; HTTP MCP endpoints require an explicit hostname allowlist, reject URL credentials and redirects, cap response size, and use generic errors without response-body leakage.
+- **Corrected:** discovered tool arguments are checked against basic object schemas before permission callbacks and dispatch. Regression tests cover unauthorised commands and unallowlisted HTTP destinations.
+- **Remaining risk:** DNS/IP pinning and full JSON Schema validation are not implemented; remote MCP use requires an owner-controlled network policy and remains unvalidated.
+
 ### Brain attachments and recovery — 2026-11-24
 
 - **Implemented and deterministic-tested:** bounded, atomically written Brain attachments, authenticated attachment listing, and SQLite online backup/verified restore helpers that preserve existing conversations and task data.

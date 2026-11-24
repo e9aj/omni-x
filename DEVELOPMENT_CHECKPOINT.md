@@ -28,6 +28,7 @@ Updated: 2026-11-23
 - Brain attachment writes and verified SQLite backup/restore now pass deterministic tests without replacing the live database.
 - Local-first voice capability reporting and permission-gated optional STT/TTS adapters now pass deterministic tests; no audio engine is claimed live.
 - A bounded workflow runner now passes deterministic tests for approvals, retries, dependencies and cancellation without becoming a second scheduler.
+- MCP security hardening is now regression-tested: explicit stdio command authorisation, HTTP host allowlisting/no redirects, bounded responses and basic tool-schema validation.
 
 ## Known limitations
 
@@ -37,6 +38,7 @@ Updated: 2026-11-23
 - Optional integrations are catalogue/lifecycle interfaces only; no external service adapter, MCP connection or third-party software installation is claimed.
 - Brain embeddings, infinite-canvas persistence, OCR/document extraction and AI-generated memory remain incomplete.
 - Third-party MCP connectivity and desktop connection persistence remain unverified; no external MCP endpoint was contacted.
+- Full JSON Schema validation and DNS/IP pinning remain open remote-MCP risks requiring owner-controlled network policy.
 - Local `cargo check` reaches the Tauri build script but is blocked because the CI-generated target-specific backend sidecar is absent from this checkout; no security policy was changed.
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.

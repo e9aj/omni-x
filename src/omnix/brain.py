@@ -6,6 +6,7 @@ import os
 import tempfile
 import uuid
 import re
+import base64
 from pathlib import Path
 
 
@@ -19,6 +20,8 @@ class MarkdownVault:
     def __init__(self, root: Path):
         self.root = root.expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        self.attachments = self.root / "attachments"
+        self.attachments.mkdir(exist_ok=True)
 
     def _path(self, relative: str, *, allow_missing: bool = False) -> Path:
         if not isinstance(relative, str) or not relative.strip() or len(relative) > 400:
@@ -100,3 +103,35 @@ class MarkdownVault:
         headings = [line.lstrip("#").strip() for line in content.splitlines() if line.startswith("#")]
         return {"path": relative, "headings": headings[:100], "links": self.backlinks(relative),
                 "word_count": len(content.split()), "character_count": len(content)}
+
+    def list_attachments(self) -> list[dict[str, object]]:
+        return [{"path": path.relative_to(self.attachments).as_posix(), "size": path.stat().st_size,
+                 "updated": path.stat().st_mtime} for path in sorted(self.attachments.rglob("*"))
+                if path.is_file()][:500]
+
+    def save_attachment(self, relative: str, encoded: str) -> str:
+        if not isinstance(relative, str) or not relative.strip() or len(relative) > 300 or relative.startswith("attachments/"):
+            raise VaultError("attachment path is invalid")
+        target = (self.attachments / relative).resolve()
+        try:
+            target.relative_to(self.attachments)
+        except ValueError as exc:
+            raise VaultError("attachment path escapes the Brain vault") from exc
+        try:
+            data = base64.b64decode(encoded, validate=True)
+        except (ValueError, TypeError) as exc:
+            raise VaultError("attachment data is invalid") from exc
+        if len(data) > 10_000_000:
+            raise VaultError("attachment exceeds the 10 MB limit")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(prefix=f".omnix-attachment-{uuid.uuid4().hex}-", dir=target.parent)
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, target)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        return target.relative_to(self.attachments).as_posix()

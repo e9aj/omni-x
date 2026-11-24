@@ -459,3 +459,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** a real minimal MCP JSON-RPC client for stdio and HTTP transports, initialize/tool discovery/tool execution, bounded requests, cancellation, explicit tool allowlisting, permission callbacks, revocation-ready connection management and redacted audit events.
 - **Preserved:** IntegrationRegistry remains authoritative; connections require a registered MCP interface that is explicitly configured and enabled. No catalogue entry is auto-connected and credential values are supplied only by the caller boundary.
 - **Not claimed:** production MCP compatibility across every transport/authentication variant, desktop connection persistence, or live third-party MCP execution.
+
+### Brain attachments and recovery — 2026-11-24
+
+- **Implemented and deterministic-tested:** bounded, atomically written Brain attachments, authenticated attachment listing, and SQLite online backup/verified restore helpers that preserve existing conversations and task data.
+- **Preserved:** attachments remain inside the Brain vault; encoded payloads are size-limited and path-contained; restore writes to a separate destination and performs integrity checks.
+- **Not claimed:** encrypted attachment storage, cloud synchronisation, OCR or automated backup scheduling.

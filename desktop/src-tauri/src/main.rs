@@ -498,6 +498,11 @@ fn backend_brain_save(
 }
 
 #[tauri::command]
+fn backend_brain_attachments(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/brain/attachments", None)
+}
+
+#[tauri::command]
 fn backend_tasks(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/tasks", None)
 }
@@ -711,6 +716,7 @@ fn main() {
             backend_brain_inspect,
             backend_brain_note,
             backend_brain_save,
+            backend_brain_attachments,
             backend_tasks,
             backend_task_action,
             backend_skills,

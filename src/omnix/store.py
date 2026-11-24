@@ -47,6 +47,42 @@ class Store:
             self.db.execute("ALTER TABLE jobs ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'" )
         self.db.commit()
 
+    def backup(self, destination: Path) -> Path:
+        """Create a consistent SQLite backup without replacing the live DB."""
+        destination = destination.expanduser().resolve()
+        if destination == self.path.resolve():
+            raise ValueError("backup destination must differ from the live database")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        target = sqlite3.connect(destination)
+        try:
+            with self._lock:
+                self.db.backup(target)
+            result = target.execute("PRAGMA integrity_check").fetchone()[0]
+            if result != "ok":
+                raise RuntimeError("SQLite backup integrity check failed")
+        finally:
+            target.close()
+        return destination
+
+    @staticmethod
+    def restore(backup: Path, destination: Path) -> Path:
+        """Restore a verified backup to a new database path."""
+        backup, destination = backup.expanduser().resolve(), destination.expanduser().resolve()
+        if backup == destination or not backup.is_file():
+            raise ValueError("backup and destination are invalid")
+        source = sqlite3.connect(backup)
+        target = sqlite3.connect(destination)
+        try:
+            if source.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise RuntimeError("SQLite backup is corrupt")
+            source.backup(target)
+            if target.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise RuntimeError("restored SQLite database failed integrity check")
+        finally:
+            target.close()
+            source.close()
+        return destination
+
     def recover_orphaned_jobs(self) -> int:
         """Make jobs abandoned by a process restart eligible for recovery."""
         cur = self.db.execute("UPDATE jobs SET state='queued', error='recovered after process restart', updated=? WHERE state='running'", (time.time(),))

@@ -130,6 +130,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"notes": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_notes()})
         elif self.path == "/v1/brain/graph":
             self._json(200, MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).graph())
+        elif self.path == "/v1/brain/attachments":
+            self._json(200, {"attachments": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_attachments()})
         elif urlsplit(self.path).path == "/v1/brain/search":
             query = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
             self._json(200, {"results": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).search(query)})
@@ -218,6 +220,10 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._body()
                 vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
                 self._json(200, {"path": vault.write(body.get("path", ""), body.get("content", ""))})
+            elif self.path == "/v1/brain/attachments":
+                body = self._body()
+                vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
+                self._json(200, {"path": vault.save_attachment(body.get("path", ""), body.get("data", ""))})
             elif self.path == "/v1/tasks":
                 body = self._body()
                 action = body.get("action", "enqueue")

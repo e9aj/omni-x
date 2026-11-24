@@ -46,3 +46,15 @@ def test_model_health_records_probe_evidence_and_percentiles(tmp_path: Path):
     assert row["p95_latency_ms"] == 40
     store.record_model_tool_result("free-a", True)
     assert store.model_health("free-a")["free-a"]["tool_successes"] == 1
+
+
+def test_store_backup_and_restore(tmp_path: Path):
+    live = tmp_path / "live.sqlite3"
+    backup = tmp_path / "backup.sqlite3"
+    restored = tmp_path / "restored.sqlite3"
+    store = Store(live)
+    session = store.new_session("backup test")
+    store.add_message(session, "user", "preserve me")
+    store.backup(backup)
+    Store.restore(backup, restored)
+    assert Store(restored).messages(session)[0]["content"] == "preserve me"

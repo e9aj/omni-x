@@ -25,6 +25,7 @@ Updated: 2026-11-23
 - Brain now includes deterministic lexical search, Markdown wikilinks, backlinks and document inspection in the authenticated desktop Memory view.
 - Hosted validation for `b0d2c42`: Windows Desktop run 96, CI run 196 and Security/compliance run 61 all passed.
 - A real minimal MCP JSON-RPC client now passes local stdio integration tests with permission, cancellation and registry-gating controls.
+- Brain attachment writes and verified SQLite backup/restore now pass deterministic tests without replacing the live database.
 
 ## Known limitations
 

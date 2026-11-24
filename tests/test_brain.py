@@ -1,3 +1,4 @@
+import base64
 import pytest
 
 from omnix.brain import MarkdownVault, VaultError
@@ -28,3 +29,12 @@ def test_brain_graph_backlinks_and_document_inspection(tmp_path):
     inspected = vault.inspect("beta.md")
     assert inspected["headings"] == ["Beta"]
     assert inspected["word_count"] == 3
+
+
+def test_brain_attachment_is_contained_and_bounded(tmp_path):
+    vault = MarkdownVault(tmp_path / "brain")
+    path = vault.save_attachment("source.txt", base64.b64encode(b"evidence").decode())
+    assert path == "source.txt"
+    assert vault.list_attachments()[0]["path"] == "source.txt"
+    with pytest.raises(VaultError):
+        vault.save_attachment("../escape.txt", base64.b64encode(b"no").decode())

@@ -460,6 +460,12 @@ permission-gated execution, unknown-tool rejection, cancellation and bounded
 shutdown. The client supports stdio and HTTP JSON-RPC without automatic
 connections. No third-party MCP server or credentialed endpoint was contacted.
 
+## Brain recovery validation — 2026-11-24
+
+Deterministic tests passed for contained atomic attachment writes and SQLite
+backup/restore integrity. A restored database retained a session message.
+Encrypted attachments, scheduled backups and cloud recovery remain unimplemented.
+
 ## Desktop SkillsManager validation — 2026-11-23
 
 The authenticated SkillsManager endpoint and desktop panel were validated with

@@ -4,8 +4,8 @@ Updated: 2026-11-24
 
 ## Current state
 
-- Branch: `codex/workflow-scheduling`
-- Head: `ce92531`.
+- Branch: `codex/external-service-adapters`
+- Head: `ad5b146`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -59,10 +59,11 @@ Updated: 2026-11-24
 - Optional external integrations remain disabled/configuration-dependent.
 - Brain graph and document extraction are implemented; persistent canvas, OCR execution and AI memory suggestions remain incomplete.
 - Live Hermes tool execution and delegated workflows remain experimental.
-- Voice execution controls, messaging/external-service adapters and live inference remain incomplete rather than represented as working integrations.
+- Voice execution controls and live inference remain incomplete rather than represented as working integrations. External adapters are executable but not live-validated and remain disabled until explicit IntegrationRegistry enablement and scoped credentials.
 - Physical capture and live speech engines remain unverified; messaging adapters have no live account validation and do not connect by default. Workflow cancellation and scheduling UI remain incomplete.
 - Workflow runs now have durable asynchronous start/cancel endpoints, desktop Stop/history controls and workflow-specific scheduling through TaskService.
 - Workflow-specific scheduling is now exposed through an additive `schedules.workflow_id` migration, the TaskService scheduling loop, an authenticated backend endpoint and a desktop Schedule control. Existing prompt schedules remain compatible.
+- Scoped external adapters now cover GitHub, Supabase, Salesforce, Google Workspace, Microsoft 365, OpenSEO, OpenProject, Cal.diy, Chatwoot, AppFlowy, Cap and ComfyUI through one bounded HTTPS/credential transport. Local fixture tests pass; no external account was contacted.
 
 ## Exact next action
 

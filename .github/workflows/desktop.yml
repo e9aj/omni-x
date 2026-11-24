@@ -8,7 +8,7 @@ on:
       - "src/omnix/**"
       - ".github/workflows/desktop.yml"
   push:
-    branches: [feat/windows-desktop]
+    branches: [feat/windows-desktop, codex/alpha-candidate]
 
 permissions:
   contents: read

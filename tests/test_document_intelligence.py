@@ -27,3 +27,10 @@ def test_pdf_extraction_uses_local_pypdf(tmp_path: Path):
     result = DocumentExtractor(tmp_path).extract("blank.pdf")
     assert result["type"] == "pdf"
     assert result["pages"] == 1
+
+
+def test_docx_archive_limits_reject_zip_bomb_shape(tmp_path: Path):
+    with ZipFile(tmp_path / "large.docx", "w", ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", "x" * 10_000_001)
+    with pytest.raises(DocumentError, match="entry exceeds"):
+        DocumentExtractor(tmp_path).extract("large.docx")

@@ -499,6 +499,10 @@ Document intelligence tests passed for TXT, synthetic DOCX and a local PDF using
 pypdf. Path containment and file-size bounds are enforced; no OCR or remote
 document processing was used.
 
+Hosted Security run 95 failed on unsafe XML parsing in the DOCX extractor. The
+corrective tests now reject oversized ZIP entries and the implementation uses
+defusedxml; no external document is processed.
+
 ## Desktop SkillsManager validation — 2026-11-23
 
 The authenticated SkillsManager endpoint and desktop panel were validated with

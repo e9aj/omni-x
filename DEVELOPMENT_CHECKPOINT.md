@@ -32,6 +32,7 @@ Updated: 2026-11-23
 - Persistent workflow definitions and a draggable desktop node editor now pass authenticated endpoint and SQLite persistence tests.
 - Brain note history and authenticated conversation-to-note conversion now pass deterministic tests.
 - Brain document extraction now passes deterministic TXT, DOCX and PDF tests through a contained read-only path.
+- Hosted Security run 95 found unsafe DOCX XML parsing; the fix uses defusedxml with ZIP/PDF resource limits and added regression coverage.
 
 ## Known limitations
 

@@ -501,3 +501,7 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** contained TXT/Markdown, DOCX XML and local PDF text extraction with 25 MB bounds, authenticated desktop extraction endpoint and no remote processing.
 - **Preserved:** extraction is read-only and source files remain in the workspace; OCR remains opt-in and unavailable unless a reviewed local engine is installed.
 - **Not claimed:** OCR, embeddings, semantic search or AI-generated memory suggestions.
+
+#### Security correction
+
+- Hosted Security run 95 identified Bandit `B314` on XML parsing. Replaced stdlib ElementTree with `defusedxml`, added DOCX entry/count/uncompressed-size limits, capped PDF pages and normalised parser failures. Added ZIP-bomb regression coverage; hosted revalidation is pending on the new commit.

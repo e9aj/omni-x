@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import zipfile
 from pathlib import Path
-from xml.etree import ElementTree
+from defusedxml import ElementTree
 
 
 class DocumentError(ValueError):
@@ -42,9 +42,16 @@ class DocumentExtractor:
             if importlib.util.find_spec("pypdf") is None:
                 raise DocumentError("pypdf is not installed")
             from pypdf import PdfReader
-            reader = PdfReader(str(candidate))
-            text = "\n\n".join(page.extract_text() or "" for page in reader.pages)
-            pages = len(reader.pages)
+            try:
+                reader = PdfReader(str(candidate), strict=True)
+                pages = len(reader.pages)
+                if pages > 1000:
+                    raise DocumentError("PDF exceeds the 1000-page limit")
+                text = "\n\n".join((page.extract_text() or "")[:1_000_000] for page in reader.pages)
+            except DocumentError:
+                raise
+            except Exception as exc:
+                raise DocumentError("PDF extraction failed") from exc
         if self.audit:
             self.audit("document_extracted", candidate.suffix.lower())
         return {"path": path, "type": suffix[1:], "pages": pages, "text": text[:10_000_000], "characters": len(text)}
@@ -52,9 +59,16 @@ class DocumentExtractor:
     def _docx(self, path: Path) -> str:
         try:
             with zipfile.ZipFile(path) as archive:
+                entries = archive.infolist()
+                if len(entries) > 1000 or sum(item.file_size for item in entries) > 25_000_000:
+                    raise DocumentError("DOCX archive exceeds safe extraction limits")
+                if any(item.file_size > 10_000_000 for item in entries):
+                    raise DocumentError("DOCX entry exceeds the 10 MB limit")
                 xml = archive.read("word/document.xml")
             root = ElementTree.fromstring(xml)
-        except (KeyError, OSError, ElementTree.ParseError) as exc:
+        except DocumentError:
+            raise
+        except (KeyError, OSError, zipfile.BadZipFile, ElementTree.ParseError) as exc:
             raise DocumentError("DOCX document is invalid") from exc
         namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
         paragraphs = []

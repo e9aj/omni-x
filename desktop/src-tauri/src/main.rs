@@ -503,6 +503,30 @@ fn backend_brain_attachments(state: State<'_, BackendState>) -> Result<Value, St
 }
 
 #[tauri::command]
+fn backend_brain_history(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/history?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_from_session(
+    session_id: String,
+    path: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    request(
+        &state,
+        "POST",
+        "/v1/brain/from-session",
+        Some(json!({"session_id": session_id, "path": path})),
+    )
+}
+
+#[tauri::command]
 fn backend_tasks(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/tasks", None)
 }
@@ -745,6 +769,8 @@ fn main() {
             backend_brain_note,
             backend_brain_save,
             backend_brain_attachments,
+            backend_brain_history,
+            backend_brain_from_session,
             backend_tasks,
             backend_task_action,
             backend_skills,

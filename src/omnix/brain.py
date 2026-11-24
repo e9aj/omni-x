@@ -7,6 +7,7 @@ import tempfile
 import uuid
 import re
 import base64
+import shutil
 from pathlib import Path
 
 
@@ -22,6 +23,8 @@ class MarkdownVault:
         self.root.mkdir(parents=True, exist_ok=True)
         self.attachments = self.root / "attachments"
         self.attachments.mkdir(exist_ok=True)
+        self.history_root = self.root / ".history"
+        self.history_root.mkdir(exist_ok=True)
 
     def _path(self, relative: str, *, allow_missing: bool = False) -> Path:
         if not isinstance(relative, str) or not relative.strip() or len(relative) > 400:
@@ -40,7 +43,7 @@ class MarkdownVault:
     def list_notes(self) -> list[dict[str, object]]:
         notes = []
         for path in self.root.rglob("*.md"):
-            if path.is_file():
+            if path.is_file() and self.history_root not in path.parents:
                 notes.append({"path": path.relative_to(self.root).as_posix(), "size": path.stat().st_size, "updated": path.stat().st_mtime})
         return sorted(notes, key=lambda item: str(item["path"]))[:1000]
 
@@ -55,6 +58,9 @@ class MarkdownVault:
             raise VaultError("note exceeds the 5 MB write limit")
         path = self._path(relative, allow_missing=True)
         path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            history_path = self.history_root / f"{path.relative_to(self.root).as_posix().replace('/', '__')}.{uuid.uuid4().hex}.md"
+            shutil.copy2(path, history_path)
         fd, temporary = tempfile.mkstemp(prefix=f".omnix-{uuid.uuid4().hex}-", suffix=".tmp", dir=path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
@@ -66,6 +72,12 @@ class MarkdownVault:
             if os.path.exists(temporary):
                 os.unlink(temporary)
         return path.relative_to(self.root).as_posix()
+
+    def history(self, relative: str) -> list[dict[str, object]]:
+        path = self._path(relative)
+        prefix = f"{path.relative_to(self.root).as_posix().replace('/', '__')}."
+        return [{"path": item.name, "size": item.stat().st_size, "updated": item.stat().st_mtime}
+                for item in sorted(self.history_root.glob(prefix + "*.md"), key=lambda item: item.stat().st_mtime, reverse=True)[:100]]
 
     def search(self, query: str) -> list[dict[str, str]]:
         if not isinstance(query, str) or not query.strip() or len(query) > 200:

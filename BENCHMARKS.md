@@ -491,6 +491,10 @@ The desktop workflow definition endpoint and editor were deterministic-tested:
 node definitions persist in SQLite and reload through authenticated IPC. Live
 workflow execution remains unverified.
 
+Brain history and conversation conversion passed deterministic tests: replacing
+a note creates a hidden history snapshot, active note listing remains portable,
+and conversion reads existing SQLite messages without mutation.
+
 ## Desktop SkillsManager validation — 2026-11-23
 
 The authenticated SkillsManager endpoint and desktop panel were validated with

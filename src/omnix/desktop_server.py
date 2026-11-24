@@ -133,6 +133,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).graph())
         elif self.path == "/v1/brain/attachments":
             self._json(200, {"attachments": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_attachments()})
+        elif urlsplit(self.path).path == "/v1/brain/history":
+            relative = parse_qs(urlsplit(self.path).query).get("path", [""])[0]
+            self._json(200, {"history": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).history(relative)})
         elif urlsplit(self.path).path == "/v1/brain/search":
             query = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
             self._json(200, {"results": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).search(query)})
@@ -232,6 +235,17 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._body()
                 vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
                 self._json(200, {"path": vault.save_attachment(body.get("path", ""), body.get("data", ""))})
+            elif self.path == "/v1/brain/from-session":
+                body = self._body()
+                session_id, relative = body.get("session_id"), body.get("path")
+                if not isinstance(session_id, str) or not isinstance(relative, str) or len(session_id) > 200:
+                    raise ValueError("session conversion request is invalid")
+                messages = Store().messages(session_id)
+                if not messages:
+                    raise ValueError("session has no messages")
+                content = "# Conversation note\n\n" + "\n\n".join(f"## {item['role'].title()}\n{item['content']}" for item in messages)
+                vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
+                self._json(200, {"path": vault.write(relative, content)})
             elif self.path == "/v1/workflows":
                 body = self._body()
                 name, definition = body.get("name"), body.get("definition")

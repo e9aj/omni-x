@@ -30,6 +30,7 @@ Updated: 2026-11-23
 - A bounded workflow runner now passes deterministic tests for approvals, retries, dependencies and cancellation without becoming a second scheduler.
 - MCP security hardening is now regression-tested: explicit stdio command authorisation, HTTP host allowlisting/no redirects, bounded responses and basic tool-schema validation.
 - Persistent workflow definitions and a draggable desktop node editor now pass authenticated endpoint and SQLite persistence tests.
+- Brain note history and authenticated conversation-to-note conversion now pass deterministic tests.
 
 ## Known limitations
 

@@ -489,3 +489,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** persistent workflow definitions in SQLite, authenticated desktop listing/saving, a native node-style editor with draggable nodes and step types for agent, integration and approval actions.
 - **Preserved:** TaskService remains the execution authority; workflow definitions do not execute arbitrary commands or grant credentials.
 - **Not claimed:** live workflow execution, visual edge editing, schedule triggers, execution-history UI or third-party integration actions.
+
+### Brain history and conversation notes — 2026-11-24
+
+- **Implemented and deterministic-tested:** portable Markdown note history, exclusion of history snapshots from the active vault, authenticated history listing and conversation-to-note conversion from existing SQLite sessions.
+- **Preserved:** existing session data is read-only during conversion; note writes remain atomic and contained.
+- **Not claimed:** AI-generated suggestions, automatic linking, PDF/DOCX extraction or OCR.

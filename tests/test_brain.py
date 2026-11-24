@@ -38,3 +38,12 @@ def test_brain_attachment_is_contained_and_bounded(tmp_path):
     assert vault.list_attachments()[0]["path"] == "source.txt"
     with pytest.raises(VaultError):
         vault.save_attachment("../escape.txt", base64.b64encode(b"no").decode())
+
+
+def test_brain_note_history_is_portable_and_excludes_history_from_notes(tmp_path):
+    vault = MarkdownVault(tmp_path / "brain")
+    vault.write("note.md", "first")
+    vault.write("note.md", "second")
+    assert vault.read("note.md") == "second"
+    assert len(vault.history("note.md")) == 1
+    assert [item["path"] for item in vault.list_notes()] == ["note.md"]

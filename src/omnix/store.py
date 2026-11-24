@@ -103,7 +103,15 @@ class Store:
     def memory_suggestions(self, state: str | None = None) -> list[dict]:
         if state not in {None, "pending", "approved", "rejected", "deleted"}:
             raise ValueError("memory suggestion state is invalid")
-        rows = self.db.execute("SELECT * FROM memory_suggestions" + (" WHERE state=?" if state else "") + " ORDER BY created DESC", ((state,) if state else ())).fetchall()
+        if state:
+            rows = self.db.execute(
+                "SELECT * FROM memory_suggestions WHERE state=? ORDER BY created DESC",
+                (state,),
+            ).fetchall()
+        else:
+            rows = self.db.execute(
+                "SELECT * FROM memory_suggestions ORDER BY created DESC",
+            ).fetchall()
         return [dict(row) for row in rows]
 
     def decide_memory_suggestion(self, ident: str, state: str, *, memory_key: str | None = None, memory_value: str | None = None) -> dict:

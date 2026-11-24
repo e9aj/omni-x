@@ -568,6 +568,29 @@ fn backend_voice_capabilities(state: State<'_, BackendState>) -> Result<Value, S
 }
 
 #[tauri::command]
+fn backend_workflows(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/workflows", None)
+}
+
+#[tauri::command]
+fn backend_workflow_save(
+    name: String,
+    definition: Value,
+    id: Option<String>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if name.trim().is_empty() || name.len() > 200 || !definition.is_object() {
+        return Err("workflow definition is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/workflows",
+        Some(json!({"name": name, "definition": definition, "id": id})),
+    )
+}
+
+#[tauri::command]
 fn backend_integration_action(
     name: String,
     action: String,
@@ -728,6 +751,8 @@ fn main() {
             backend_skill_action,
             backend_integrations,
             backend_voice_capabilities,
+            backend_workflows,
+            backend_workflow_save,
             backend_integration_action,
             backend_session,
             backend_set_content_preference

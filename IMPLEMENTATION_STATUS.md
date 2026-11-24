@@ -483,3 +483,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** bounded workflow steps for agent and integration callbacks, conditional execution, dependency validation, approval steps, parallel-ready execution, retries, cancellation and audit events.
 - **Preserved:** TaskService remains the durable scheduler/worker authority; the runner has no provider, credential or tool authority of its own and must receive policy-bound callbacks.
 - **Not claimed:** visual workflow persistence/editor, third-party integration actions or live Hermes workflow execution.
+
+### Desktop workflow editor — 2026-11-24
+
+- **Implemented and deterministic-tested:** persistent workflow definitions in SQLite, authenticated desktop listing/saving, a native node-style editor with draggable nodes and step types for agent, integration and approval actions.
+- **Preserved:** TaskService remains the execution authority; workflow definitions do not execute arbitrary commands or grant credentials.
+- **Not claimed:** live workflow execution, visual edge editing, schedule triggers, execution-history UI or third-party integration actions.

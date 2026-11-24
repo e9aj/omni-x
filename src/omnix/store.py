@@ -41,11 +41,30 @@ class Store:
         CREATE TABLE IF NOT EXISTS skill_events (id INTEGER PRIMARY KEY, skill TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, task_id TEXT, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS integration_states (name TEXT PRIMARY KEY, installed INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 0, revoked INTEGER NOT NULL DEFAULT 0, configured INTEGER NOT NULL DEFAULT 0, version TEXT, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS integration_events (id INTEGER PRIMARY KEY, name TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, name TEXT NOT NULL, definition_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, state TEXT NOT NULL, result_json TEXT, error TEXT, created REAL NOT NULL, finished REAL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
             self.db.execute("ALTER TABLE jobs ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'" )
         self.db.commit()
+
+    def save_workflow(self, name: str, definition: dict, workflow_id: str | None = None) -> str:
+        ident, now = workflow_id or str(uuid.uuid4()), time.time()
+        with self._lock:
+            self.db.execute("INSERT INTO workflows(id,name,definition_json,enabled,created,updated) VALUES (?,?,?,0,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, definition_json=excluded.definition_json, updated=excluded.updated", (ident, name, json.dumps(definition, sort_keys=True), now, now))
+            self.db.commit()
+        return ident
+
+    def workflows(self) -> list[dict]:
+        return [{**dict(row), "definition": json.loads(row["definition_json"])} for row in self.db.execute("SELECT * FROM workflows ORDER BY updated DESC").fetchall()]
+
+    def workflow_runs(self, workflow_id: str | None = None) -> list[dict]:
+        if workflow_id:
+            rows = self.db.execute("SELECT * FROM workflow_runs WHERE workflow_id=? ORDER BY created DESC", (workflow_id,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM workflow_runs ORDER BY created DESC").fetchall()
+        return [{**dict(row), "result": json.loads(row["result_json"]) if row["result_json"] else None} for row in rows]
 
     def backup(self, destination: Path) -> Path:
         """Create a consistent SQLite backup without replacing the live DB."""

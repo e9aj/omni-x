@@ -29,6 +29,7 @@ Updated: 2026-11-23
 - Local-first voice capability reporting and permission-gated optional STT/TTS adapters now pass deterministic tests; no audio engine is claimed live.
 - A bounded workflow runner now passes deterministic tests for approvals, retries, dependencies and cancellation without becoming a second scheduler.
 - MCP security hardening is now regression-tested: explicit stdio command authorisation, HTTP host allowlisting/no redirects, bounded responses and basic tool-schema validation.
+- Persistent workflow definitions and a draggable desktop node editor now pass authenticated endpoint and SQLite persistence tests.
 
 ## Known limitations
 

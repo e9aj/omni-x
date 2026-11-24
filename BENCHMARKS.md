@@ -487,6 +487,10 @@ dependency-cycle rejection and cancellation. The workflow runner is a bounded
 execution primitive; it does not create a second scheduler or grant tools or
 credentials.
 
+The desktop workflow definition endpoint and editor were deterministic-tested:
+node definitions persist in SQLite and reload through authenticated IPC. Live
+workflow execution remains unverified.
+
 ## Desktop SkillsManager validation — 2026-11-23
 
 The authenticated SkillsManager endpoint and desktop panel were validated with

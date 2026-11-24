@@ -154,6 +154,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"integrations": [self.server.integration_payload(item) for item in self.server.integrations.list()]})
         elif self.path == "/v1/voice/capabilities":
             self._json(200, {"capabilities": VoiceService().capabilities()})
+        elif self.path == "/v1/workflows":
+            self._json(200, {"workflows": Store().workflows()})
+        elif self.path.startswith("/v1/workflows/") and self.path.endswith("/runs"):
+            workflow_id = self.path.split("/")[3]
+            self._json(200, {"runs": Store().workflow_runs(workflow_id)})
         elif self.path.startswith("/v1/tasks/"):
             task_id = self.path.rsplit("/", 1)[-1]
             task = self.server.tasks.status(task_id)
@@ -227,6 +232,16 @@ class Handler(BaseHTTPRequestHandler):
                 body = self._body()
                 vault = MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain"))))
                 self._json(200, {"path": vault.save_attachment(body.get("path", ""), body.get("data", ""))})
+            elif self.path == "/v1/workflows":
+                body = self._body()
+                name, definition = body.get("name"), body.get("definition")
+                if not isinstance(name, str) or not name.strip() or len(name) > 200 or not isinstance(definition, dict):
+                    raise ValueError("workflow definition is invalid")
+                nodes = definition.get("nodes", [])
+                if not isinstance(nodes, list) or len(nodes) > 100:
+                    raise ValueError("workflow nodes are invalid")
+                ident = Store().save_workflow(name.strip(), definition, body.get("id"))
+                self._json(200, {"workflow_id": ident})
             elif self.path == "/v1/tasks":
                 body = self._body()
                 action = body.get("action", "enqueue")

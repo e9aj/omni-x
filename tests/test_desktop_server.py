@@ -339,3 +339,25 @@ def test_desktop_tasks_use_existing_task_service_and_cancel(monkeypatch, tmp_pat
         server.shutdown()
         thread.join(timeout=2)
         server.server_close()
+
+
+def test_desktop_workflow_definition_persists_in_sqlite(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        definition = {"nodes": [{"id": "step-1", "action": "approval", "depends_on": []}]}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/workflows", data=json.dumps({"name": "Approval flow", "definition": definition}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            workflow_id = json.loads(response.read())["workflow_id"]
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/workflows", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            workflows = json.loads(response.read())["workflows"]
+        assert any(item["id"] == workflow_id and item["definition"] == definition for item in workflows)
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()

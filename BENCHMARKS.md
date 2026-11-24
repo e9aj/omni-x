@@ -13,6 +13,16 @@ Each benchmark run must record:
 
 The current test suite verifies deterministic compression behavior and records provider usage when a response includes usage metadata. It does not fabricate token savings or cost.
 
+## Local token optimisation benchmark — 2026-11-24
+
+Fixture: 20 local documents containing 11,635 estimated tokens; query `python installer`.
+The bounded lexical selector returned 505 estimated tokens (95.66% reduction),
+with 6.298 ms wall time and 26,240 bytes peak `tracemalloc` allocation on the
+Windows development host. This measures local context selection only; it is not
+evidence of provider-side billing savings or live-model quality. Prompt caching
+is deterministic and in-process, excludes tool actions and credentials, and has
+bounded entries/TTL.
+
 ## Live endpoint checks
 
 | Date | Endpoint | Result | Tokens | Cost |

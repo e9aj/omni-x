@@ -26,6 +26,7 @@ Updated: 2026-11-23
 - Hosted validation for `b0d2c42`: Windows Desktop run 96, CI run 196 and Security/compliance run 61 all passed.
 - A real minimal MCP JSON-RPC client now passes local stdio integration tests with permission, cancellation and registry-gating controls.
 - Brain attachment writes and verified SQLite backup/restore now pass deterministic tests without replacing the live database.
+- Local-first voice capability reporting and permission-gated optional STT/TTS adapters now pass deterministic tests; no audio engine is claimed live.
 
 ## Known limitations
 

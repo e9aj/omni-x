@@ -24,6 +24,7 @@ from .task_service import TaskService
 from .skills_manager import SkillsManager
 from .integrations import IntegrationRegistry
 from .integration_catalog import register_researched_integrations
+from .voice import VoiceService
 from .store import Store
 
 
@@ -151,6 +152,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, {"skills": [self.server.skill_payload(item) for item in self.server.skills.browse()]})
         elif self.path == "/v1/integrations":
             self._json(200, {"integrations": [self.server.integration_payload(item) for item in self.server.integrations.list()]})
+        elif self.path == "/v1/voice/capabilities":
+            self._json(200, {"capabilities": VoiceService().capabilities()})
         elif self.path.startswith("/v1/tasks/"):
             task_id = self.path.rsplit("/", 1)[-1]
             task = self.server.tasks.status(task_id)

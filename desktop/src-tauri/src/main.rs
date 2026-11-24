@@ -563,6 +563,11 @@ fn backend_integrations(state: State<'_, BackendState>) -> Result<Value, String>
 }
 
 #[tauri::command]
+fn backend_voice_capabilities(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/voice/capabilities", None)
+}
+
+#[tauri::command]
 fn backend_integration_action(
     name: String,
     action: String,
@@ -722,6 +727,7 @@ fn main() {
             backend_skills,
             backend_skill_action,
             backend_integrations,
+            backend_voice_capabilities,
             backend_integration_action,
             backend_session,
             backend_set_content_preference

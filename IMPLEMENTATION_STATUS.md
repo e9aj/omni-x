@@ -465,3 +465,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** bounded, atomically written Brain attachments, authenticated attachment listing, and SQLite online backup/verified restore helpers that preserve existing conversations and task data.
 - **Preserved:** attachments remain inside the Brain vault; encoded payloads are size-limited and path-contained; restore writes to a separate destination and performs integrity checks.
 - **Not claimed:** encrypted attachment storage, cloud synchronisation, OCR or automated backup scheduling.
+
+### Local voice boundary — 2026-11-24
+
+- **Implemented and deterministic-tested:** local capability detection and permission-gated adapters for optional `faster-whisper` STT, `pyttsx3` TTS and `sounddevice` input-device discovery; authenticated desktop capability reporting and a Voice screen.
+- **Preserved:** no remote audio upload, no implicit package installation, bounded input/text sizes and explicit microphone/audio-output permission callbacks.
+- **Not claimed:** live dictation, push-to-talk, wake-word support or audio-device execution on this host; optional engines remain unconfigured unless installed and reviewed by the owner.

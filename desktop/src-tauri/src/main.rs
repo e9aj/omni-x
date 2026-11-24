@@ -467,6 +467,33 @@ fn backend_brain_save_canvas(
 }
 
 #[tauri::command]
+fn backend_memory_suggestions(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/memory/suggestions", None)
+}
+
+#[tauri::command]
+fn backend_memory_decide(
+    id: String,
+    state: String,
+    key: Option<String>,
+    value: Option<String>,
+    backend: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if id.trim().is_empty()
+        || id.len() > 100
+        || !["approved", "rejected", "deleted"].contains(&state.as_str())
+    {
+        return Err("memory decision is invalid".into());
+    }
+    request(
+        &backend,
+        "POST",
+        &format!("/v1/memory/suggestions/{id}"),
+        Some(json!({"state": state, "key": key, "value": value})),
+    )
+}
+
+#[tauri::command]
 fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if query.trim().is_empty() || query.len() > 200 {
         return Err("search query is invalid".into());
@@ -808,6 +835,8 @@ fn main() {
             backend_brain_graph,
             backend_brain_canvas,
             backend_brain_save_canvas,
+            backend_memory_suggestions,
+            backend_memory_decide,
             backend_brain_search,
             backend_brain_semantic_search,
             backend_brain_inspect,

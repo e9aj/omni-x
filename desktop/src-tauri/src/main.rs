@@ -725,6 +725,27 @@ fn backend_workflow_save(
 }
 
 #[tauri::command]
+fn backend_workflow_run(id: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if id.trim().is_empty() || id.len() > 100 {
+        return Err("workflow id is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        &format!("/v1/workflows/{id}/run"),
+        Some(json!({})),
+    )
+}
+
+#[tauri::command]
+fn backend_workflow_runs(id: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if id.trim().is_empty() || id.len() > 100 {
+        return Err("workflow id is invalid".into());
+    }
+    request(&state, "GET", &format!("/v1/workflows/{id}/runs"), None)
+}
+
+#[tauri::command]
 fn backend_integration_action(
     name: String,
     action: String,
@@ -898,6 +919,8 @@ fn main() {
             backend_voice_speak,
             backend_workflows,
             backend_workflow_save,
+            backend_workflow_run,
+            backend_workflow_runs,
             backend_integration_action,
             backend_session,
             backend_set_content_preference

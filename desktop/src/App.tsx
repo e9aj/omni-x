@@ -116,6 +116,7 @@ type WorkflowItem = {
   name: string;
   definition: { nodes: WorkflowNode[] };
 };
+type WorkflowRun = { id: string; state: string; error?: string | null; result?: Record<string, string> | null; created: number; finished?: number | null };
 const sections = [
   "Chat",
   "Council",
@@ -192,6 +193,7 @@ export function App() {
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([
     { id: "step-1", action: "agent", x: 40, y: 40, depends_on: [] },
   ]);
+  const [workflowRuns, setWorkflowRuns] = useState<Record<string, WorkflowRun[]>>({});
 
   async function refreshStatus() {
     try {
@@ -598,6 +600,14 @@ export function App() {
       setModelsError(String(error));
     }
   }
+  async function runWorkflow(id: string) {
+    try { await invoke("backend_workflow_run", { id }); const result = await invoke<{ runs: WorkflowRun[] }>("backend_workflow_runs", { id }); setWorkflowRuns((items) => ({ ...items, [id]: result.runs })); }
+    catch (error) { setModelsError(String(error)); }
+  }
+  async function loadWorkflowRuns(id: string) {
+    try { const result = await invoke<{ runs: WorkflowRun[] }>("backend_workflow_runs", { id }); setWorkflowRuns((items) => ({ ...items, [id]: result.runs })); }
+    catch (error) { setModelsError(String(error)); }
+  }
   function addWorkflowNode() {
     setWorkflowNodes((items) => [
       ...items,
@@ -901,6 +911,8 @@ export function App() {
               <article className="candidate" key={workflow.id}>
                 <strong>{workflow.name}</strong>
                 <span>{workflow.definition.nodes.length} steps</span>
+                <button onClick={() => void runWorkflow(workflow.id)}>Run workflow</button><button onClick={() => void loadWorkflowRuns(workflow.id)}>Refresh history</button>
+                {(workflowRuns[workflow.id] ?? []).map((run) => <small key={run.id}>{run.state}{run.error ? ` · ${run.error}` : ""}</small>)}
               </article>
             ))}
           </section>

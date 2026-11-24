@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title">
+  <title id="title">OMNI-X README banner</title>
+  <rect width="1200" height="320" rx="24" fill="#0B0D10"/>
+  <g fill="#F7F7F5"><rect x="70" y="90" width="42" height="42"/><rect x="154" y="90" width="42" height="42"/><rect x="112" y="132" width="42" height="42"/><rect x="70" y="174" width="42" height="42"/><rect x="154" y="174" width="42" height="42"/></g>
+  <text x="270" y="170" fill="#F7F7F5" font-family="Arial,Helvetica,sans-serif" font-size="90" font-weight="700" letter-spacing="10">OMNI-X</text>
+  <text x="276" y="225" fill="#55D6BE" font-family="Arial,Helvetica,sans-serif" font-size="22" letter-spacing="2">ONE AGENT. EVERY AI. INFINITE POSSIBILITIES.</text>
+</svg>

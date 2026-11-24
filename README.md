@@ -4,7 +4,7 @@
 [![Security](https://github.com/e9aj/omni-x/actions/workflows/security.yml/badge.svg)](https://github.com/e9aj/omni-x/actions/workflows/security.yml)
 [![Windows Desktop](https://github.com/e9aj/omni-x/actions/workflows/desktop.yml/badge.svg)](https://github.com/e9aj/omni-x/actions/workflows/desktop.yml)
 
-![OMNI-X lockup](branding/svg/omnix-lockup.svg)
+![OMNI-X](branding/svg/omnix-readme-banner.svg)
 
 > One Agent. Every AI. Infinite Possibilities.
 

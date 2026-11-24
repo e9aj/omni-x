@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" role="img" aria-labelledby="title">
+  <title id="title">OMNI-X Windows alpha release card</title>
+  <rect width="1080" height="1080" fill="#F7F7F5"/>
+  <rect x="42" y="42" width="996" height="996" rx="24" fill="#0B0D10"/>
+  <text x="100" y="190" fill="#F7F7F5" font-family="Arial,Helvetica,sans-serif" font-size="92" font-weight="700" letter-spacing="8">OMNI-X</text>
+  <text x="104" y="270" fill="#55D6BE" font-family="Arial,Helvetica,sans-serif" font-size="34">WINDOWS ALPHA</text>
+  <text x="104" y="390" fill="#F7F7F5" font-family="Arial,Helvetica,sans-serif" font-size="54" font-weight="700">One Agent.</text>
+  <text x="104" y="460" fill="#F7F7F5" font-family="Arial,Helvetica,sans-serif" font-size="54" font-weight="700">Every AI.</text>
+  <text x="104" y="530" fill="#F7F7F5" font-family="Arial,Helvetica,sans-serif" font-size="54" font-weight="700">Infinite Possibilities.</text>
+  <text x="104" y="880" fill="#9AA1AA" font-family="Arial,Helvetica,sans-serif" font-size="24">Free-first • Open source • Secure by default</text>
+</svg>

@@ -453,6 +453,13 @@ Live multi-model inference, provider capability scores and live robustness
 testing remain unverified. The Council does not inherit GODMOD3 telemetry,
 public dataset publishing, jailbreak prompts or safeguard-circumvention logic.
 
+## MCP client validation — 2026-11-24
+
+Deterministic local-process tests passed for MCP initialize, tool discovery,
+permission-gated execution, unknown-tool rejection, cancellation and bounded
+shutdown. The client supports stdio and HTTP JSON-RPC without automatic
+connections. No third-party MCP server or credentialed endpoint was contacted.
+
 ## Desktop SkillsManager validation — 2026-11-23
 
 The authenticated SkillsManager endpoint and desktop panel were validated with

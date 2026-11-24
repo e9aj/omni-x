@@ -24,6 +24,7 @@ Updated: 2026-11-23
 - The existing IntegrationRegistry catalogue is now visible through an authenticated desktop Integrations view; lifecycle actions remain explicit and metadata-only.
 - Brain now includes deterministic lexical search, Markdown wikilinks, backlinks and document inspection in the authenticated desktop Memory view.
 - Hosted validation for `b0d2c42`: Windows Desktop run 96, CI run 196 and Security/compliance run 61 all passed.
+- A real minimal MCP JSON-RPC client now passes local stdio integration tests with permission, cancellation and registry-gating controls.
 
 ## Known limitations
 
@@ -32,6 +33,7 @@ Updated: 2026-11-23
 - The SkillsManager catalogue is backend-complete for browse/enable/disable, but the desktop screen still needs its dedicated skill-list presentation.
 - Optional integrations are catalogue/lifecycle interfaces only; no external service adapter, MCP connection or third-party software installation is claimed.
 - Brain embeddings, infinite-canvas persistence, OCR/document extraction and AI-generated memory remain incomplete.
+- Third-party MCP connectivity and desktop connection persistence remain unverified; no external MCP endpoint was contacted.
 - Local `cargo check` reaches the Tauri build script but is blocked because the CI-generated target-specific backend sidecar is absent from this checkout; no security policy was changed.
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.
@@ -40,6 +42,6 @@ Updated: 2026-11-23
 
 ## Exact next action
 
-Implement the next complete slice: reviewed MCP connection declarations and
-health inspection through IntegrationRegistry, with no automatic connection or
-credential exposure. Then add deterministic backup/recovery coverage.
+Add deterministic SQLite backup/recovery and attachment handling, then continue
+with local-first voice capability detection without claiming unavailable audio
+hardware support.

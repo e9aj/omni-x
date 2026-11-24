@@ -453,3 +453,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** local lexical Brain search, bounded Markdown wikilink graph generation, backlinks and deterministic document inspection (headings and counts), exposed through authenticated desktop endpoints and the Memory view.
 - **Preserved:** Markdown remains the source of truth with strict vault containment and size limits; no embedding service or external document processor is invoked.
 - **Not claimed:** semantic embeddings, infinite-canvas persistence, OCR/document extraction or AI-generated memory.
+
+### MCP client boundary — 2026-11-24
+
+- **Implemented and deterministic-tested:** a real minimal MCP JSON-RPC client for stdio and HTTP transports, initialize/tool discovery/tool execution, bounded requests, cancellation, explicit tool allowlisting, permission callbacks, revocation-ready connection management and redacted audit events.
+- **Preserved:** IntegrationRegistry remains authoritative; connections require a registered MCP interface that is explicitly configured and enabled. No catalogue entry is auto-connected and credential values are supplied only by the caller boundary.
+- **Not claimed:** production MCP compatibility across every transport/authentication variant, desktop connection persistence, or live third-party MCP execution.

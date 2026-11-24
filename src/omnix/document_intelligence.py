@@ -25,7 +25,7 @@ class DocumentExtractor:
             raise DocumentError("document path escapes workspace") from exc
         if not candidate.is_file() or candidate.stat().st_size > 25_000_000:
             raise DocumentError("document is missing or exceeds the 25 MB limit")
-        if candidate.suffix.lower() not in {".pdf", ".docx", ".txt", ".md"}:
+        if candidate.suffix.lower() not in {".pdf", ".docx", ".txt", ".md", ".png", ".jpg", ".jpeg"}:
             raise DocumentError("unsupported document type")
         return candidate
 
@@ -34,6 +34,11 @@ class DocumentExtractor:
         suffix = candidate.suffix.lower()
         if suffix in {".txt", ".md"}:
             text = candidate.read_text(encoding="utf-8")
+            pages = 1
+        elif suffix in {".png", ".jpg", ".jpeg"}:
+            if not self.allow_ocr:
+                raise DocumentError("OCR is disabled; enable it explicitly for this local image")
+            text = self._ocr(candidate)
             pages = 1
         elif suffix == ".docx":
             text = self._docx(candidate)
@@ -55,6 +60,27 @@ class DocumentExtractor:
         if self.audit:
             self.audit("document_extracted", candidate.suffix.lower())
         return {"path": path, "type": suffix[1:], "pages": pages, "text": text[:10_000_000], "characters": len(text)}
+
+    def _ocr(self, path: Path) -> str:
+        try:
+            from PIL import Image  # type: ignore[import-not-found]
+            import pytesseract  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise DocumentError("local OCR requires Pillow and pytesseract") from exc
+        try:
+            with Image.open(path) as image:
+                width, height = image.size
+                if width < 1 or height < 1 or width * height > 20_000_000:
+                    raise DocumentError("image exceeds the OCR pixel limit")
+                image.load()
+                text = pytesseract.image_to_string(image, timeout=30)
+        except DocumentError:
+            raise
+        except Exception as exc:
+            raise DocumentError("local OCR failed") from exc
+        if self.audit:
+            self.audit("document_ocr", path.suffix.lower())
+        return text[:5_000_000]
 
     def _docx(self, path: Path) -> str:
         try:

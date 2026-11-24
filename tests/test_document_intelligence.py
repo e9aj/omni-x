@@ -34,3 +34,9 @@ def test_docx_archive_limits_reject_zip_bomb_shape(tmp_path: Path):
         archive.writestr("word/document.xml", "x" * 10_000_001)
     with pytest.raises(DocumentError, match="entry exceeds"):
         DocumentExtractor(tmp_path).extract("large.docx")
+
+
+def test_ocr_is_disabled_by_default_for_images(tmp_path: Path):
+    (tmp_path / "scan.png").write_bytes(b"not-an-image")
+    with pytest.raises(DocumentError, match="OCR is disabled"):
+        DocumentExtractor(tmp_path).extract("scan.png")

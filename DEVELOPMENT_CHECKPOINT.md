@@ -53,6 +53,8 @@ Updated: 2026-11-24
 - Local Cargo compilation and NSIS packaging succeed when `CARGO_TARGET_DIR` is set outside OneDrive. The exact local installer for `6346f4e` is `C:\Users\jibad\AppData\Local\Temp\omnix-cargo-target-3\release\bundle\nsis\OMNI-X_0.1.0_x64-setup.exe`, 15,408,331 bytes, SHA-256 `F7AE343212CC46A5190336652FD7674AA8F2F98BD1882295F62CA87F715D07E4`, unsigned. It installed and launched locally; the owned backend exited cleanly and unauthenticated health returned 401.
 - Current-head Codex Security scan `259f6166-f5a0-4216-a7e6-333bdbec6399` is running read-only against `6346f4e`; it has no final findings yet and is not represented as complete.
 - Repository presentation assets are now included under `branding/`, with editable monochrome SVGs, a brand guide, contribution/community templates, accurate alpha installation/release notes and an undelivered website content package. No external website or GitHub settings were changed.
+- Hosted runs for docs/branding head `061662d` (`45512694462`, `45512694558`, `45512694485`) all passed. Run `45511210844` had an intermittent failure after observing a desktop-owned sidecar while authenticated `27451/v1/health` refused connections; `ecd4195` changes the smoke test to require both ownership and authenticated readiness, with bounded polling and diagnostics.
+- The Tauri icon set was regenerated from `branding/svg/omnix-symbol.svg` and wired through the existing Tauri icon configuration. Favicon, splash, README, social, Discord and release-card vectors are in `branding/svg/`.
 
 ## Known limitations
 
@@ -80,8 +82,8 @@ Updated: 2026-11-24
 
 ## Exact next action
 
-The docs/branding head is `061662d`; await its hosted Windows and security
-workflows, complete the current-head Codex Security scan, and obtain authorised
+The current head is `ecd4195`; await its hosted Windows and security workflows,
+complete the current-head Codex Security scan, and obtain authorised
 repository write access before creating the consolidated alpha pull request.
 Hosted Windows validation and an unsigned installer artifact are available for
 the preceding code head; live provider inference and signed-release readiness

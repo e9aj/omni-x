@@ -22,6 +22,7 @@ from .hermes_task_bridge import parse_schedule
 from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
 from .runtime import AgentRuntime
 from .store import Store
+from .workflow import WorkflowRunner, WorkflowStep, WorkflowError
 
 
 def _parse_schedule(value: str) -> tuple[str, float, float | None]:
@@ -96,6 +97,41 @@ class TaskService:
 
     def status(self, job_id: str | None = None) -> dict | list[dict] | None:
         return self.store.job(job_id) if job_id else self.store.jobs()
+
+    def run_workflow(self, workflow_id: str, cancel: threading.Event | None = None) -> dict:
+        definitions = {item["id"]: item for item in self.store.workflows()}
+        definition = definitions.get(workflow_id)
+        if not definition:
+            raise KeyError("workflow not found")
+        run_id = self.store.start_workflow_run(workflow_id)
+        cancel = cancel or threading.Event()
+        steps = []
+        for item in definition["definition"].get("nodes", []):
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+                raise WorkflowError("workflow node is invalid")
+            payload = dict(item.get("payload") or {})
+            if item.get("action") == "agent":
+                payload.setdefault("prompt", item.get("prompt", item["id"]))
+            steps.append(WorkflowStep(id=item["id"], action=item.get("action", "agent"), payload=payload,
+                                      depends_on=tuple(item.get("depends_on") or ()), retries=int(item.get("retries", 0)),
+                                      timeout_seconds=float(item.get("timeout_seconds", 30))))
+        def agent(payload: dict, event: threading.Event) -> str:
+            runtime = AgentRuntime(self.settings, Store(self.store.path), self.workspace, self.approver, cancel_event=event)
+            result, _ = runtime.run(str(payload.get("prompt", "")), None)
+            return result
+        runner = WorkflowRunner(agent=agent, integration=None,
+                                approve=lambda payload: bool(self.approver and self.approver(str(payload.get("action", "workflow approval")))),
+                                audit=lambda event, detail: self.store.event("workflow:" + run_id, event, detail))
+        try:
+            result = runner.run(steps, cancel=cancel)
+            self.store.finish_workflow_run(run_id, "completed", result)
+            return {"run_id": run_id, "state": "completed", "result": result}
+        except Exception as exc:
+            state = "cancelled" if cancel.is_set() else "failed"
+            self.store.finish_workflow_run(run_id, state, error=str(exc))
+            raise
+        finally:
+            runner.close()
 
     def run_worker_forever(self, idle_seconds: float = 3.0) -> None:
         """Run the managed worker host until idle and no future schedule exists.

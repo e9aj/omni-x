@@ -136,6 +136,20 @@ class Store:
             rows = self.db.execute("SELECT * FROM workflow_runs ORDER BY created DESC").fetchall()
         return [{**dict(row), "result": json.loads(row["result_json"]) if row["result_json"] else None} for row in rows]
 
+    def start_workflow_run(self, workflow_id: str) -> str:
+        ident, now = str(uuid.uuid4()), time.time()
+        with self._lock:
+            self.db.execute("INSERT INTO workflow_runs(id,workflow_id,state,result_json,error,created,finished) VALUES (?,?,?,NULL,NULL,?,NULL)", (ident, workflow_id, "running", now))
+            self.db.commit()
+        return ident
+
+    def finish_workflow_run(self, run_id: str, state: str, result: dict | None = None, error: str | None = None) -> None:
+        if state not in {"completed", "failed", "cancelled"}:
+            raise ValueError("workflow terminal state is invalid")
+        with self._lock:
+            self.db.execute("UPDATE workflow_runs SET state=?, result_json=?, error=?, finished=? WHERE id=?", (state, json.dumps(result, sort_keys=True) if result is not None else None, error, time.time(), run_id))
+            self.db.commit()
+
     def backup(self, destination: Path) -> Path:
         """Create a consistent SQLite backup without replacing the live DB."""
         destination = destination.expanduser().resolve()

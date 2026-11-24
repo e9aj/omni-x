@@ -202,3 +202,23 @@ def test_auto_selector_never_admits_non_free_policy(monkeypatch, tmp_path: Path)
     assert wait_for(service, job, "completed")["result"] == "safe fallback"
     assert called == []
     service.close()
+
+
+def test_saved_workflow_executes_through_task_service_and_records_run(monkeypatch, tmp_path: Path):
+    class FakeRuntime:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def run(self, prompt, session):
+            return "completed:" + prompt, "session"
+
+    monkeypatch.setattr("omnix.task_service.AgentRuntime", FakeRuntime)
+    db = tmp_path / "workflow.sqlite3"
+    store = Store(db)
+    workflow_id = store.save_workflow("fixture", {"nodes": [{"id": "step-1", "action": "agent", "prompt": "hello"}]})
+    service = TaskService(Settings(mode="FREE", allow_paid=False, max_cost_usd=0.0), store, tmp_path, approver=lambda _: True)
+    result = service.run_workflow(workflow_id)
+    assert result["state"] == "completed"
+    assert result["result"]["step-1"] == "completed:hello"
+    assert store.workflow_runs(workflow_id)[0]["state"] == "completed"
+    service.close()

@@ -297,6 +297,9 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("workflow nodes are invalid")
                 ident = Store().save_workflow(name.strip(), definition, body.get("id"))
                 self._json(200, {"workflow_id": ident})
+            elif self.path.startswith("/v1/workflows/") and self.path.endswith("/run"):
+                workflow_id = self.path.split("/")[3]
+                self._json(200, self.server.tasks.run_workflow(workflow_id))
             elif self.path == "/v1/tasks":
                 body = self._body()
                 action = body.get("action", "enqueue")

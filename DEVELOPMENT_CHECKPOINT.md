@@ -51,5 +51,6 @@ Updated: 2026-11-23
 
 ## Exact next action
 
-Build the usable desktop workflow editor over the existing workflow runner,
-then add Brain note history/templates and deterministic document fixtures.
+Add a local, SQLite-backed semantic index over Brain notes and extracted
+documents, with deterministic ranking tests; then continue voice and messaging
+adapters without claiming live external connectivity.

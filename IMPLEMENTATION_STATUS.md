@@ -471,3 +471,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** local capability detection and permission-gated adapters for optional `faster-whisper` STT, `pyttsx3` TTS and `sounddevice` input-device discovery; authenticated desktop capability reporting and a Voice screen.
 - **Preserved:** no remote audio upload, no implicit package installation, bounded input/text sizes and explicit microphone/audio-output permission callbacks.
 - **Not claimed:** live dictation, push-to-talk, wake-word support or audio-device execution on this host; optional engines remain unconfigured unless installed and reviewed by the owner.
+
+### Workflow execution boundary — 2026-11-24
+
+- **Implemented and deterministic-tested:** bounded workflow steps for agent and integration callbacks, conditional execution, dependency validation, approval steps, parallel-ready execution, retries, cancellation and audit events.
+- **Preserved:** TaskService remains the durable scheduler/worker authority; the runner has no provider, credential or tool authority of its own and must receive policy-bound callbacks.
+- **Not claimed:** visual workflow persistence/editor, third-party integration actions or live Hermes workflow execution.

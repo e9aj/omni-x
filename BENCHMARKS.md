@@ -473,6 +473,13 @@ failure when a local STT engine is unavailable. The desktop Voice view reports
 local capability status. No audio was uploaded and no live microphone or TTS
 session was claimed.
 
+## Workflow boundary validation — 2026-11-24
+
+Deterministic tests passed for agent/integration steps, approval denial, retry,
+dependency-cycle rejection and cancellation. The workflow runner is a bounded
+execution primitive; it does not create a second scheduler or grant tools or
+credentials.
+
 ## Desktop SkillsManager validation — 2026-11-23
 
 The authenticated SkillsManager endpoint and desktop panel were validated with

@@ -27,6 +27,7 @@ Updated: 2026-11-23
 - A real minimal MCP JSON-RPC client now passes local stdio integration tests with permission, cancellation and registry-gating controls.
 - Brain attachment writes and verified SQLite backup/restore now pass deterministic tests without replacing the live database.
 - Local-first voice capability reporting and permission-gated optional STT/TTS adapters now pass deterministic tests; no audio engine is claimed live.
+- A bounded workflow runner now passes deterministic tests for approvals, retries, dependencies and cancellation without becoming a second scheduler.
 
 ## Known limitations
 

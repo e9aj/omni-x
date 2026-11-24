@@ -47,7 +47,8 @@ Updated: 2026-11-24
 - Replacement consolidated-candidate scan `3e8ad111-2ab4-4794-8325-46aa6148da48` is running read-only. Full Python regression and desktop Vite build pass; local Cargo test is blocked by the OneDrive build-script output-path permission error.
 - The alpha workflow-trigger commit `07689ea` exposed a Python 3.11 Windows regression: the chat test stalled while opening a second SQLite store during an HTTP request. The fix in `836116e` reuses the DesktopServer-owned TaskService store for chat persistence, with a fallback for the lightweight test server. The focused regression and full local suite pass.
 - Messaging and external-service adapters now reject HTTP redirects using a no-redirect opener, preventing a validated HTTPS host from forwarding requests to another endpoint. Focused adapter tests pass.
-- Hosted runs for `836116e` are pending: Security/compliance `45508066734`, Windows Desktop `45508066985`, and CI `45508066729`.
+- Hosted CI for `5f155cf` passed as run `45508609612`. Security/compliance `45508609668` and Windows Desktop `45508610044` remain in progress; no installer artifact or completed current-head security result is available yet.
+- Local `npm audit --audit-level=high --omit=dev` reports zero vulnerabilities. Local `pip-audit` cannot audit the editable `omnix` distribution; the hosted security workflow is the authoritative Python dependency audit.
 
 ## Known limitations
 

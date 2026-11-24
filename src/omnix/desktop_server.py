@@ -27,6 +27,7 @@ from .integration_catalog import register_researched_integrations
 from .voice import VoiceService
 from .document_intelligence import DocumentExtractor
 from .store import Store
+from .semantic_index import SemanticIndex
 
 
 class DesktopState:
@@ -143,6 +144,19 @@ class Handler(BaseHTTPRequestHandler):
         elif urlsplit(self.path).path == "/v1/brain/search":
             query = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
             self._json(200, {"results": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).search(query)})
+        elif urlsplit(self.path).path == "/v1/brain/semantic-search":
+            query = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
+            root = Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))
+            vault = MarkdownVault(root)
+            index = SemanticIndex(Store(), root)
+            index.rebuild(((str(item["path"]), vault.read(str(item["path"]))) for item in vault.list_notes()))
+            results = index.search(query)
+            for result in results:
+                try:
+                    result["snippet"] = vault.read(str(result["path"]))[:300]
+                except (FileNotFoundError, OSError):
+                    result["snippet"] = ""
+            self._json(200, {"results": results, "method": "local-feature-hash"})
         elif self.path.startswith("/v1/brain/note"):
             query = parse_qs(urlsplit(self.path).query)
             relative = query.get("path", [""])[0]

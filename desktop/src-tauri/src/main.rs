@@ -464,6 +464,22 @@ fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result
 }
 
 #[tauri::command]
+fn backend_brain_semantic_search(
+    query: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if query.trim().is_empty() || query.len() > 200 {
+        return Err("search query is invalid".into());
+    }
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/semantic-search?q={}", encode_query(&query)),
+        None,
+    )
+}
+
+#[tauri::command]
 fn backend_brain_inspect(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
     request(
         &state,
@@ -775,6 +791,7 @@ fn main() {
             backend_brain_notes,
             backend_brain_graph,
             backend_brain_search,
+            backend_brain_semantic_search,
             backend_brain_inspect,
             backend_brain_note,
             backend_brain_save,

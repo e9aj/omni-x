@@ -2,6 +2,8 @@ import base64
 import pytest
 
 from omnix.brain import MarkdownVault, VaultError
+from omnix.semantic_index import SemanticIndex
+from omnix.store import Store
 
 
 def test_vault_writes_reads_lists_and_searches(tmp_path):
@@ -47,3 +49,15 @@ def test_brain_note_history_is_portable_and_excludes_history_from_notes(tmp_path
     assert vault.read("note.md") == "second"
     assert len(vault.history("note.md")) == 1
     assert [item["path"] for item in vault.list_notes()] == ["note.md"]
+
+
+def test_local_semantic_index_is_persistent_and_deterministic(tmp_path):
+    vault = MarkdownVault(tmp_path / "brain")
+    vault.write("python.md", "Python packaging and Windows installer")
+    vault.write("garden.md", "Tomatoes and herbs in the garden")
+    store = Store(tmp_path / "state.sqlite3")
+    index = SemanticIndex(store, tmp_path / "brain")
+    assert index.rebuild(((str(item["path"]), vault.read(str(item["path"]))) for item in vault.list_notes())) == 2
+    assert index.search("Windows Python")[0]["path"] == "python.md"
+    reopened = SemanticIndex(Store(tmp_path / "state.sqlite3"), tmp_path / "brain")
+    assert reopened.search("garden")[0]["path"] == "garden.md"

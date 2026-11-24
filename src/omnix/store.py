@@ -6,6 +6,7 @@ import json
 import time
 import uuid
 import math
+import hashlib
 from pathlib import Path
 
 from .config import data_dir
@@ -43,11 +44,28 @@ class Store:
         CREATE TABLE IF NOT EXISTS integration_events (id INTEGER PRIMARY KEY, name TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, name TEXT NOT NULL, definition_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, state TEXT NOT NULL, result_json TEXT, error TEXT, created REAL NOT NULL, finished REAL);
+        CREATE TABLE IF NOT EXISTS brain_embeddings (source_id TEXT PRIMARY KEY, source_type TEXT NOT NULL, content_hash TEXT NOT NULL, vector_json TEXT NOT NULL, updated REAL NOT NULL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
             self.db.execute("ALTER TABLE jobs ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'" )
         self.db.commit()
+
+    def upsert_embedding(self, source_id: str, source_type: str, content: str, vector: list[float]) -> None:
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        with self._lock:
+            self.db.execute(
+                """INSERT INTO brain_embeddings(source_id,source_type,content_hash,vector_json,updated)
+                   VALUES (?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET source_type=excluded.source_type,
+                   content_hash=excluded.content_hash, vector_json=excluded.vector_json, updated=excluded.updated""",
+                (source_id, source_type, digest, json.dumps(vector), time.time()),
+            )
+            self.db.commit()
+
+    def embeddings(self, limit: int = 1000) -> list[dict]:
+        safe_limit = max(1, min(int(limit), 1000))
+        rows = self.db.execute(f"SELECT * FROM brain_embeddings ORDER BY updated DESC LIMIT {safe_limit}").fetchall()  # nosec B608
+        return [{**dict(row), "vector": json.loads(row["vector_json"])} for row in rows]
 
     def save_workflow(self, name: str, definition: dict, workflow_id: str | None = None) -> str:
         ident, now = workflow_id or str(uuid.uuid4()), time.time()

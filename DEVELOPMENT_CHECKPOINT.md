@@ -1,11 +1,11 @@
 # OMNI-X Development Checkpoint
 
-Updated: 2026-11-23
+Updated: 2026-11-24
 
 ## Current state
 
 - Branch: `feat/modular-integrations-framework-clean`
-- Head: `4c1b786`.
+- Head: `18e5954` before the semantic-index slice below; update after commit.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -33,6 +33,7 @@ Updated: 2026-11-23
 - Brain note history and authenticated conversation-to-note conversion now pass deterministic tests.
 - Brain document extraction now passes deterministic TXT, DOCX and PDF tests through a contained read-only path.
 - Hosted Security run 95 found unsafe DOCX XML parsing; the fix uses defusedxml with ZIP/PDF resource limits and added regression coverage.
+- The local Brain semantic index now persists deterministic feature-hash vectors in SQLite, ranks note results locally and is exposed through the authenticated desktop API; it is not a neural embedding service.
 
 ## Known limitations
 
@@ -40,18 +41,18 @@ Updated: 2026-11-23
 - The new Council and Brain panels have deterministic and hosted workflow coverage, but live desktop inference remains unverified.
 - The SkillsManager catalogue is backend-complete for browse/enable/disable, but the desktop screen still needs its dedicated skill-list presentation.
 - Optional integrations are catalogue/lifecycle interfaces only; no external service adapter, MCP connection or third-party software installation is claimed.
-- Brain embeddings, infinite-canvas persistence, OCR/document extraction and AI-generated memory remain incomplete.
+- Neural embeddings, infinite-canvas persistence, OCR execution and AI-generated memory remain incomplete. Local feature-hash semantic-style search is implemented and tested.
 - Third-party MCP connectivity and desktop connection persistence remain unverified; no external MCP endpoint was contacted.
 - Full JSON Schema validation and DNS/IP pinning remain open remote-MCP risks requiring owner-controlled network policy.
 - MCP now uses `jsonschema` Draft 2020-12 validation and pins resolved host addresses for the lifetime of a connection; live remote validation remains outstanding.
 - Local `cargo check` reaches the Tauri build script but is blocked because the CI-generated target-specific backend sidecar is absent from this checkout; no security policy was changed.
 - Hermes live tool execution and delegated workflows remain experimental.
 - Optional external integrations remain disabled/configuration-dependent.
-- Brain graph, canvas, embeddings and document extraction remain incomplete.
+- Brain graph and document extraction are implemented; persistent canvas, OCR execution and AI memory suggestions remain incomplete.
 - Live Hermes tool execution and delegated workflows remain experimental.
 
 ## Exact next action
 
-Add a local, SQLite-backed semantic index over Brain notes and extracted
-documents, with deterministic ranking tests; then continue voice and messaging
-adapters without claiming live external connectivity.
+Continue with bounded local voice execution tests/adapters and messaging
+adapter slices without claiming live external connectivity; then implement
+persistent canvas and explicit memory approval flows.

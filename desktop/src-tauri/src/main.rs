@@ -527,6 +527,16 @@ fn backend_brain_from_session(
 }
 
 #[tauri::command]
+fn backend_brain_document(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/document?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
 fn backend_tasks(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/tasks", None)
 }
@@ -771,6 +781,7 @@ fn main() {
             backend_brain_attachments,
             backend_brain_history,
             backend_brain_from_session,
+            backend_brain_document,
             backend_tasks,
             backend_task_action,
             backend_skills,

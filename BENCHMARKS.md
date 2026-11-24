@@ -495,6 +495,10 @@ Brain history and conversation conversion passed deterministic tests: replacing
 a note creates a hidden history snapshot, active note listing remains portable,
 and conversion reads existing SQLite messages without mutation.
 
+Document intelligence tests passed for TXT, synthetic DOCX and a local PDF using
+pypdf. Path containment and file-size bounds are enforced; no OCR or remote
+document processing was used.
+
 ## Desktop SkillsManager validation — 2026-11-23
 
 The authenticated SkillsManager endpoint and desktop panel were validated with

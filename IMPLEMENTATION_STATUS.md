@@ -495,3 +495,9 @@ Automated tests use local servers or injected test clients where needed and are 
 - **Implemented and deterministic-tested:** portable Markdown note history, exclusion of history snapshots from the active vault, authenticated history listing and conversation-to-note conversion from existing SQLite sessions.
 - **Preserved:** existing session data is read-only during conversion; note writes remain atomic and contained.
 - **Not claimed:** AI-generated suggestions, automatic linking, PDF/DOCX extraction or OCR.
+
+### Brain document intelligence — 2026-11-24
+
+- **Implemented and deterministic-tested:** contained TXT/Markdown, DOCX XML and local PDF text extraction with 25 MB bounds, authenticated desktop extraction endpoint and no remote processing.
+- **Preserved:** extraction is read-only and source files remain in the workspace; OCR remains opt-in and unavailable unless a reviewed local engine is installed.
+- **Not claimed:** OCR, embeddings, semantic search or AI-generated memory suggestions.

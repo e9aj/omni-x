@@ -31,6 +31,7 @@ Updated: 2026-11-23
 - MCP security hardening is now regression-tested: explicit stdio command authorisation, HTTP host allowlisting/no redirects, bounded responses and basic tool-schema validation.
 - Persistent workflow definitions and a draggable desktop node editor now pass authenticated endpoint and SQLite persistence tests.
 - Brain note history and authenticated conversation-to-note conversion now pass deterministic tests.
+- Brain document extraction now passes deterministic TXT, DOCX and PDF tests through a contained read-only path.
 
 ## Known limitations
 

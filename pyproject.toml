@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "DigiSolUK" }]
-dependencies = ["jsonschema==4.23.0"]
+dependencies = ["jsonschema==4.23.0", "pypdf==5.1.0"]
 
 [project.scripts]
 omnix = "omnix.cli:main"

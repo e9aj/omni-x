@@ -4,8 +4,8 @@ Updated: 2026-11-24
 
 ## Current state
 
-- Branch: `codex/external-service-adapters`
-- Head: `ad5b146`.
+- Branch: `codex/alpha-candidate`
+- Head: `8279617`.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -42,6 +42,7 @@ Updated: 2026-11-24
 - Voice capture now supports bounded local WAV recording/voice notes through an approval-gated `sounddevice` path; official Telegram, Discord, Slack and WhatsApp HTTP adapters plus SMTP email are implemented as credential-supplied, host-policy-gated transports with local fixture tests. They remain disabled until IntegrationRegistry authorisation and credentials are provided.
 - Hosted validation for `3f05632`: CI run 238 completed successfully; Windows Desktop run 117 remains in progress; Security/compliance run 103 has passed Python security, secret scan and SBOM while Rust audit remains in progress.
 - A read-only Codex Security Standard scan was started for this head (scan `63065c13-7b43-4926-89b1-6610de5df075`); findings are not available yet and PR readiness is therefore still pending.
+- Security scan `51568aee-c1a5-45da-b4a7-24fc81d0c69e` remains stuck in threat modelling with zero reported findings; it has not been treated as a completed review.
 
 ## Known limitations
 
@@ -64,6 +65,8 @@ Updated: 2026-11-24
 - Workflow runs now have durable asynchronous start/cancel endpoints, desktop Stop/history controls and workflow-specific scheduling through TaskService.
 - Workflow-specific scheduling is now exposed through an additive `schedules.workflow_id` migration, the TaskService scheduling loop, an authenticated backend endpoint and a desktop Schedule control. Existing prompt schedules remain compatible.
 - Scoped external adapters now cover GitHub, Supabase, Salesforce, Google Workspace, Microsoft 365, OpenSEO, OpenProject, Cal.diy, Chatwoot, AppFlowy, Cap and ComfyUI through one bounded HTTPS/credential transport. Local fixture tests pass; no external account was contacted.
+- Token optimisation now includes bounded context selection, token estimation, terminal compression and an exact-request in-process cache. A fixed local fixture measured 95.66% context reduction, 6.298 ms selection latency and 26,240 bytes peak allocation; this is not provider billing evidence.
+- `codex/alpha-candidate` is a linear consolidation of the focused Brain, voice, messaging and workflow branches plus external adapters and optimisation. It has been pushed without merging into `main`.
 
 ## Exact next action
 

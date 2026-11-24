@@ -385,6 +385,16 @@ This is a Phase 2 development baseline, not a production-readiness claim.
 - Live tool execution remains unverified. Hermes remains experimental and is
   not ready to replace the default OMNI-X runtime.
 
+## Optional integrations — 2026-11-23
+
+- Implemented: persistent, audited, disabled-by-default integration lifecycle
+  in `IntegrationRegistry` and SQLite, including metadata-only install,
+  configuration, enable/disable, revocation and gated health checks.
+- Research complete: ten requested projects are recorded in
+  `docs/INTEGRATION_COMPATIBILITY.md` and `MASTER_INTEGRATIONS.md`.
+- Not implemented: third-party installation, OpenWhispr/VoiceStudio/Chatwoot/
+  OpenClaw/OpenSEO/Cap service connections, MCP execution and media generation.
+
 ## Evidence policy
 
 Automated tests use local servers or injected test clients where needed and are labelled as such. They demonstrate code behavior, not external provider availability. Live results above record only actual provider responses, usage metadata, and failure behavior without exposing secrets. The recorded autonomous repair gate and browser validation passed; live multi-agent completion remains an explicit outstanding gate.
@@ -403,3 +413,95 @@ Automated tests use local servers or injected test clients where needed and are 
   prompt-injection detection, sandboxed subprocesses, live Hermes tools, or live
   desktop inference. Owner/legal decisions and external-provider assessments
   remain required.
+## GODMOD3 reference and Council — 2026-11-23
+
+- **Implemented and deterministic-tested:** independent `CouncilService` using the existing Router; Standard/Council/Advanced/Research modes; bounded parallel calls; model groups; deterministic response scoring and ranking; best-response synthesis; adaptive bounded generation parameters; token and latency aggregation; free-only and zero-spend enforcement; explicit authorisation gate for robustness testing.
+- **Reviewed only:** `MSL135/GODMOD3` is an AGPL-3.0 reference architecture. No GODMOD3 source, telemetry, public dataset publishing, jailbreak prompts or safeguard-circumvention mechanisms are included.
+- **Not claimed:** live multi-model provider validation, provider-specific capability benchmarks, or generative answer synthesis through an extra model. The current synthesis deliberately selects the highest-ranked verified response to avoid hidden calls and uncontrolled token use.
+
+### Council desktop path — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated `/v1/council` backend endpoint, bounded model identifier validation, SQLite task/usage/event records, and a desktop Council panel exposing Standard, Council, Advanced and Research selection plus per-model score, latency and token metrics.
+- **Preserved:** existing Tauri IPC authentication, OMNI-X Router/provider credentials, FREE mode, zero-spend policy and default chat runtime. The UI cannot grant tools, credentials or paid inference.
+- **Not claimed:** live multi-model inference or production Windows installer validation for this new panel; those require hosted Windows CI and an eligible authorised free route.
+
+### Desktop model catalogue — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated model discovery through the existing OmniRoute catalogue, explicit FREE-model display, backend-validated model selection, and a desktop Models panel showing provider ownership, free eligibility, context length and capability metadata.
+- **Security boundary:** the settings endpoint applies the same default FREE configuration used by chat/discovery and rejects undiscovered paid identifiers in FREE mode. Credentials remain backend-only.
+- **Not claimed:** live gateway availability or installer validation for this panel.
+
+### Tasks and Agents desktop path — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated task listing, enqueue, cancellation and task-detail endpoints backed by the existing durable `TaskService`; the desktop Tasks and Agents views now display real SQLite job states and results.
+- **Preserved:** one scheduler/worker authority, persisted policies, cancellation and existing runtime selection. Agent activity is a view over TaskService, not a second agent engine.
+- **Not claimed:** hosted Windows packaging for this UI or live Hermes child-agent execution.
+
+### Brain Markdown vault — 2026-11-23
+
+- **Implemented and deterministic-tested:** local Markdown vault storage, strict path containment, `.md` type enforcement, size limits, atomic writes, note listing/reading/search, authenticated desktop note endpoints and a basic Brain note editor/list view.
+- **Not claimed:** graph, canvas, embeddings, document extraction or hosted Windows installer validation for the Brain panel.
+
+### Desktop SkillsManager path — 2026-11-23
+
+- **Implemented and deterministic-tested:** authenticated desktop browsing of the existing SkillsManager catalogue and enable/disable operations for reviewed skills, including source, installation state, declared permissions, credentials and dependencies.
+- **Preserved:** skills remain disabled by default; installation still requires explicit review in the backend; no credentials or skill contents are exposed to the frontend; Hermes/OMNI-X runtime boundaries are unchanged.
+- **Not claimed:** automatic third-party skill installation, live skill execution through Hermes, or MCP lifecycle management.
+
+### Brain graph and search path — 2026-11-23
+
+- **Implemented and deterministic-tested:** local lexical Brain search, bounded Markdown wikilink graph generation, backlinks and deterministic document inspection (headings and counts), exposed through authenticated desktop endpoints and the Memory view.
+- **Preserved:** Markdown remains the source of truth with strict vault containment and size limits; no embedding service or external document processor is invoked.
+- **Not claimed:** semantic embeddings, infinite-canvas persistence, OCR/document extraction or AI-generated memory.
+
+### MCP client boundary — 2026-11-24
+
+- **Implemented and deterministic-tested:** a real minimal MCP JSON-RPC client for stdio and HTTP transports, initialize/tool discovery/tool execution, bounded requests, cancellation, explicit tool allowlisting, permission callbacks, revocation-ready connection management and redacted audit events.
+- **Preserved:** IntegrationRegistry remains authoritative; connections require a registered MCP interface that is explicitly configured and enabled. No catalogue entry is auto-connected and credential values are supplied only by the caller boundary.
+- **Not claimed:** production MCP compatibility across every transport/authentication variant, desktop connection persistence, or live third-party MCP execution.
+
+#### MCP security hardening
+
+- **Corrected:** stdio servers now require explicit executable authorisation; HTTP MCP endpoints require an explicit hostname allowlist, reject URL credentials and redirects, cap response size, and use generic errors without response-body leakage.
+- **Corrected:** discovered tool arguments are checked against basic object schemas before permission callbacks and dispatch. Regression tests cover unauthorised commands and unallowlisted HTTP destinations.
+- **Remaining risk:** remote MCP use remains unvalidated against a third-party server and still requires an owner-controlled network policy; resolver pinning is per connection, not a full enterprise network control.
+
+### Brain attachments and recovery — 2026-11-24
+
+- **Implemented and deterministic-tested:** bounded, atomically written Brain attachments, authenticated attachment listing, and SQLite online backup/verified restore helpers that preserve existing conversations and task data.
+- **Preserved:** attachments remain inside the Brain vault; encoded payloads are size-limited and path-contained; restore writes to a separate destination and performs integrity checks.
+- **Not claimed:** encrypted attachment storage, cloud synchronisation, OCR or automated backup scheduling.
+
+### Local voice boundary — 2026-11-24
+
+- **Implemented and deterministic-tested:** local capability detection and permission-gated adapters for optional `faster-whisper` STT, `pyttsx3` TTS and `sounddevice` input-device discovery; authenticated desktop capability reporting and a Voice screen.
+- **Preserved:** no remote audio upload, no implicit package installation, bounded input/text sizes and explicit microphone/audio-output permission callbacks.
+- **Not claimed:** live dictation, push-to-talk, wake-word support or audio-device execution on this host; optional engines remain unconfigured unless installed and reviewed by the owner.
+
+### Workflow execution boundary — 2026-11-24
+
+- **Implemented and deterministic-tested:** bounded workflow steps for agent and integration callbacks, conditional execution, dependency validation, approval steps, parallel-ready execution, retries, cancellation and audit events.
+- **Preserved:** TaskService remains the durable scheduler/worker authority; the runner has no provider, credential or tool authority of its own and must receive policy-bound callbacks.
+- **Not claimed:** visual workflow persistence/editor, third-party integration actions or live Hermes workflow execution.
+
+### Desktop workflow editor — 2026-11-24
+
+- **Implemented and deterministic-tested:** persistent workflow definitions in SQLite, authenticated desktop listing/saving, a native node-style editor with draggable nodes and step types for agent, integration and approval actions.
+- **Preserved:** TaskService remains the execution authority; workflow definitions do not execute arbitrary commands or grant credentials.
+- **Not claimed:** live workflow execution, visual edge editing, schedule triggers, execution-history UI or third-party integration actions.
+
+### Brain history and conversation notes — 2026-11-24
+
+- **Implemented and deterministic-tested:** portable Markdown note history, exclusion of history snapshots from the active vault, authenticated history listing and conversation-to-note conversion from existing SQLite sessions.
+- **Preserved:** existing session data is read-only during conversion; note writes remain atomic and contained.
+- **Not claimed:** AI-generated suggestions, automatic linking, PDF/DOCX extraction or OCR.
+
+### Brain document intelligence — 2026-11-24
+
+- **Implemented and deterministic-tested:** contained TXT/Markdown, DOCX XML and local PDF text extraction with 25 MB bounds, authenticated desktop extraction endpoint and no remote processing.
+- **Preserved:** extraction is read-only and source files remain in the workspace; OCR remains opt-in and unavailable unless a reviewed local engine is installed.
+- **Not claimed:** OCR, embeddings, semantic search or AI-generated memory suggestions.
+
+#### Security correction
+
+- Hosted Security run 95 identified Bandit `B314` on XML parsing. Replaced stdlib ElementTree with `defusedxml`, added DOCX entry/count/uncompressed-size limits, capped PDF pages and normalised parser failures. Added ZIP-bomb regression coverage; hosted revalidation is pending on the new commit.

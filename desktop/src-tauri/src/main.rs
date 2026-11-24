@@ -96,6 +96,18 @@ fn request(
     Ok(value)
 }
 
+fn encode_query(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'/' => {
+                (byte as char).to_string()
+            }
+            _ => format!("%{byte:02X}"),
+        })
+        .collect()
+}
+
 fn terminate_authenticated_orphan(pid: u32) -> Result<(), String> {
     if pid == std::process::id() {
         return Err("refusing to terminate the desktop process".into());
@@ -358,6 +370,27 @@ fn backend_chat(
 }
 
 #[tauri::command]
+fn backend_council(
+    prompt: String,
+    mode: String,
+    models: Vec<String>,
+    session_id: Option<String>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if prompt.trim().is_empty() || models.len() > 5 {
+        return Err("invalid Council request".into());
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/council",
+        Some(json!({
+            "prompt": prompt, "mode": mode, "models": models, "session_id": session_id
+        })),
+    )
+}
+
+#[tauri::command]
 fn backend_stop(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "POST", "/v1/stop", Some(json!({})))
 }
@@ -387,6 +420,244 @@ fn backend_approval_decide(
 #[tauri::command]
 fn backend_settings(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/settings", None)
+}
+
+#[tauri::command]
+fn backend_models(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/models", None)
+}
+
+#[tauri::command]
+fn backend_set_model(model: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if model.trim().is_empty() || model.len() > 200 {
+        return Err("model is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/settings",
+        Some(json!({"model": model})),
+    )
+}
+
+#[tauri::command]
+fn backend_brain_notes(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/brain/notes", None)
+}
+
+#[tauri::command]
+fn backend_brain_graph(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/brain/graph", None)
+}
+
+#[tauri::command]
+fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    if query.trim().is_empty() || query.len() > 200 {
+        return Err("search query is invalid".into());
+    }
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/search?q={}", encode_query(&query)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_semantic_search(
+    query: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if query.trim().is_empty() || query.len() > 200 {
+        return Err("search query is invalid".into());
+    }
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/semantic-search?q={}", encode_query(&query)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_inspect(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/note/inspect?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_note(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/note?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_save(
+    path: String,
+    content: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    request(
+        &state,
+        "POST",
+        "/v1/brain/notes",
+        Some(json!({"path": path, "content": content})),
+    )
+}
+
+#[tauri::command]
+fn backend_brain_attachments(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/brain/attachments", None)
+}
+
+#[tauri::command]
+fn backend_brain_history(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/history?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_brain_from_session(
+    session_id: String,
+    path: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    request(
+        &state,
+        "POST",
+        "/v1/brain/from-session",
+        Some(json!({"session_id": session_id, "path": path})),
+    )
+}
+
+#[tauri::command]
+fn backend_brain_document(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
+    request(
+        &state,
+        "GET",
+        &format!("/v1/brain/document?path={}", encode_query(&path)),
+        None,
+    )
+}
+
+#[tauri::command]
+fn backend_tasks(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/tasks", None)
+}
+
+#[tauri::command]
+fn backend_task_action(
+    action: String,
+    task_id: Option<String>,
+    prompt: Option<String>,
+    schedule: Option<String>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if action == "cancel" {
+        let id = task_id.ok_or("task id is required")?;
+        return request(
+            &state,
+            "POST",
+            &format!("/v1/tasks/{id}"),
+            Some(json!({"action": "cancel"})),
+        );
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/tasks",
+        Some(json!({"action": action, "prompt": prompt, "schedule": schedule})),
+    )
+}
+
+#[tauri::command]
+fn backend_skills(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/skills", None)
+}
+
+#[tauri::command]
+fn backend_skill_action(
+    name: String,
+    action: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if name.trim().is_empty()
+        || name.len() > 120
+        || !matches!(action.as_str(), "enable" | "disable")
+    {
+        return Err("skill action is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        &format!("/v1/skills/{}", encode_query(&name)),
+        Some(json!({"action": action})),
+    )
+}
+
+#[tauri::command]
+fn backend_integrations(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/integrations", None)
+}
+
+#[tauri::command]
+fn backend_voice_capabilities(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/voice/capabilities", None)
+}
+
+#[tauri::command]
+fn backend_workflows(state: State<'_, BackendState>) -> Result<Value, String> {
+    request(&state, "GET", "/v1/workflows", None)
+}
+
+#[tauri::command]
+fn backend_workflow_save(
+    name: String,
+    definition: Value,
+    id: Option<String>,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if name.trim().is_empty() || name.len() > 200 || !definition.is_object() {
+        return Err("workflow definition is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        "/v1/workflows",
+        Some(json!({"name": name, "definition": definition, "id": id})),
+    )
+}
+
+#[tauri::command]
+fn backend_integration_action(
+    name: String,
+    action: String,
+    state: State<'_, BackendState>,
+) -> Result<Value, String> {
+    if name.trim().is_empty()
+        || name.len() > 120
+        || !matches!(action.as_str(), "install" | "enable" | "disable" | "revoke")
+    {
+        return Err("integration action is invalid".into());
+    }
+    request(
+        &state,
+        "POST",
+        &format!("/v1/integrations/{}", encode_query(&name)),
+        Some(json!({"action": action})),
+    )
 }
 
 #[tauri::command]
@@ -510,10 +781,33 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             backend_status,
             backend_chat,
+            backend_council,
             backend_stop,
             backend_approvals,
             backend_approval_decide,
             backend_settings,
+            backend_models,
+            backend_set_model,
+            backend_brain_notes,
+            backend_brain_graph,
+            backend_brain_search,
+            backend_brain_semantic_search,
+            backend_brain_inspect,
+            backend_brain_note,
+            backend_brain_save,
+            backend_brain_attachments,
+            backend_brain_history,
+            backend_brain_from_session,
+            backend_brain_document,
+            backend_tasks,
+            backend_task_action,
+            backend_skills,
+            backend_skill_action,
+            backend_integrations,
+            backend_voice_capabilities,
+            backend_workflows,
+            backend_workflow_save,
+            backend_integration_action,
             backend_session,
             backend_set_content_preference
         ])

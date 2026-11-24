@@ -40,6 +40,22 @@ class ProviderError(RuntimeError):
     pass
 
 
+def _safe_generation_parameters(parameters: dict[str, Any] | None) -> dict[str, Any]:
+    """Allow only bounded, provider-neutral generation controls."""
+    if not parameters:
+        return {}
+    result: dict[str, Any] = {}
+    if isinstance(parameters.get("temperature"), (int, float)):
+        result["temperature"] = max(0.0, min(float(parameters["temperature"]), 2.0))
+    if isinstance(parameters.get("top_p"), (int, float)):
+        result["top_p"] = max(0.0, min(float(parameters["top_p"]), 1.0))
+    if isinstance(parameters.get("max_tokens"), int):
+        result["max_tokens"] = max(1, min(parameters["max_tokens"], 8192))
+    if isinstance(parameters.get("seed"), int):
+        result["seed"] = parameters["seed"]
+    return result
+
+
 def _validate_http_url(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
@@ -59,14 +75,16 @@ class ModelClient:
         if not self.api_key and self.provider.name != "omniroute":
             raise ProviderError(f"No credential configured for {self.provider.name}; use 'omnix config set-key {self.provider.key_name}'")
 
-    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
+                 parameters: dict[str, Any] | None = None) -> dict[str, Any]:
         if self.provider.kind == "anthropic":
-            return self._anthropic(messages, tools or [])
+            return self._anthropic(messages, tools or [], parameters)
         url = (self.settings.base_url or self.provider.base_url).rstrip("/") + "/chat/completions"
         body: dict[str, Any] = {"model": self.settings.model, "messages": messages}
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
+        body.update(_safe_generation_parameters(parameters))
         return self._post(url, body, self._auth_headers())
 
     def list_models(self) -> list[dict[str, Any]]:
@@ -86,7 +104,8 @@ class ModelClient:
         except ProviderError as exc:
             return {"provider": self.provider.name, "healthy": False, "latency_ms": round((time.perf_counter() - started) * 1000, 1), "error": str(exc)}
 
-    def _anthropic(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> dict[str, Any]:
+    def _anthropic(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                   parameters: dict[str, Any] | None = None) -> dict[str, Any]:
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
         converted = [{"role": m["role"], "content": m["content"]} for m in messages if m["role"] != "system"]
         body: dict[str, Any] = {"model": self.settings.model, "max_tokens": 4096, "messages": converted}
@@ -94,6 +113,7 @@ class ModelClient:
             body["system"] = system
         if tools:
             body["tools"] = [{"name": t["function"]["name"], "description": t["function"].get("description", ""), "input_schema": t["function"]["parameters"]} for t in tools]
+        body.update(_safe_generation_parameters(parameters))
         result = self._post(self.provider.base_url + "/v1/messages", body, {"x-api-key": self.api_key, "anthropic-version": "2023-06-01"})
         text = "".join(part.get("text", "") for part in result.get("content", []) if part.get("type") == "text")
         calls = [{"id": part.get("id", ""), "type": "function", "function": {"name": part["name"], "arguments": json.dumps(part.get("input", {}))}} for part in result.get("content", []) if part.get("type") == "tool_use"]

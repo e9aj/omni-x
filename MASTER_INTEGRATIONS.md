@@ -8,7 +8,7 @@ This is the decision record for repositories considered for OMNI-X. It is intend
 - **Defer** means useful capability was identified, but architecture, dependency, legal, security, or maintenance work is still required.
 - **Reject** means the repository is not approved for the current design; the reason is recorded so it is not reconsidered without new evidence.
 - A licence shown as `NOASSERTION` or `NONE/UNKNOWN` is not treated as an open-source licence until the repository's licence files are reviewed.
-- Metadata below was checked against the GitHub repository API on **2026-11-16**. Stars and timestamps are context only, not quality or security approval. A full dependency, source, release, security, and compatibility review remains required before activation.
+- Metadata below was checked against the GitHub repository API on **2026-11-16**. GODMOD3 was separately reviewed against its canonical repository and README/terms on **2026-11-23**. Stars and timestamps are context only, not quality or security approval. A full dependency, source, release, security, and compatibility review remains required before activation.
 - The target architecture remains one unified OMNI-X runtime, SQLite by default, optional integrations, explicit user approval before installation, and no mandatory paid or hosted service.
 
 ## Decision summary
@@ -45,7 +45,7 @@ This is the decision record for repositories considered for OMNI-X. It is intend
 | Skills | [anthropics/skills](https://github.com/anthropics/skills) | NONE/UNKNOWN | Public agent skills | **Deferred — licence verification** | GitHub reports no asserted licence; inspect each skill and repository licence before redistribution or installation. |
 | Skills | [vercel-labs/skills](https://github.com/vercel-labs/skills) | MIT | Skill discovery, installation, and management CLI | **Accepted — skills-manager adapter** | Matches the skills marketplace requirements; sandbox, review, and permission checks remain mandatory. |
 | Skills | [obra/superpowers](https://github.com/obra/superpowers) | MIT | Agentic software-development skills and methodology | **Accepted — selective skills/patterns** | Useful for coding workflows, but load only compatible skills and avoid replacing the unified runtime. |
-| Multi-model intelligence | [GODMOD3](https://github.com/MSL135/GODMOD3) | AGPL-3.0 | Multi-model comparison, evaluation, and voting | **Rejected for bundled code** | AGPL obligations conflict with the current integration boundary and the feature can be implemented behind an independent interface; reconsider only after legal review. |
+| Multi-model intelligence | [MSL135/GODMOD3](https://github.com/MSL135/GODMOD3) | AGPL-3.0 | Parallel model opinions, evaluation, comparison, voting, adaptive inference and robustness research patterns | **Reviewed reference architecture — independent OMNI-X Council roadmap** | Do not copy or bundle GODMOD3 code. Its AGPL-3.0 terms require source/distribution obligations for covered adaptations; OMNI-X instead implements an independent Council service using its existing Router, credentials, permissions and usage tracking. Telemetry, public dataset publishing, jailbreak prompts and safeguard-circumvention mechanisms are explicitly excluded. |
 | Browser automation | [Playwright](https://github.com/microsoft/playwright) | Apache-2.0 | Deterministic browser navigation, interaction, screenshots, downloads, testing | **Accepted — primary browser engine** | Mature fit for reliable browser automation and testing; use AI browser control only where deterministic automation is insufficient. |
 | Browser automation | [Skyvern](https://github.com/Skyvern-AI/skyvern) | AGPL-3.0 | AI-driven browser workflow automation | **Deferred — isolated optional integration** | Capability is relevant, but AGPL and overlapping browser-use functionality require a separate-process and legal/security review. |
 | Desktop automation | [pywinauto](https://github.com/pywinauto/pywinauto) | BSD-3-Clause | Windows GUI automation through controls and text properties | **Accepted — Windows desktop adapter** | Direct fit for the Windows 11 first release; wrap with permissions, approval checkpoints, and audit logging. |
@@ -73,9 +73,23 @@ The initial approved direction is:
 3. OmniRoute/provider adapters behind one OMNI-X model registry, with explicit free/smart/performance policy enforcement.
 4. SQLite-first memory and configuration, with graph/vector backends optional and justified by benchmarks.
 5. Reviewed skills from approved sources, loaded selectively and permissioned.
+6. An independent Council capability using the existing Router: Standard (1 model, default), Council (3), Advanced (5), and Research (explicit bounded count). GODMOD3 is a reviewed reference only; it is not an OMNI-X dependency or runtime.
+
+## GODMOD3 legal and security boundary — 2026-11-23
+
+The canonical candidate supplied for review is `MSL135/GODMOD3`. The repository identifies itself as AGPL-3.0. OMNI-X does not copy its source, prompts, telemetry, browser storage credential design, public-dataset publishing path, or dual-use safeguard-circumvention research mechanisms. Any future source reuse would require a separate legal review, preservation of the AGPL licence and notices, and a decision about corresponding-source obligations. The current Council is an independent implementation and remains disabled as an external integration by default.
+
+The Council can use OmniRoute, configured direct providers, or a configured local OpenAI-compatible route through OMNI-X's existing model boundary. It does not create a gateway, credential store, agent runtime or unrestricted robustness pathway.
 6. Optional security scanners and voice adapters, isolated and pinned.
 
 No repository in this register is automatically installed, executed, copied, or treated as production-ready solely because it appears here. Every accepted integration still requires source review, dependency pinning, licence attribution, security checks, tests, and documented limitations.
+
+## 2026-11-23 compatibility review: requested modular platform projects
+
+The detailed matrix is maintained in [`docs/INTEGRATION_COMPATIBILITY.md`](docs/INTEGRATION_COMPATIBILITY.md).
+The requested names were resolved to these repositories where an official identity could be verified: `openclaw/openclaw`, `debpalash/VoiceStudio`, `every-app/open-seo`, `AppFlowy-IO/AppFlowy`, `OpenWhispr/openwhispr`, `opf/openproject`, `calcom/cal.diy`, `chatwoot/chatwoot`, and `CapSoftware/Cap`. “Open Higgsfield” did not resolve to a canonical upstream; the similarly named archived `higgsfield-ai/higgsfield` repository is GPU orchestration rather than a media-generation application and is rejected for this scope.
+
+The registry catalogue is metadata-only and disabled by default. It does not grant permission to copy code, install binaries, connect services or access credentials. OpenWhispr is the first adapter candidate. VoiceStudio, AppFlowy and OpenProject require additional licence-boundary review; Chatwoot and Cap require licence-file review; Cal.diy must not introduce a second scheduler; and OpenClaw must not introduce a competing agent runtime.
 
 ## Change log
 
@@ -108,6 +122,8 @@ default. The register remains authoritative for accept/defer/reject decisions.
 | 2026-11-19 | Added controlled `omnix`/`hermes`/`auto` runtime selection at `TaskService`. Hermes child jobs invoke the actual installer-managed AIAgent probe when explicitly selected, inherit the parent policy snapshot, record usage/events and cancel only their owned process tree. `auto` falls back to OMNI-X on Hermes/provider failure. Deterministic evidence passes; live child inference/delegation remains unaccepted. |
 | 2026-11-19 | Live bounded Hermes child validation through OmniRoute `auto/coding:free` timed out after 30 seconds before a response. Parent/child lifecycle and failure were persisted; no usage, tool execution or live delegation success was claimed. Desktop runtime selection was also wired through the existing authenticated IPC contract. |
 | 2026-11-19 | Split timeout budgets into provider, agent, child and parent boundaries. One bounded live Hermes child through `auto/best-free` completed `HERMES-TIMING-OK` with 1,488 tokens, 28,736 ms probe latency and `$0` cost. Provider reported `custom` without an upstream model identifier; no tool execution was claimed. |
+
+| 2026-11-23 | Reviewed the ten requested modular projects, recorded exact repository/licence/interface/Windows/dependency decisions in `docs/INTEGRATION_COMPATIBILITY.md`, and added a persistent disabled-by-default IntegrationRegistry lifecycle with SQLite audit events. No third-party software was installed or enabled. |
 
 ## OMNI-X implementation status
 

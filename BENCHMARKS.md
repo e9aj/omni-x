@@ -439,3 +439,82 @@ conversation-persistence-after-live-chat result is claimed.
   `pip-audit` was also blocked by the pre-existing editable `omnix` install.
   These are validation limitations, not clean security results.
 
+## GODMOD3 reference / Council deterministic validation — 2026-11-23
+
+The official [MSL135/GODMOD3](https://github.com/MSL135/GODMOD3) repository was
+reviewed as an AGPL-3.0 reference architecture. No third-party source was
+executed or copied. Deterministic tests for the independent OMNI-X
+`CouncilService` passed: Standard used one model; Council used three bounded
+workers; token counts and per-model latency were captured; adaptive parameters
+were bounded; ranking selected a non-empty response; paid Council mode was
+denied without explicit policy; and unauthorised robustness testing was denied.
+
+Live multi-model inference, provider capability scores and live robustness
+testing remain unverified. The Council does not inherit GODMOD3 telemetry,
+public dataset publishing, jailbreak prompts or safeguard-circumvention logic.
+
+## MCP client validation — 2026-11-24
+
+Deterministic local-process tests passed for MCP initialize, tool discovery,
+permission-gated execution, unknown-tool rejection, cancellation and bounded
+shutdown. The client supports stdio and HTTP JSON-RPC without automatic
+connections. No third-party MCP server or credentialed endpoint was contacted.
+
+MCP security regression tests also passed for unauthorised executable rejection,
+unallowlisted HTTP destinations, redirect refusal and basic tool-schema checks.
+
+The MCP client now validates discovered arguments with JSON Schema Draft 2020-12
+and pins DNS results for each connection. These controls are deterministic-tested;
+no remote MCP server was contacted.
+
+## Brain recovery validation — 2026-11-24
+
+Deterministic tests passed for contained atomic attachment writes and SQLite
+backup/restore integrity. A restored database retained a session message.
+Encrypted attachments, scheduled backups and cloud recovery remain unimplemented.
+
+## Local voice validation — 2026-11-24
+
+Deterministic tests passed for capability detection, permission denial and clear
+failure when a local STT engine is unavailable. The desktop Voice view reports
+local capability status. No audio was uploaded and no live microphone or TTS
+session was claimed.
+
+## Workflow boundary validation — 2026-11-24
+
+Deterministic tests passed for agent/integration steps, approval denial, retry,
+dependency-cycle rejection and cancellation. The workflow runner is a bounded
+execution primitive; it does not create a second scheduler or grant tools or
+credentials.
+
+The desktop workflow definition endpoint and editor were deterministic-tested:
+node definitions persist in SQLite and reload through authenticated IPC. Live
+workflow execution remains unverified.
+
+Brain history and conversation conversion passed deterministic tests: replacing
+a note creates a hidden history snapshot, active note listing remains portable,
+and conversion reads existing SQLite messages without mutation.
+
+Document intelligence tests passed for TXT, synthetic DOCX and a local PDF using
+pypdf. Path containment and file-size bounds are enforced; no OCR or remote
+document processing was used.
+
+Hosted Security run 95 failed on unsafe XML parsing in the DOCX extractor. The
+corrective tests now reject oversized ZIP entries and the implementation uses
+defusedxml; no external document is processed.
+
+## Desktop SkillsManager validation — 2026-11-23
+
+The authenticated SkillsManager endpoint and desktop panel were validated with
+deterministic tests. The endpoint returned reviewed skill metadata and changed
+enablement through the existing manager; malformed names/actions are rejected.
+The frontend production build passed. No third-party skill was installed and no
+live Hermes skill execution is claimed.
+
+## Brain graph/search validation — 2026-11-23
+
+Deterministic tests passed for Markdown lexical search, wikilink edge creation,
+backlinks and document inspection. The desktop Memory view now reports graph
+node/link counts and searches the local vault. No embeddings, external document
+service or live AI memory is claimed.
+

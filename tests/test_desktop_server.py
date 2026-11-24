@@ -6,6 +6,7 @@ import urllib.request
 from contextlib import closing
 from http.server import ThreadingHTTPServer
 from socket import socket
+from types import SimpleNamespace
 
 from omnix.desktop_server import DesktopServer, Handler
 from omnix.config import Settings, save_settings
@@ -115,6 +116,69 @@ def test_desktop_content_preference_is_backend_owned(monkeypatch, tmp_path):
         server.server_close()
 
 
+def test_desktop_skills_endpoint_exposes_reviewed_state_and_toggle(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    record = SimpleNamespace(name="review", path=str(tmp_path / "SKILL.md"), source="omnix-custom",
+                             description="Review code", permissions=("filesystem.read",), credentials=(),
+                             dependencies=(), enabled=False, installed=True)
+    class FakeSkills:
+        def browse(self):
+            return [record]
+        def set_enabled(self, name, enabled):
+            assert name == "review"
+            record.enabled = enabled
+            return record
+    server.skills = FakeSkills()
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/skills", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["skills"][0]["enabled"] is False
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/skills/review", data=json.dumps({"action": "enable"}).encode(), headers={**headers, "Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["skill"]["enabled"] is True
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_integrations_are_catalogued_disabled_and_explicit(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/integrations", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            integrations = json.loads(response.read())["integrations"]
+        openwhispr = next(item for item in integrations if item["name"] == "openwhispr")
+        assert openwhispr["enabled"] is False
+        assert openwhispr["health"]["status"] == "disabled"
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/integrations/openwhispr", data=json.dumps({"action": "enable"}).encode(), headers=headers, method="POST")
+        try:
+            urllib.request.urlopen(request, timeout=2)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400
+        else:
+            raise AssertionError("uninstalled integration was enabled")
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/integrations/openwhispr", data=json.dumps({"action": "install"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["integration"]["installed"] is True
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
 def test_desktop_runtime_selection_uses_hermes_boundary(monkeypatch, tmp_path):
     monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
     monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
@@ -161,6 +225,138 @@ def test_desktop_session_messages_are_available_after_restart(monkeypatch, tmp_p
         with urllib.request.urlopen(request, timeout=2) as response:
             payload = json.loads(response.read())
         assert payload["messages"] == [{"role": "user", "content": "remember this"}]
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_council_persists_candidates_and_enforces_free_mode(monkeypatch, tmp_path):
+    from omnix.council import Candidate, CouncilResult
+    from omnix.store import Store
+
+    class FakeCouncil:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def run(self, messages, config):
+            assert config.free_only is True and config.max_cost_usd == 0.0
+            return CouncilResult("council answer", [Candidate("omniroute", "free-a", "answer", 80.0, 2, 3, 4.0)], config.mode, 2, 3, 5.0, [])
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("omnix.desktop_server.CouncilService", FakeCouncil)
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/council", data=json.dumps({"prompt": "compare", "mode": "council", "models": ["free-a", "free-b", "free-c"]}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            payload = json.loads(response.read())
+        assert payload["answer"] == "council answer"
+        assert payload["candidates"][0]["model"] == "free-a"
+        row = Store().job(payload["task_id"])
+        assert row is None  # Council uses the existing task ledger, not durable worker jobs.
+        task = Store().db.execute("SELECT state FROM tasks WHERE id=?", (payload["task_id"],)).fetchone()
+        assert task["state"] == "completed"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_models_discovery_and_free_selection(monkeypatch, tmp_path):
+    from omnix.discovery import Discovery
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("omnix.desktop_server.discover_omniroute", lambda settings: Discovery(
+        "http://127.0.0.1:20128/v1", True, False,
+        [{"id": "free-a", "owned_by": "test", "free": True, "context_length": 8000, "capabilities": {"tool_calling": True}}],
+        [{"id": "free-a", "owned_by": "test", "free": True, "context_length": 8000, "capabilities": {"tool_calling": True}}], 2.0))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/models", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["models"][0]["free"] is True
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/settings", data=json.dumps({"model": "paid-model"}).encode(), headers=headers, method="POST")
+        try:
+            urllib.request.urlopen(request, timeout=2)
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 400
+        else:
+            raise AssertionError("FREE mode accepted an undiscovered paid model")
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_brain_vault_endpoint_is_contained_and_persistent(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("OMNIX_VAULT_DIR", str(tmp_path / "vault"))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/brain/notes", data=json.dumps({"path": "alpha.md", "content": "# Alpha\nlocal evidence"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["path"] == "alpha.md"
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/brain/note?path=alpha.md", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["content"] == "# Alpha\nlocal evidence"
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_tasks_use_existing_task_service_and_cancel(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/tasks", data=json.dumps({"action": "enqueue", "prompt": "queued task"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            task_id = json.loads(response.read())["task_id"]
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/tasks/{task_id}", data=json.dumps({"action": "cancel"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["cancelled"] is True
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/tasks", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            tasks = json.loads(response.read())["tasks"]
+        assert any(item["id"] == task_id and item["state"] == "cancelled" for item in tasks)
+    finally:
+        server.shutdown()
+        thread.join(timeout=2)
+        server.server_close()
+
+
+def test_desktop_workflow_definition_persists_in_sqlite(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    server = DesktopServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+        definition = {"nodes": [{"id": "step-1", "action": "approval", "depends_on": []}]}
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/workflows", data=json.dumps({"name": "Approval flow", "definition": definition}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=2) as response:
+            workflow_id = json.loads(response.read())["workflow_id"]
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/workflows", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            workflows = json.loads(response.read())["workflows"]
+        assert any(item["id"] == workflow_id and item["definition"] == definition for item in workflows)
     finally:
         server.shutdown()
         thread.join(timeout=2)

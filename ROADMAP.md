@@ -11,7 +11,8 @@
 
 ## Phase 3 — Windows desktop
 
-- Tauri 2 + React/TypeScript shell around the stable CLI/runtime APIs.
+- [x] Tauri 2 + React/TypeScript shell around the stable CLI/runtime APIs.
+- [x] Authenticated Council panel with bounded modes, model groups and usage metrics.
 - Credential, task, permission, memory, model, skills, and usage views.
 - Windows packaging and end-to-end desktop validation.
 

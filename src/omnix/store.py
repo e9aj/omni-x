@@ -6,6 +6,7 @@ import json
 import time
 import uuid
 import math
+import hashlib
 from pathlib import Path
 
 from .config import data_dir
@@ -39,11 +40,85 @@ class Store:
         CREATE TABLE IF NOT EXISTS delegations (id TEXT PRIMARY KEY, parent_job_id TEXT NOT NULL, child_job_id TEXT NOT NULL, role TEXT NOT NULL, state TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS hermes_session_map (omnix_session_id TEXT PRIMARY KEY, hermes_session_id TEXT NOT NULL, created REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS skill_events (id INTEGER PRIMARY KEY, skill TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, task_id TEXT, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS integration_states (name TEXT PRIMARY KEY, installed INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 0, revoked INTEGER NOT NULL DEFAULT 0, configured INTEGER NOT NULL DEFAULT 0, version TEXT, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS integration_events (id INTEGER PRIMARY KEY, name TEXT NOT NULL, event TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, name TEXT NOT NULL, definition_json TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL, updated REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, state TEXT NOT NULL, result_json TEXT, error TEXT, created REAL NOT NULL, finished REAL);
+        CREATE TABLE IF NOT EXISTS brain_embeddings (source_id TEXT PRIMARY KEY, source_type TEXT NOT NULL, content_hash TEXT NOT NULL, vector_json TEXT NOT NULL, updated REAL NOT NULL);
         """)
         columns = {row["name"] for row in self.db.execute("PRAGMA table_info(jobs)")}
         if "policy_json" not in columns:
             self.db.execute("ALTER TABLE jobs ADD COLUMN policy_json TEXT NOT NULL DEFAULT '{}'" )
         self.db.commit()
+
+    def upsert_embedding(self, source_id: str, source_type: str, content: str, vector: list[float]) -> None:
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        with self._lock:
+            self.db.execute(
+                """INSERT INTO brain_embeddings(source_id,source_type,content_hash,vector_json,updated)
+                   VALUES (?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET source_type=excluded.source_type,
+                   content_hash=excluded.content_hash, vector_json=excluded.vector_json, updated=excluded.updated""",
+                (source_id, source_type, digest, json.dumps(vector), time.time()),
+            )
+            self.db.commit()
+
+    def embeddings(self, limit: int = 1000) -> list[dict]:
+        safe_limit = max(1, min(int(limit), 1000))
+        rows = self.db.execute(f"SELECT * FROM brain_embeddings ORDER BY updated DESC LIMIT {safe_limit}").fetchall()  # nosec B608
+        return [{**dict(row), "vector": json.loads(row["vector_json"])} for row in rows]
+
+    def save_workflow(self, name: str, definition: dict, workflow_id: str | None = None) -> str:
+        ident, now = workflow_id or str(uuid.uuid4()), time.time()
+        with self._lock:
+            self.db.execute("INSERT INTO workflows(id,name,definition_json,enabled,created,updated) VALUES (?,?,?,0,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, definition_json=excluded.definition_json, updated=excluded.updated", (ident, name, json.dumps(definition, sort_keys=True), now, now))
+            self.db.commit()
+        return ident
+
+    def workflows(self) -> list[dict]:
+        return [{**dict(row), "definition": json.loads(row["definition_json"])} for row in self.db.execute("SELECT * FROM workflows ORDER BY updated DESC").fetchall()]
+
+    def workflow_runs(self, workflow_id: str | None = None) -> list[dict]:
+        if workflow_id:
+            rows = self.db.execute("SELECT * FROM workflow_runs WHERE workflow_id=? ORDER BY created DESC", (workflow_id,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM workflow_runs ORDER BY created DESC").fetchall()
+        return [{**dict(row), "result": json.loads(row["result_json"]) if row["result_json"] else None} for row in rows]
+
+    def backup(self, destination: Path) -> Path:
+        """Create a consistent SQLite backup without replacing the live DB."""
+        destination = destination.expanduser().resolve()
+        if destination == self.path.resolve():
+            raise ValueError("backup destination must differ from the live database")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        target = sqlite3.connect(destination)
+        try:
+            with self._lock:
+                self.db.backup(target)
+            result = target.execute("PRAGMA integrity_check").fetchone()[0]
+            if result != "ok":
+                raise RuntimeError("SQLite backup integrity check failed")
+        finally:
+            target.close()
+        return destination
+
+    @staticmethod
+    def restore(backup: Path, destination: Path) -> Path:
+        """Restore a verified backup to a new database path."""
+        backup, destination = backup.expanduser().resolve(), destination.expanduser().resolve()
+        if backup == destination or not backup.is_file():
+            raise ValueError("backup and destination are invalid")
+        source = sqlite3.connect(backup)
+        target = sqlite3.connect(destination)
+        try:
+            if source.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise RuntimeError("SQLite backup is corrupt")
+            source.backup(target)
+            if target.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                raise RuntimeError("restored SQLite database failed integrity check")
+        finally:
+            target.close()
+            source.close()
+        return destination
 
     def recover_orphaned_jobs(self) -> int:
         """Make jobs abandoned by a process restart eligible for recovery."""
@@ -130,6 +205,50 @@ class Store:
             rows = self.db.execute("SELECT * FROM skill_events WHERE skill=? ORDER BY id", (skill,)).fetchall()
         else:
             rows = self.db.execute("SELECT * FROM skill_events ORDER BY id").fetchall()
+        return [dict(row) for row in rows]
+
+    def integration_state(self, name: str) -> dict | None:
+        row = self.db.execute("SELECT * FROM integration_states WHERE name=?", (name,)).fetchone()
+        return dict(row) if row else None
+
+    def set_integration_state(self, name: str, *, installed: bool | None = None,
+                              enabled: bool | None = None, revoked: bool | None = None,
+                              configured: bool | None = None, version: str | None = None) -> None:
+        current = self.integration_state(name) or {
+            "installed": 0, "enabled": 0, "revoked": 0, "configured": 0, "version": None,
+        }
+        values = {
+            "installed": int(current["installed"] if installed is None else installed),
+            "enabled": int(current["enabled"] if enabled is None else enabled),
+            "revoked": int(current["revoked"] if revoked is None else revoked),
+            "configured": int(current["configured"] if configured is None else configured),
+            "version": current["version"] if version is None else version,
+        }
+        with self._lock:
+            self.db.execute(
+                """INSERT INTO integration_states(name,installed,enabled,revoked,configured,version,updated)
+                   VALUES (?,?,?,?,?,?,?)
+                   ON CONFLICT(name) DO UPDATE SET installed=excluded.installed,
+                   enabled=excluded.enabled, revoked=excluded.revoked, configured=excluded.configured,
+                   version=excluded.version, updated=excluded.updated""",
+                (name, values["installed"], values["enabled"], values["revoked"],
+                 values["configured"], values["version"], time.time()),
+            )
+            self.db.commit()
+
+    def record_integration_event(self, name: str, event: str, detail: str = "") -> None:
+        with self._lock:
+            self.db.execute(
+                "INSERT INTO integration_events(name,event,detail,created) VALUES (?,?,?,?)",
+                (name, event, detail[:2000], time.time()),
+            )
+            self.db.commit()
+
+    def integration_events(self, name: str | None = None) -> list[dict]:
+        if name:
+            rows = self.db.execute("SELECT * FROM integration_events WHERE name=? ORDER BY id", (name,)).fetchall()
+        else:
+            rows = self.db.execute("SELECT * FROM integration_events ORDER BY id").fetchall()
         return [dict(row) for row in rows]
 
     def remember(self, key: str, value: str) -> None:

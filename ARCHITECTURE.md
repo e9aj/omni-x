@@ -4,6 +4,16 @@ OMNI-X remains one unified CLI-first runtime. The Hermes integration is an
 internal compatibility layer, not a second permanently running agent engine and
 not a public Hermes fork.
 
+## Optional integration boundary — 2026-11-23
+
+`IntegrationRegistry` is the single lifecycle boundary for external projects.
+Its SQLite state and audit tables record metadata-only installation,
+configuration, enablement, disablement and revocation. Entries are disabled by
+default; registry registration does not install software, connect to services,
+load secret values or execute MCP/tools. External adapters must call through
+OMNI-X credentials, approvals, permissions, TaskService and audit history.
+See `docs/INTEGRATION_COMPATIBILITY.md` for the ten-project review.
+
 ## Assessment
 
 Hermes Agent is MIT-licensed and currently provides a mature execution loop,
@@ -216,6 +226,37 @@ session database is not substituted for OMNI-X history.
 `HermesMemoryAdapter` maps the small memory contract to OMNI-X's existing
 SQLite `memories` table. The `hermes_session_map` and `skill_events` tables are
 additive migrations and support recovery/audit without changing desktop IPC.
+
+### Council boundary — 2026-11-23
+
+`CouncilService` is an independent OMNI-X capability informed by the reviewed
+GODMOD3 reference architecture. It calls the existing `Router` in bounded
+parallelism and never creates a model gateway, credential store or agent
+runtime. Standard (one model) is the default; Council (three), Advanced (five)
+and Research (explicit bounded count) are opt-in. OMNI-X retains free-first
+routing, zero-spend enforcement, provider credentials, latency/token records,
+permissions and approvals. Response evaluation and synthesis are deterministic
+selection steps by default, so a hidden synthesis call cannot bypass policy or
+inflate usage. Robustness testing requires explicit authorisation and accepts
+ordinary capability probes only; GODMOD3 telemetry, public dataset publishing,
+jailbreak prompts and safeguard-circumvention mechanisms are excluded.
+
+The desktop path exposes this service only through the authenticated Python
+loopback API and Tauri command bridge. Each run receives a bounded model group,
+creates an existing SQLite task ledger entry, records per-candidate usage and
+latency, and stores a completion/failure audit event. It cannot alter the
+backend permission policy or credential scope.
+
+The desktop Models panel uses the same authenticated bridge to query OmniRoute's
+current catalogue. Model selection is persisted by the Python backend and is
+rejected when it is not explicitly free while FREE mode is active; the React
+layer never receives provider credentials.
+
+Brain notes use a portable Markdown vault under the OMNI-X data area. The
+Python backend is the only writer, resolves every path beneath the vault root,
+rejects non-Markdown files and writes through an fsynced temporary file followed
+by an atomic replace. SQLite remains available for agent memory and metadata;
+Markdown remains the user-visible note source of truth.
 
 The 2026-11-19 capability sweep confirmed the same boundary across all currently
 declared free tool routes: OmniRoute served one upstream DeepSeek model and

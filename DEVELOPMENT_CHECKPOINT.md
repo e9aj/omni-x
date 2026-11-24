@@ -5,7 +5,8 @@ Updated: 2026-11-24
 ## Current state
 
 - Branch: `codex/alpha-candidate`
-- Head: `8279617`.
+- Head: `1d0e0d8`.
+- Consolidated alpha branch is pushed at `1d0e0d8`; PR creation via the current GitHub integration returned HTTP 403 (`Resource not accessible by integration`) and requires repository write permission through another authorised route.
 - Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 
@@ -43,6 +44,7 @@ Updated: 2026-11-24
 - Hosted validation for `3f05632`: CI run 238 completed successfully; Windows Desktop run 117 remains in progress; Security/compliance run 103 has passed Python security, secret scan and SBOM while Rust audit remains in progress.
 - A read-only Codex Security Standard scan was started for this head (scan `63065c13-7b43-4926-89b1-6610de5df075`); findings are not available yet and PR readiness is therefore still pending.
 - Security scan `51568aee-c1a5-45da-b4a7-24fc81d0c69e` remains stuck in threat modelling with zero reported findings; it has not been treated as a completed review.
+- Replacement consolidated-candidate scan `3e8ad111-2ab4-4794-8325-46aa6148da48` is running read-only. Full Python regression and desktop Vite build pass; local Cargo test is blocked by the OneDrive build-script output-path permission error.
 
 ## Known limitations
 

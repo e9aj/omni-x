@@ -34,9 +34,10 @@ class TaskService:
 
     def __init__(self, settings: Settings, store: Store | None = None, workspace: Path | None = None,
                  approver: Callable[[str], bool] | None = None, executor: Callable[[str, str | None], str] | None = None,
-                 max_workers: int = 2):
+                 max_workers: int = 2, cancellable_approver: Callable[[str, threading.Event], bool] | None = None):
         self.settings, self.store = settings, store or Store()
         self.workspace, self.approver = Path(workspace or Path.cwd()).resolve(), approver
+        self.cancellable_approver = cancellable_approver
         self._executor = executor
         self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="omnix-worker")
         self._stop = threading.Event(); self._wake = threading.Event(); self._thread: threading.Thread | None = None
@@ -55,6 +56,13 @@ class TaskService:
         self._stop.set(); self._wake.set()
         if self._thread: self._thread.join(timeout=5)
         self._pool.shutdown(wait=True, cancel_futures=True)
+
+    def _approve(self, action: str, cancel: threading.Event) -> bool:
+        if cancel.is_set():
+            return False
+        if self.cancellable_approver:
+            return bool(self.cancellable_approver(action, cancel)) and not cancel.is_set()
+        return bool(self.approver and self.approver(action)) and not cancel.is_set()
 
     def schedule(self, prompt: str, schedule: str) -> str:
         kind, first, _ = _parse_schedule(schedule)
@@ -147,11 +155,15 @@ class TaskService:
                                       depends_on=tuple(item.get("depends_on") or ()), retries=int(item.get("retries", 0)),
                                       timeout_seconds=float(item.get("timeout_seconds", 30))))
         def agent(payload: dict, event: threading.Event) -> str:
-            runtime = AgentRuntime(self.settings, Store(self.store.path), self.workspace, self.approver, cancel_event=event)
-            result, _ = runtime.run(str(payload.get("prompt", "")), None)
-            return result
+            runtime_store = Store(self.store.path)
+            try:
+                runtime = AgentRuntime(self.settings, runtime_store, self.workspace, lambda action: self._approve(action, event), cancel_event=event)
+                result, _ = runtime.run(str(payload.get("prompt", "")), None)
+                return result
+            finally:
+                runtime_store.db.close()
         runner = WorkflowRunner(agent=agent, integration=None,
-                                approve=lambda payload: bool(self.approver and self.approver(str(payload.get("action", "workflow approval")))),
+                                approve=lambda payload: self._approve(str(payload.get("action", "workflow approval")), cancel),
                                 audit=lambda event, detail: self.store.event("workflow:" + run_id, event, detail))
         try:
             result = runner.run(steps, cancel=cancel)
@@ -252,7 +264,7 @@ class TaskService:
     def _run_omnix_job(self, row: dict, cancel: threading.Event, job_id: str) -> tuple[str, str | None]:
         runtime_store = Store(self.store.path)
         try:
-            runtime = AgentRuntime(self._job_settings(row), runtime_store, self.workspace, self.approver,
+            runtime = AgentRuntime(self._job_settings(row), runtime_store, self.workspace, lambda action: self._approve(action, cancel),
                                    cancel_event=cancel,
                                    delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
             result, session_id = runtime.run(row["prompt"], row.get("session_id"))

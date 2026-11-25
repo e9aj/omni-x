@@ -553,7 +553,8 @@ class DesktopServer(ThreadingHTTPServer):
         settings = load_settings()
         if not config_path().exists() and settings.provider == "openai":
             settings = Settings(provider="omniroute", model="auto/best-free", base_url="http://127.0.0.1:20128/v1", mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="ask")
-        self.tasks = TaskService(settings, Store(), Path.cwd(), approver=self.approvals.request)
+        self.tasks = TaskService(settings, Store(), Path.cwd(), approver=self.approvals.request,
+                                 cancellable_approver=lambda action, cancel: self.approvals.request(action, cancel_event=cancel))
         self.skills = SkillsManager(Path.cwd())
         self.integrations = register_researched_integrations(IntegrationRegistry(Store()))
 

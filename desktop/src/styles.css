@@ -73,3 +73,23 @@ button:disabled { cursor: not-allowed; }
 .panel { max-width: 900px; margin: 48px auto; }
 .council-form input, .council-form textarea, .council-form select { background: #141e17; border-color: #35483a; }
 .council-form button { background: #b7df9f; color: #172318; }
+.panel h3 { color: #e5eee2; font-size: 16px; margin: 30px 0 12px; }
+.panel > label { display: block; margin: 16px 0 8px; color: #b6c8ba; font-size: 13px; }
+.panel input:not([type="checkbox"]), .panel textarea, .panel select { min-width: 0; color: #ecf3e9; background: #141e17; border: 1px solid #35483a; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
+.panel input:not([type="checkbox"]):focus, .panel textarea:focus, .panel select:focus { border-color: #9ec88d; }
+.panel > input:not([type="checkbox"]), .panel > textarea { display: block; width: min(100%, 650px); margin: 9px 0; }
+.panel button { margin: 4px 6px 4px 0; padding: 8px 12px; color: #dfeade; background: #223128; border: 1px solid #405547; border-radius: 8px; font-size: 12px; font-weight: 600; }
+.panel button:hover:not(:disabled) { background: #304737; }
+.panel button:disabled { opacity: .45; }
+.panel .council-form button { color: #172318; background: #b7df9f; border-color: #b7df9f; }
+.panel .council-form button:hover:not(:disabled) { background: #d0edbd; }
+.candidate, .approval { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 8px 0; padding: 14px 16px; color: #dfeade; background: #151f18; border: 1px solid #2e3f33; border-radius: 10px; font: 13px "Segoe UI", sans-serif; }
+.candidate span, .candidate small, .approval small { color: #a5b8a9; overflow-wrap: anywhere; }
+.candidate strong { overflow-wrap: anywhere; }
+.approval { display: block; }
+.approval p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.workflow-node { min-height: 74px; margin: 0; padding: 10px; background: #203127; }
+.workflow-node select { max-width: 100%; padding: 5px; }
+.note-list { display: grid; gap: 6px; margin: 16px 0; }
+.note-list > span { display: flex; flex-wrap: wrap; align-items: center; }
+@media (max-width: 1050px) { .workspace { padding-inline: 26px; } .sidebar { width: 190px; flex-basis: 190px; } }

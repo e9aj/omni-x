@@ -116,8 +116,16 @@ class ToolRegistry:
         process = subprocess.Popen(command, cwd=self.workspace, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=os.environ.copy(), creationflags=flags, start_new_session=(os.name != "nt"))  # nosec B602
         with self._active_lock: self._active.add(process)
         try:
+            # Drain both pipes while the process runs. Waiting for exit before
+            # reading can deadlock when a child fills the OS pipe buffer.
+            output: list[tuple[str, str]] = []
+            reader = threading.Thread(target=lambda: output.append(process.communicate()), daemon=True)
+            reader.start()
             _, stopped = wait_owned_process(process, self.cancel_event, 120)
-            stdout, stderr = process.communicate(timeout=10)
+            reader.join(timeout=10)
+            if reader.is_alive() or not output:
+                raise subprocess.SubprocessError("command output could not be collected")
+            stdout, stderr = output[0]
             if stopped and self.cancel_event.is_set():
                 raise RuntimeError("Task cancelled; owned command process tree terminated")
             if stopped:

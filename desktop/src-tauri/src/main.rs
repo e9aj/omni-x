@@ -12,7 +12,7 @@ use std::{
         Mutex,
     },
     thread,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
@@ -59,11 +59,13 @@ fn token() -> String {
             return value;
         }
     }
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    format!("omnix-{}-{}", std::process::id(), nanos)
+    random_token().expect("operating-system randomness is unavailable")
+}
+
+fn random_token() -> Result<String, getrandom::Error> {
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes)?;
+    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
 fn request(
@@ -1063,7 +1065,16 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{pid_is_in_ancestry, terminate_authenticated_orphan};
+    use super::{pid_is_in_ancestry, random_token, terminate_authenticated_orphan};
+
+    #[test]
+    fn generated_ipc_tokens_are_distinct_and_well_formed() {
+        let first = random_token().expect("OS randomness");
+        let second = random_token().expect("OS randomness");
+        assert_eq!(first.len(), 64);
+        assert!(first.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert_ne!(first, second);
+    }
 
     fn should_restart(child_present: bool, child_exited: bool, stopping: bool) -> bool {
         !stopping && (!child_present || child_exited)

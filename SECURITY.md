@@ -8,6 +8,7 @@ in `docs/security/`.
 
 ## Current controls
 
+- The desktop generates its default loopback bearer token from operating-system randomness; an explicit `OMNIX_IPC_TOKEN` override remains available for controlled test environments and must be kept secret.
 - API keys are stored with Windows DPAPI. Non-Windows fallback encryption requires an `OMNIX_MASTER_KEY`, integrity-checks ciphertext, and restricts the secret file to the owner.
 - Secrets are never included in provider errors, task events, or source control.
 - Relative and absolute tool paths must remain inside the configured workspace.

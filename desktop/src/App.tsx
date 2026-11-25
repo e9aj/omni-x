@@ -901,17 +901,17 @@ export function App() {
             <input value={voiceModel} onChange={(event) => setVoiceModel(event.target.value)} placeholder="C:/local/whisper-model" />
             <button onClick={() => void transcribeVoice()}>Transcribe locally</button>
             <textarea value={voiceText} onChange={(event) => setVoiceText(event.target.value)} rows={4} placeholder="Transcribed text or text to speak" />
-            <button onClick={() => void speakVoice()}>Speak locally</button><input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} aria-label="voice note path" /><button onClick={() => void recordVoiceNote()}>Push-to-talk · record 5 seconds</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
+            <button onClick={() => void speakVoice()}>Speak locally</button><input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} aria-label="voice note path" /><button onClick={() => void recordVoiceNote()}>Record a 5-second note</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
             {voiceDevices.map((device) => <small key={device}>{device}</small>)}
-            <p className="muted">Push-to-talk, physical microphone capture and wake-word support remain unavailable until an explicitly approved local audio engine is installed.</p>
+            <p className="muted">Recording and speech require approved local audio components. Wake-word activation is unavailable.</p>
           </section>
         ) : section === "Workflows" ? (
           <section className="panel">
             <p className="eyebrow">TASKSERVICE · PERSISTENT DEFINITION</p>
             <h2>Workflow builder</h2>
             <p className="muted">
-              Drag-ready workflow nodes are stored in SQLite. Execution remains
-              behind TaskService policy and is not claimed live here.
+              Arrange steps, then save, run or schedule your workflow. Actions
+              remain subject to your permissions and approvals.
             </p>
             <label>
               Workflow name{" "}
@@ -1054,7 +1054,7 @@ export function App() {
             <h2>{section}</h2>
             <p className="muted">
               {section === "Agents"
-                ? "Agent activity is shown from the unified TaskService queue. Hermes remains opt-in and inherits the stored policy."
+                ? "Review agent activity and delegated work from the shared task queue."
                 : "Queue and cancel background work without creating a second scheduler."}
             </p>
             {section === "Tasks" && (

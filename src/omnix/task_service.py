@@ -234,6 +234,8 @@ class TaskService:
             if not db.claim_job(job_id):
                 return
             row = db.job(job_id) or {}; cancel = self._cancel.setdefault(job_id, threading.Event())
+            if self._stop.is_set():
+                cancel.set()
             try:
                 if cancel.is_set(): raise RuntimeError("Task cancelled")
                 if row.get("deadline") and time.time() > row["deadline"]: raise TimeoutError("task deadline exceeded")

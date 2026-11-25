@@ -212,6 +212,18 @@ def test_shutdown_cancels_pending_workflow_approval(tmp_path: Path):
     assert store.workflow_runs(workflow)[0]["state"] == "cancelled"
 
 
+def test_job_claimed_after_shutdown_does_not_execute(tmp_path: Path):
+    actions = []
+    store = Store(tmp_path / "shutdown-race.sqlite3")
+    service = TaskService(Settings(), store, tmp_path, executor=lambda *_: actions.append("ran"))
+    job = store.create_job("task")
+    service._stop.set()
+    service._run(job)
+    assert actions == []
+    assert store.job(job)["state"] == "cancelled"
+    service.close()
+
+
 def test_native_queued_job_cancellation_reaches_terminal_state(tmp_path: Path):
     service = TaskService(Settings(), Store(tmp_path / "native-cancel.sqlite3"), tmp_path, max_workers=1)
     job = service.enqueue("cancel before claim")

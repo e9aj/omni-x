@@ -99,6 +99,8 @@ class ToolRegistry:
         target = self._inside(path)
         if not self.approver(f"write {target}"):
             raise PermissionDenied("write requires explicit approval")
+        if self.cancel_event.is_set():
+            raise RuntimeError("Task cancelled")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         return f"Wrote {target.relative_to(self.workspace)}"
@@ -109,6 +111,8 @@ class ToolRegistry:
             raise PermissionDenied("dangerous command rejected")
         if not self.approver(f"run command: {command}"):
             raise PermissionDenied("command execution requires explicit approval")
+        if self.cancel_event.is_set():
+            raise RuntimeError("Task cancelled")
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
         # The command is a deliberately explicit, approval-gated tool.  The
         # dangerous-command denylist, workspace cwd, owned-process tracking and

@@ -36,6 +36,8 @@ class HermesBrowserAdapter:
             return "Browser unavailable: configure OMNIX_HERMES_SOURCE to an inspected Hermes checkout."
         if not self.approver("browser automation: execute approved Hermes browser task"):
             return "Browser denied: explicit approval required"
+        if self.cancel_event.is_set():
+            raise RuntimeError("Task cancelled")
         if not isinstance(code, str) or not code.strip():
             return "Browser error: code is required"
         env = os.environ.copy()
@@ -69,6 +71,8 @@ class HermesBrowserAdapter:
             return "Browser unavailable: configure the managed Hermes backend first"
         if not self.approver("browser shutdown: close managed browser sessions"):
             return "Browser shutdown denied: explicit approval required"
+        if self.cancel_event.is_set():
+            raise RuntimeError("Task cancelled")
         python = hermes_python() or Path(sys.executable)
         env = os.environ.copy()
         env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(self.source), env.get("PYTHONPATH", "")]))

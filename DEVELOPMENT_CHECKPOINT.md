@@ -25,8 +25,10 @@ Updated: 2026-11-24
 
 - Resumed from `3efe0a5` on `codex/critical-overhaul`; the older exact-next-action and starting-head notes below are historical.
 - Added cancellation and deadline checks after a provider response and before each tool call. This prevents dispatch after the runtime observes cancellation or expiry; it does not interrupt a blocked provider request or an already executing tool.
+- Writes, commands and the legacy browser adapter now recheck cancellation after approval, preventing an approval arriving after Stop from starting those actions. Targeted tool, runtime and browser-manager tests: 16 passed.
 - Added regression coverage for cancellation during a provider request and between tool calls. Full local Python suite: 130 passed, 3 skipped. Desktop production build passed. These tests do not establish packaged desktop crash recovery or live inference.
 - Enabled the existing Windows Desktop workflow on pushes to `codex/critical-overhaul`; its isolated installer smoke test must be checked on the resulting commit.
+- Hosted CI for `548c3f4` passed; Windows Desktop and security runs were still in progress when last checked. A local Python 3.15 PyInstaller sidecar build succeeded, but the isolated execution probe was rejected by automatic approval review, so no local packaged health or shutdown result is claimed.
 - Native browser and skill paths still depend on Hermes; chat remains one-shot. Streaming, visual redesign, branding verification, performance measurement and current-head installer scenarios remain outstanding. No overhaul checklist item is considered complete on this evidence.
 
 ## Verified at starting head

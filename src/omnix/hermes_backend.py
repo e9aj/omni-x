@@ -87,6 +87,10 @@ class HermesExecutionBackend:
                 if "requires_tools" not in str(exc):
                     raise
                 response, route = self.router.complete(messages, self.tools.schemas(), lambda r, u, latency: self.record_usage(task_id, r, u, latency))
+            if self.cancel_event.is_set():
+                raise RuntimeError("Task cancelled")
+            if time.monotonic() > deadline:
+                raise RuntimeError("Task timeout exceeded")
             message = response["choices"][0]["message"]
             saw_assistant_turn = True
             text = message.get("content") or ""
@@ -129,6 +133,10 @@ class HermesExecutionBackend:
 
             messages.append({"role": "assistant", "content": text, "tool_calls": calls})
             for call in calls:
+                if self.cancel_event.is_set():
+                    raise RuntimeError("Task cancelled")
+                if time.monotonic() > deadline:
+                    raise RuntimeError("Task timeout exceeded")
                 try:
                     raw_args = json.loads(call["function"].get("arguments") or "{}")
                     name = call["function"].get("name")

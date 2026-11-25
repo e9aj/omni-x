@@ -21,6 +21,14 @@ Updated: 2026-11-24
 - [ ] Build/install the Windows app and run repeated launches plus offline, no-credential, chat failure, streaming/cancel, tool/task, Brain, workflow, recovery and shutdown scenarios; capture genuine UI/splash screenshots.
 - [ ] Record current-head tests, installer checksum/signing status and unresolved limitations. Continue independent work after each commit until criteria are met or remaining tasks are genuinely blocked.
 
+## Overhaul continuation — 25 November 2026
+
+- Resumed from `3efe0a5` on `codex/critical-overhaul`; the older exact-next-action and starting-head notes below are historical.
+- Added cancellation and deadline checks after a provider response and before each tool call. This prevents dispatch after the runtime observes cancellation or expiry; it does not interrupt a blocked provider request or an already executing tool.
+- Added regression coverage for cancellation during a provider request and between tool calls. Full local Python suite: 130 passed, 3 skipped. Desktop production build passed. These tests do not establish packaged desktop crash recovery or live inference.
+- Enabled the existing Windows Desktop workflow on pushes to `codex/critical-overhaul`; its isolated installer smoke test must be checked on the resulting commit.
+- Native browser and skill paths still depend on Hermes; chat remains one-shot. Streaming, visual redesign, branding verification, performance measurement and current-head installer scenarios remain outstanding. No overhaul checklist item is considered complete on this evidence.
+
 ## Verified at starting head
 
 - Local history records targeted command-output drain tests at `6d4529d`; this does not diagnose the reported desktop crash or satisfy the overhaul acceptance criteria.

@@ -1,8 +1,58 @@
 from pathlib import Path
+import threading
+
+import pytest
 
 from omnix.config import Settings
 from omnix.runtime import AgentRuntime
 from omnix.store import Store
+
+
+def test_cancel_during_provider_request_prevents_tool_execution(monkeypatch, tmp_path: Path):
+    cancelled = threading.Event()
+
+    class FakeRouter:
+        def __init__(self, *_args):
+            pass
+
+        def complete(self, *_args, **_kwargs):
+            cancelled.set()
+            call = {"id": "1", "function": {"name": "write_file", "arguments": '{"path":"result.txt","content":"unexpected"}'}}
+            return {"choices": [{"message": {"content": "", "tool_calls": [call]}}]}, type("Route", (), {"provider": "test", "model": "test"})()
+
+    monkeypatch.setattr("omnix.runtime.Router", FakeRouter)
+    store = Store(tmp_path / "db.sqlite3")
+    runtime = AgentRuntime(Settings(), store, tmp_path, approver=lambda _: True, cancel_event=cancelled)
+    with pytest.raises(RuntimeError, match="Task cancelled"):
+        runtime.run("Write a file")
+    assert not (tmp_path / "result.txt").exists()
+    assert store.db.execute("SELECT state FROM tasks WHERE id=?", (runtime.last_task_id,)).fetchone()[0] == "cancelled"
+
+
+def test_cancel_between_tool_calls_prevents_next_call(monkeypatch, tmp_path: Path):
+    cancelled = threading.Event()
+
+    class FakeRouter:
+        def __init__(self, *_args):
+            pass
+
+        def complete(self, *_args, **_kwargs):
+            calls = [{"id": str(i), "function": {"name": "read_file", "arguments": '{"path":"note.txt"}'}} for i in range(2)]
+            return {"choices": [{"message": {"content": "", "tool_calls": calls}}]}, type("Route", (), {"provider": "test", "model": "test"})()
+
+    monkeypatch.setattr("omnix.runtime.Router", FakeRouter)
+    runtime = AgentRuntime(Settings(), Store(tmp_path / "db.sqlite3"), tmp_path, cancel_event=cancelled)
+    calls = []
+
+    def call(name, args):
+        calls.append((name, args))
+        cancelled.set()
+        return "first result"
+
+    monkeypatch.setattr(runtime.tools, "call", call)
+    with pytest.raises(RuntimeError, match="Task cancelled"):
+        runtime.run("Read the file")
+    assert len(calls) == 1
 
 
 def test_runtime_executes_a_read_tool(monkeypatch, tmp_path: Path):

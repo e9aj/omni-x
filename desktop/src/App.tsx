@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-const logo = "/src/assets/omnix.svg";
+import logo from "./assets/website-logo.png";
 
 type BackendStatus = {
   connected: boolean;

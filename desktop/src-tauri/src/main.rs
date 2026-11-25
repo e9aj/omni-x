@@ -381,20 +381,25 @@ fn backend_status(state: State<'_, BackendState>) -> BackendStatus {
 }
 
 #[tauri::command]
-fn backend_chat(
+async fn backend_chat(
     prompt: String,
     session_id: Option<String>,
-    state: State<'_, BackendState>,
+    app: AppHandle,
 ) -> Result<Value, String> {
     if prompt.trim().is_empty() {
         return Err("prompt is required".into());
     }
-    request(
-        &state,
-        "POST",
-        "/v1/chat",
-        Some(json!({"prompt": prompt, "session_id": session_id})),
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<BackendState>();
+        request(
+            &state,
+            "POST",
+            "/v1/chat",
+            Some(json!({"prompt": prompt, "session_id": session_id})),
+        )
+    })
+    .await
+    .map_err(|_| "Chat worker stopped unexpectedly".to_string())?
 }
 
 #[tauri::command]

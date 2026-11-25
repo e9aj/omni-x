@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+const logo = "/src/assets/omnix.svg";
 
 type BackendStatus = {
   connected: boolean;
@@ -144,6 +145,7 @@ export function App() {
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [running, setRunning] = useState(false);
+  const [booting, setBooting] = useState(true);
   const [usage, setUsage] = useState<string>();
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [contentPreference, setContentPreference] = useState("creative");
@@ -212,6 +214,13 @@ export function App() {
     const timer = window.setInterval(() => void refreshStatus(), 5000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setBooting(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (status.connected) setBooting(false);
+  }, [status.connected]);
   useEffect(() => {
     if (!sessionId) return;
     void invoke<{ messages: Array<{ role: string; content: string }> }>(
@@ -636,9 +645,16 @@ export function App() {
 
   return (
     <div className="app-shell">
+      {booting && (
+        <div className="boot-screen" role="status" aria-live="polite">
+          <img src={logo} alt="OMNI-X" />
+          <strong>OMNI-X</strong>
+          <span>Starting local runtime</span>
+        </div>
+      )}
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">OX</span>
+          <img className="brand-mark" src={logo} alt="OMNI-X" />
           <span>
             <strong>OMNI-X</strong>
             <small>ONE AGENT. EVERY AI.</small>

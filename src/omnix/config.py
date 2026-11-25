@@ -20,9 +20,8 @@ def data_dir() -> Path:
 
 @dataclass
 class Settings:
-    # ``omnix`` keeps the verified OMNI-X engine as the default. ``auto`` may
-    # use Hermes for bounded jobs and falls back to OMNI-X on availability or
-    # compatibility failure; ``hermes`` is an explicit opt-in requirement.
+    # The native OMNI-X runtime is the only execution authority. ``runtime``
+    # remains in the schema solely to migrate old settings files.
     runtime: str = "omnix"
     provider: str = "openai"
     model: str = "gpt-4o-mini"
@@ -53,7 +52,10 @@ def load_settings() -> Settings:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
         values = {k: raw[k] for k in asdict(Settings()) if k in raw}
-        return Settings(**values)
+        settings = Settings(**values)
+        if settings.runtime != "omnix":
+            settings.runtime = "omnix"
+        return settings
     except (OSError, ValueError, TypeError) as exc:
         raise RuntimeError(f"Invalid OMNI-X configuration at {path}: {exc}") from exc
 

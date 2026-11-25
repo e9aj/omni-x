@@ -179,19 +179,13 @@ def test_desktop_integrations_are_catalogued_disabled_and_explicit(monkeypatch, 
         server.server_close()
 
 
-def test_desktop_runtime_selection_uses_hermes_boundary(monkeypatch, tmp_path):
+def test_legacy_hermes_setting_migrates_to_native_runtime(monkeypatch, tmp_path):
     monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
     monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
     save_settings(Settings(runtime="hermes", provider="omniroute", model="auto/best-free",
                             base_url="http://127.0.0.1:20128/v1", mode="FREE",
                             allow_paid=False, max_cost_usd=0.0))
-    monkeypatch.setattr("omnix.desktop_server.run_hermes_primary_probe", lambda *args, **kwargs: {
-        "answer": "hermes desktop result", "model": "auto/best-free",
-        "omnix_session_id": "hermes-session", "usage": {
-            "provider": "omniroute", "input_tokens": 2, "output_tokens": 3,
-            "estimated_cost_usd": 0.0,
-        },
-    })
+    monkeypatch.setattr("omnix.desktop_server.AgentRuntime.run", lambda self, prompt, session_id=None: ("native desktop result", session_id or "native-session"))
     server = DesktopServer(("127.0.0.1", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -201,9 +195,8 @@ def test_desktop_runtime_selection_uses_hermes_boundary(monkeypatch, tmp_path):
         request = urllib.request.Request(base + "/v1/chat", data=json.dumps({"prompt": "hello"}).encode(), headers=headers, method="POST")
         with urllib.request.urlopen(request, timeout=2) as response:
             payload = json.loads(response.read())
-        assert payload["answer"] == "hermes desktop result"
-        assert payload["runtime"] == "hermes"
-        assert payload["usage"][0]["estimated_cost"] == 0.0
+        assert payload["answer"] == "native desktop result"
+        assert payload["runtime"] == "omnix"
     finally:
         server.shutdown()
         thread.join(timeout=2)

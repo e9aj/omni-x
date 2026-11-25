@@ -1,10 +1,10 @@
 # OMNI-X Desktop
 
 The Windows-first desktop shell uses Tauri 2, React, TypeScript and Vite. It
-starts the existing Python runtime as an owned local process and checks it via
-an authenticated loopback health endpoint. Credentials never enter the
-frontend. Chat, tasks, models and settings are being connected incrementally
-to the existing SQLite-backed OMNI-X services.
+starts the native OMNI-X Python runtime as an owned local process and checks it
+via an authenticated loopback health endpoint. Credentials never enter the
+frontend. Chat, tasks, models and settings use the existing SQLite-backed
+OMNI-X services; Hermes is not required or launched by the desktop app.
 
 The Windows alpha packages the Python backend as a managed sidecar. Hosted
 Windows validation covers installation, launch, authenticated health, owned

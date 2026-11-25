@@ -33,7 +33,16 @@ struct BackendState {
     child: Mutex<Option<Child>>,
     token: String,
     stopping: AtomicBool,
+    starting: AtomicBool,
     restart_attempts: AtomicU32,
+}
+
+struct StartupGuard<'a>(&'a AtomicBool);
+
+impl Drop for StartupGuard<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::SeqCst);
+    }
 }
 
 #[derive(Serialize)]
@@ -200,6 +209,14 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         return Err("backend is stopping".into());
     }
     if state
+        .starting
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err("backend startup already in progress".into());
+    }
+    let _startup_guard = StartupGuard(&state.starting);
+    if state
         .child
         .lock()
         .map_err(|_| "backend lock poisoned".to_string())?
@@ -307,13 +324,24 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
             supervisor_log(&format!(
                 "backend pid={expected_pid} exited before health: {status}"
             ));
+            discard_child(state);
             return Err("backend exited before authenticated health check".into());
         }
         thread::sleep(Duration::from_millis(500));
     }
     eprintln!("OMNI-X backend authenticated health check timed out");
     supervisor_log(&format!("health timeout pid={expected_pid}"));
+    discard_child(state);
     Err("backend did not pass authenticated health check within 15 seconds".into())
+}
+
+fn discard_child(state: &BackendState) {
+    if let Ok(mut guard) = state.child.lock() {
+        if let Some(mut child) = guard.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
 }
 
 fn shutdown_backend(state: &BackendState) {
@@ -840,6 +868,7 @@ fn main() {
         child: Mutex::new(None),
         token: token(),
         stopping: AtomicBool::new(false),
+        starting: AtomicBool::new(false),
         restart_attempts: AtomicU32::new(0),
     };
     tauri::Builder::default()
@@ -847,38 +876,38 @@ fn main() {
         .manage(state)
         .setup(|app| {
             let handle = app.handle().clone();
-            {
-                let state = handle.state::<BackendState>();
-                let mut startup_error = None;
-                let mut started = false;
+            // Render the shell immediately. Backend readiness is supervised in
+            // the background so a slow database/provider cannot prevent the
+            // recovery UI from opening.
+            let startup_handle = handle.clone();
+            thread::spawn(move || {
                 for attempt in 1..=3 {
-                    match start_backend(&handle, &state) {
+                    let state = startup_handle.state::<BackendState>();
+                    match start_backend(&startup_handle, &state) {
                         Ok(()) => {
                             eprintln!("OMNI-X backend startup succeeded on attempt {attempt}");
-                            started = true;
-                            break;
+                            return;
                         }
                         Err(error) => {
                             eprintln!("OMNI-X backend startup attempt {attempt} failed: {error}");
-                            startup_error = Some(error);
-                            thread::sleep(Duration::from_secs(1));
+                            supervisor_log(&format!("startup attempt={attempt} failed: {error}"));
+                            thread::sleep(Duration::from_millis(500));
                         }
                     }
                 }
-                if !started {
-                    return Err(Box::<dyn std::error::Error>::from(format!(
-                        "backend startup failed after 3 attempts: {}",
-                        startup_error.unwrap_or_else(|| "unknown error".into())
-                    )));
-                }
-            }
+                supervisor_log(
+                    "backend startup exhausted bounded attempts; desktop remains available",
+                );
+            });
             thread::spawn(move || loop {
                 thread::sleep(Duration::from_secs(2));
                 let state = handle.state::<BackendState>();
                 if state.stopping.load(Ordering::SeqCst) {
                     break;
                 }
-                let needs_restart = if let Ok(mut child) = state.child.lock() {
+                let needs_restart = if state.starting.load(Ordering::SeqCst) {
+                    false
+                } else if let Ok(mut child) = state.child.lock() {
                     match child.as_mut() {
                         Some(value) => match value.try_wait() {
                             Ok(Some(_)) => {
@@ -983,6 +1012,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use super::{pid_is_in_ancestry, terminate_authenticated_orphan};
+
     fn should_restart(child_present: bool, child_exited: bool, stopping: bool) -> bool {
         !stopping && (!child_present || child_exited)
     }

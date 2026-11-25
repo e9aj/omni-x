@@ -16,7 +16,6 @@ from typing import Any
 from . import __version__
 from .config import Settings, config_path, load_settings, save_settings
 from .runtime import AgentRuntime
-from .hermes_primary import HermesPrimaryError, run_hermes_primary_probe
 from .council import CouncilConfig, CouncilService, ModelRef
 from .discovery import discover_omniroute
 from .brain import MarkdownVault
@@ -237,8 +236,8 @@ class Handler(BaseHTTPRequestHandler):
                 model = body.get("model")
                 if preference is not None and preference not in {"standard", "creative", "open"}:
                     raise ValueError("content_preference must be standard, creative or open")
-                if runtime is not None and runtime not in {"omnix", "hermes", "auto"}:
-                    raise ValueError("runtime must be omnix, hermes or auto")
+                if runtime is not None and runtime != "omnix":
+                    raise ValueError("OMNI-X has one native runtime")
                 if model is not None and (not isinstance(model, str) or not model.strip() or len(model) > 200):
                     raise ValueError("model must be a non-empty identifier under 200 characters")
                 settings = load_settings()
@@ -431,26 +430,9 @@ class Handler(BaseHTTPRequestHandler):
             task_service = getattr(self.server, "tasks", None)
             store = task_service.store if task_service is not None else Store()
             approver = self.server.approvals.request if hasattr(self.server, "approvals") else (lambda _: False)
-            hermes_result = None
-            if settings.runtime in {"hermes", "auto"} and settings.mode == "FREE" and not settings.allow_paid and settings.max_cost_usd == 0:
-                try:
-                    hermes_result = run_hermes_primary_probe(settings, prompt, timeout=settings.agent_execution_timeout_seconds, cancel_event=cancel)
-                except HermesPrimaryError:
-                    if settings.runtime == "hermes":
-                        raise
-            if hermes_result is not None:
-                answer = hermes_result["answer"]
-                result_session = hermes_result.get("omnix_session_id") or session_id
-                task_id = None
-                h_usage = hermes_result.get("usage", {})
-                usage = [{"provider": h_usage.get("provider", settings.provider),
-                          "model": h_usage.get("served_model") or hermes_result.get("model", settings.model),
-                          "input_tokens": h_usage.get("input_tokens", 0),
-                          "output_tokens": h_usage.get("output_tokens", 0),
-                          "estimated_cost": h_usage.get("estimated_cost_usd", 0.0)}]
-                tool_events = []
-                self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "runtime": "hermes", "allow_paid": settings.allow_paid, "model": usage[-1]["model"], "provider": usage[-1]["provider"], "usage": usage, "tool_events": tool_events})
-                return
+            # OMNI-X is the sole desktop execution authority. Legacy Hermes
+            # settings are migrated to the native runtime by configuration
+            # loading; no Hermes process is started from the desktop shell.
             runtime = AgentRuntime(settings, store, Path.cwd(), approver=approver, cancel_event=cancel)
             answer, result_session = runtime.run(prompt, session_id)
             task_id = getattr(runtime, "last_task_id", None)

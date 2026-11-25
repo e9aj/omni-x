@@ -11,19 +11,19 @@
 OMNI-X is a free, open-source autonomous AI agent runtime with a Windows-first CLI. The first implementation focuses on a working, inspectable agent loop: direct provider calls, OmniRoute-compatible routing, SQLite sessions and memory, permission-gated tools, and secure local credential storage.
 
 The Windows alpha desktop lives in [`desktop/`](desktop/README.md). It is a
-Tauri 2 + React + TypeScript + Vite shell that supervises the Python runtime
-through an authenticated loopback bridge. The CLI and backend remain the
-authoritative policy boundary for routing, credentials, permissions, SQLite
-state and audit history.
+Tauri 2 + React + TypeScript + Vite shell that supervises the native OMNI-X
+Python runtime through an authenticated loopback bridge. The CLI and backend
+remain the authoritative policy boundary for routing, credentials, permissions,
+SQLite state and audit history. Hermes and OpenClaw are not runtime
+dependencies.
 
 ## Alpha status
 
 The hosted Windows workflow validates NSIS installation, application launch,
 managed sidecar startup, authenticated health, crash recovery, shutdown and
 uninstallation. The current development installer is unsigned. Live provider
-inference, Hermes tool execution/delegation and credentialed external services
-are experimental or configuration-dependent and are not represented as
-guaranteed features.
+inference and credentialed external services are experimental or
+configuration-dependent and are not represented as guaranteed features.
 
 ## Quick start
 

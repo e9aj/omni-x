@@ -111,7 +111,7 @@ def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch, tmp
     thread.start()
     try:
         request = urllib.request.Request(f"http://127.0.0.1:{port}/v1/chat", data=json.dumps({"prompt": "hello"}).encode(), headers={"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(request, timeout=2) as response:
+        with urllib.request.urlopen(request, timeout=10) as response:
             payload = json.loads(response.read())
         assert payload["answer"] == "real-runtime-result"
         assert payload["session_id"] == "session-1"

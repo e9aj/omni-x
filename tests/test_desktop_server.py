@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 import threading
 import time
 import urllib.error
@@ -11,6 +12,7 @@ from types import SimpleNamespace
 
 from omnix.desktop_server import DesktopServer, Handler
 from omnix.config import Settings, save_settings
+from omnix.store import Store
 
 
 def test_desktop_server_requires_loopback_token(monkeypatch):
@@ -46,6 +48,40 @@ def test_desktop_server_requires_loopback_token(monkeypatch):
     finally:
         server.shutdown()
         thread.join(timeout=2)
+
+
+def test_desktop_request_closes_its_owned_store(monkeypatch, tmp_path):
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    opened = []
+
+    class TrackedStore(Store):
+        def __init__(self):
+            super().__init__()
+            opened.append(self)
+
+    monkeypatch.setattr("omnix.desktop_server.Store", TrackedStore)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/sessions/example", headers={"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost"})
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["messages"] == []
+        assert len(opened) == 1
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            try:
+                opened[0].db.execute("SELECT 1")
+            except sqlite3.ProgrammingError:
+                break
+            time.sleep(.01)
+        else:
+            raise AssertionError("request-owned database connection remained open")
+    finally:
+        server.shutdown()
+        thread.join(2)
+        server.server_close()
 
 
 def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch, tmp_path):

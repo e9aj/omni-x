@@ -75,6 +75,19 @@ class ApprovalManager:
 class Handler(BaseHTTPRequestHandler):
     server: "DesktopServer"
 
+    def _store(self) -> Store:
+        """Reuse one request-owned connection and close it after the request."""
+        if not hasattr(self, "_request_store"):
+            self._request_store = Store()
+        return self._request_store
+
+    def finish(self) -> None:
+        try:
+            super().finish()
+        finally:
+            if hasattr(self, "_request_store"):
+                self._request_store.db.close()
+
     def _authorized(self) -> bool:
         expected = os.environ.get("OMNIX_IPC_TOKEN", "")
         supplied = self.headers.get("Authorization", "").removeprefix("Bearer ")
@@ -144,9 +157,9 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/v1/brain/attachments":
             self._json(200, {"attachments": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).list_attachments()})
         elif self.path == "/v1/brain/canvas":
-            self._json(200, Store().canvas())
+            self._json(200, self._store().canvas())
         elif self.path == "/v1/memory/suggestions":
-            self._json(200, {"suggestions": Store().memory_suggestions()})
+            self._json(200, {"suggestions": self._store().memory_suggestions()})
         elif urlsplit(self.path).path == "/v1/brain/history":
             relative = parse_qs(urlsplit(self.path).query).get("path", [""])[0]
             self._json(200, {"history": MarkdownVault(Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))).history(relative)})
@@ -162,7 +175,7 @@ class Handler(BaseHTTPRequestHandler):
             query = parse_qs(urlsplit(self.path).query).get("q", [""])[0]
             root = Path(os.environ.get("OMNIX_VAULT_DIR", str(Path.home() / "OMNI-X" / "Brain")))
             vault = MarkdownVault(root)
-            index = SemanticIndex(Store(), root)
+            index = SemanticIndex(self._store(), root)
             index.rebuild(((str(item["path"]), vault.read(str(item["path"]))) for item in vault.list_notes()))
             results = index.search(query)
             for result in results:
@@ -193,10 +206,10 @@ class Handler(BaseHTTPRequestHandler):
             service = VoiceService(permission=self.server.approvals.request)
             self._json(200, {"devices": service.devices()})
         elif self.path == "/v1/workflows":
-            self._json(200, {"workflows": Store().workflows()})
+            self._json(200, {"workflows": self._store().workflows()})
         elif self.path.startswith("/v1/workflows/") and self.path.endswith("/runs"):
             workflow_id = self.path.split("/")[3]
-            self._json(200, {"runs": Store().workflow_runs(workflow_id)})
+            self._json(200, {"runs": self._store().workflow_runs(workflow_id)})
         elif self.path.startswith("/v1/tasks/"):
             task_id = self.path.rsplit("/", 1)[-1]
             task = self.server.tasks.status(task_id)
@@ -209,7 +222,7 @@ class Handler(BaseHTTPRequestHandler):
             if not session_id or len(session_id) > 200 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in session_id):
                 self._json(400, {"error": "session_id is invalid"})
                 return
-            rows = Store().messages(session_id)
+            rows = self._store().messages(session_id)
             self._json(200, {"session_id": session_id, "messages": rows})
         else:
             self._json(404, {"error": "not found"})
@@ -324,26 +337,26 @@ class Handler(BaseHTTPRequestHandler):
                 nodes, edges, viewport = body.get("nodes", []), body.get("edges", []), body.get("viewport", {})
                 if not isinstance(nodes, list) or not isinstance(edges, list) or not isinstance(viewport, dict):
                     raise ValueError("canvas payload is invalid")
-                Store().save_canvas(nodes, edges, viewport)
-                self._json(200, {"canvas": Store().canvas()})
+                self._store().save_canvas(nodes, edges, viewport)
+                self._json(200, {"canvas": self._store().canvas()})
             elif self.path == "/v1/memory/suggestions":
                 body = self._body()
                 session_id = body.get("session_id")
                 if session_id is not None and (not isinstance(session_id, str) or len(session_id) > 200):
                     raise ValueError("session_id is invalid")
-                ident = Store().add_memory_suggestion(body.get("key", ""), body.get("value", ""), session_id=session_id, source=body.get("source", "explicit"))
-                self._json(200, {"suggestion": Store().memory_suggestions()[0]})
+                ident = self._store().add_memory_suggestion(body.get("key", ""), body.get("value", ""), session_id=session_id, source=body.get("source", "explicit"))
+                self._json(200, {"suggestion": self._store().memory_suggestions()[0]})
             elif self.path.startswith("/v1/memory/suggestions/"):
                 ident = self.path.rsplit("/", 1)[-1]
                 body = self._body()
-                result = Store().decide_memory_suggestion(ident, body.get("state", ""), memory_key=body.get("key"), memory_value=body.get("value"))
+                result = self._store().decide_memory_suggestion(ident, body.get("state", ""), memory_key=body.get("key"), memory_value=body.get("value"))
                 self._json(200, {"suggestion": result})
             elif self.path == "/v1/brain/from-session":
                 body = self._body()
                 session_id, relative = body.get("session_id"), body.get("path")
                 if not isinstance(session_id, str) or not isinstance(relative, str) or len(session_id) > 200:
                     raise ValueError("session conversion request is invalid")
-                messages = Store().messages(session_id)
+                messages = self._store().messages(session_id)
                 if not messages:
                     raise ValueError("session has no messages")
                 content = "# Conversation note\n\n" + "\n\n".join(f"## {item['role'].title()}\n{item['content']}" for item in messages)
@@ -357,7 +370,7 @@ class Handler(BaseHTTPRequestHandler):
                 nodes = definition.get("nodes", [])
                 if not isinstance(nodes, list) or len(nodes) > 100:
                     raise ValueError("workflow nodes are invalid")
-                ident = Store().save_workflow(name.strip(), definition, body.get("id"))
+                ident = self._store().save_workflow(name.strip(), definition, body.get("id"))
                 self._json(200, {"workflow_id": ident})
             elif self.path.startswith("/v1/workflows/") and self.path.endswith("/run"):
                 workflow_id = self.path.split("/")[3]
@@ -443,7 +456,7 @@ class Handler(BaseHTTPRequestHandler):
             # Windows file locks while the durable TaskService is active.
             # TaskService is the server's authoritative persistence owner.
             task_service = getattr(self.server, "tasks", None)
-            store = task_service.store if task_service is not None else Store()
+            store = task_service.store if task_service is not None else self._store()
             approver = self.server.approvals.request if hasattr(self.server, "approvals") else (lambda _: False)
             # OMNI-X is the sole desktop execution authority. Legacy Hermes
             # settings are migrated to the native runtime by configuration
@@ -498,7 +511,7 @@ class Handler(BaseHTTPRequestHandler):
         models = tuple(ModelRef(settings.provider, item.strip()) for item in raw_models)
         config = CouncilConfig(mode=mode, models=models, free_only=True, max_cost_usd=0.0,
                                max_models=5, max_concurrency=min(5, max(1, int(body.get("max_concurrency", 3)))))
-        store = Store()
+        store = self._store()
         result_session = session_id if isinstance(session_id, str) and session_id else store.new_session("Council session")
         task_id = store.start_task(result_session)
         try:

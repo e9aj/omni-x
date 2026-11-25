@@ -193,6 +193,16 @@ jobs:
               Write-Host "Live desktop inference passed: provider=$($live.provider) model=$($live.model) usage_count=$(@($live.usage).Count) session=$($live.session_id)"
               $liveSession = $live.session_id
             } catch { Write-Host "Live OmniRoute desktop inference failed without credentials/route: $($_.Exception.Message)" }
+          } else {
+            try {
+              Invoke-RestMethod -Method Post -Uri "$base/v1/chat" -Headers $headers -ContentType 'application/json' -Body (@{ prompt = 'Local no-provider failure test'; stream_id = 'offline-smoke' } | ConvertTo-Json) -TimeoutSec 30 | Out-Null
+              throw 'No-provider chat unexpectedly succeeded'
+            } catch {
+              if (-not $_.Exception.Response -or [int]$_.Exception.Response.StatusCode -ne 502) { throw }
+            }
+            $healthAfterFailure = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 5
+            if ($healthAfterFailure.status -ne 'ok') { throw 'Backend did not remain responsive after no-provider chat' }
+            Write-Host 'No-provider chat failure and subsequent backend health passed'
           }
           $desktop.CloseMainWindow() | Out-Null
           if (-not $desktop.WaitForExit(15000)) { $desktop.Kill(); throw 'OMNI-X did not shut down gracefully' }

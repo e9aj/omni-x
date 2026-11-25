@@ -201,10 +201,14 @@ export function App() {
         endpoint: "loopback",
         error: String(error),
       });
-    } finally {
-      setBooting(false);
     }
   }
+  useEffect(() => {
+    // Let the branded first frame paint, then expose the workspace while the
+    // backend starts or recovers. Readiness remains visible in the status UI.
+    const frame = window.requestAnimationFrame(() => setBooting(false));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   useEffect(() => {
     let stopped = false;
     let timer: number | undefined;

@@ -1,9 +1,11 @@
 # OMNI-X brand assets
 
 The brand system is monochrome-first: black, white and neutral greys, with the
-pixel-inspired X as the primary recognition mark. Assets in `svg/` are editable
-source vectors. Raster and ICO exports should be regenerated from these
-sources when the mark changes.
+pixel-inspired X as the primary recognition mark. The canonical mark is
+`desktop/src/assets/website-logo.png`. The SVG compositions retain editable
+text and layout and embed a raster export of that mark; the mark itself is not
+an editable vector. Regenerate the Tauri icons from the canonical PNG when it
+changes, and update the embedded exports in these compositions.
 
 - `svg/omnix-symbol.svg` — standalone X symbol.
 - `svg/omnix-wordmark.svg` — horizontal wordmark.

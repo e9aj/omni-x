@@ -6,6 +6,8 @@ pixel-inspired X as the primary recognition mark. The canonical mark is
 text and layout and embed a raster export of that mark; the mark itself is not
 an editable vector. Regenerate the Tauri icons from the canonical PNG when it
 changes, and update the embedded exports in these compositions.
+The desktop's `website-logo-256.png` and `public/favicon.png` are copies of the
+generated 256px and 32px Tauri icon exports and should be refreshed together.
 
 - `svg/omnix-symbol.svg` — standalone X symbol.
 - `svg/omnix-wordmark.svg` — horizontal wordmark.

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import logo from "./assets/website-logo.png";
+import logo from "./assets/website-logo-256.png";
 
 type BackendStatus = {
   connected: boolean;

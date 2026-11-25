@@ -1118,6 +1118,25 @@ mod tests {
         assert!(terminate_authenticated_orphan(std::process::id()).is_err());
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn owned_child_cleanup_stops_the_spawned_process() {
+        use std::os::windows::process::CommandExt;
+        use std::process::Command;
+        let mut child = Command::new("powershell.exe")
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Start-Sleep -Seconds 30",
+            ])
+            .creation_flags(0x0800_0000)
+            .spawn()
+            .expect("start owned test process");
+        super::stop_owned_child(&mut child);
+        assert!(child.try_wait().expect("check owned child").is_some());
+    }
+
     #[test]
     fn packaged_backend_descendant_is_owned_but_unrelated_pid_is_not() {
         let parent = |pid| match pid {

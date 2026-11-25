@@ -55,6 +55,8 @@ jobs:
           $installer = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
           Write-Host "Installer: $($installer.FullName)"
           if (-not $installer) { throw 'NSIS installer was not produced' }
+          Write-Host "Installer SHA-256: $((Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash)"
+          Write-Host "Installer signature status: $((Get-AuthenticodeSignature -LiteralPath $installer.FullName).Status)"
           $install = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
           Write-Host "Installer exit code: $($install.ExitCode)"
           if ($install.ExitCode -ne 0) { throw "NSIS installer failed with exit code $($install.ExitCode)" }
@@ -96,8 +98,16 @@ jobs:
           Remove-Item -LiteralPath $supervisorLog -Force -ErrorAction SilentlyContinue
           $previousAppToken = $env:OMNIX_IPC_TOKEN
           $env:OMNIX_IPC_TOKEN = $appToken
+          $launchTimer = [System.Diagnostics.Stopwatch]::StartNew()
           try { $desktop = Start-Process -FilePath $app.FullName -PassThru -RedirectStandardError $stderr -RedirectStandardOutput $stdout } finally { if ($null -eq $previousAppToken) { Remove-Item Env:OMNIX_IPC_TOKEN -ErrorAction SilentlyContinue } else { $env:OMNIX_IPC_TOKEN = $previousAppToken } }
-          Start-Sleep -Seconds 8
+          $windowMs = $null
+          for ($attempt = 0; $attempt -lt 120; $attempt++) {
+            $desktop.Refresh()
+            if ($desktop.MainWindowHandle -ne [IntPtr]::Zero) { $windowMs = $launchTimer.ElapsedMilliseconds; break }
+            if ($desktop.HasExited) { break }
+            Start-Sleep -Milliseconds 100
+          }
+          Write-Host "First window handle (ms): $windowMs (does not measure interactivity)"
           Write-Host "Application PID: $($desktop.Id), exited: $($desktop.HasExited)"
           if ($desktop.HasExited) { throw "OMNI-X exited during startup with code $($desktop.ExitCode)" }
           Write-Host 'Application child processes:'
@@ -119,6 +129,13 @@ jobs:
           }
           Write-Host "Desktop-owned backend processes: $(@($ownedBackend).Count)"
           if (-not $ownedBackend -or -not $readyHealth) { Write-Host 'OMNI-X stderr:'; if (Test-Path $stderr) { Get-Content $stderr -Tail 100 }; Write-Host 'OMNI-X stdout:'; if (Test-Path $stdout) { Get-Content $stdout -Tail 100 }; Write-Host 'Supervisor log:'; if (Test-Path $supervisorLog) { Get-Content $supervisorLog -Tail 100 }; throw 'Desktop-owned backend did not reach authenticated readiness' }
+          Write-Host "Backend authenticated readiness observed (ms): $($launchTimer.ElapsedMilliseconds) (includes window and polling overhead)"
+          $desktop.Refresh()
+          $cpuStart = $desktop.TotalProcessorTime.TotalSeconds
+          Start-Sleep -Seconds 2
+          $desktop.Refresh()
+          $cpuDelta = $desktop.TotalProcessorTime.TotalSeconds - $cpuStart
+          Write-Host "Desktop process idle sample: CPU seconds over 2s=$cpuDelta; private bytes=$($desktop.PrivateMemorySize64) (excludes WebView and backend processes)"
           $ownedBackendIds = @($ownedBackend | ForEach-Object { [int]$_.ProcessId })
           function Test-ProcessDescendant([int]$processId, [int]$ancestorId) {
             if ($processId -eq $ancestorId) { return $true }

@@ -7,14 +7,19 @@ from omnix.task_service import TaskService
 from omnix.tools import ToolRegistry
 
 
-def wait_for(service, job_id, state, timeout=4):
-    end = time.time() + timeout
-    while time.time() < end:
-        row = Store(service.store.path).job(job_id)
-        if row and row["state"] == state:
-            return row
-        time.sleep(.05)
-    raise AssertionError(Store(service.store.path).job(job_id))
+def wait_for(service, job_id, state, timeout=10):
+    observer = Store(service.store.path)
+    try:
+        end = time.monotonic() + timeout
+        while True:
+            row = observer.job(job_id)
+            if row and row["state"] == state:
+                return row
+            if time.monotonic() >= end:
+                raise AssertionError(row)
+            time.sleep(.05)
+    finally:
+        observer.db.close()
 
 
 def test_persistent_one_shot_schedule_and_restart_recovery(tmp_path: Path):

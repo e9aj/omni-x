@@ -56,6 +56,7 @@ class HermesExecutionBackend:
         messages: list[dict[str, Any]],
         on_text: Callable[[str], None] | None = None,
         on_delta: Callable[[str], None] | None = None,
+        on_event: Callable[[str], None] | None = None,
     ) -> str:
         """Execute until the model returns a final turn or the bounded loop stops.
 
@@ -75,6 +76,8 @@ class HermesExecutionBackend:
                 raise RuntimeError("Task timeout exceeded")
 
             self.store.event(task_id, "step_started", str(step + 1))
+            if on_event:
+                on_event("Thinking")
             role_chars = {role: sum(len(str(item.get("content") or "")) for item in messages if item.get("role") == role) for role in ("system", "user", "assistant", "tool")}
             self.store.event(task_id, "prompt_metrics", json.dumps({**role_chars, "tool_schema_chars": len(json.dumps(self.tools.schemas(), sort_keys=True)), "message_count": len(messages), "estimated_prompt_tokens": math.ceil(sum(role_chars.values()) / 4)}, sort_keys=True))
             try:
@@ -150,6 +153,8 @@ class HermesExecutionBackend:
                     raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
                 except ValueError as exc:
                     raise RuntimeError(f"Invalid tool call from model: {exc}") from exc
+                if on_event:
+                    on_event("Running tool: " + str(name)[:100])
                 raw_result = self.tools.call(name, args)
                 saw_tool_result = True
                 saw_tool_error = saw_tool_error or raw_result.startswith("Tool error:")

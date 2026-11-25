@@ -54,7 +54,7 @@ class AgentRuntime:
     def cancel(self) -> None:
         self.cancel_event.set()
 
-    def run(self, prompt: str, session_id: str | None = None, on_text: Callable[[str], None] | None = None, on_delta: Callable[[str], None] | None = None) -> tuple[str, str]:
+    def run(self, prompt: str, session_id: str | None = None, on_text: Callable[[str], None] | None = None, on_delta: Callable[[str], None] | None = None, on_event: Callable[[str], None] | None = None) -> tuple[str, str]:
         session_id = session_id or self.store.new_session(prompt[:80])
         task_id = self.store.start_task(session_id)
         self.last_task_id = task_id
@@ -77,7 +77,7 @@ class AgentRuntime:
                 record_usage=self._record_usage,
                 record_tool_result=lambda route, success: self._record_tool_result(self.settings, route, success),
             )
-            return backend.execute(task_id=task_id, session_id=session_id, messages=messages, on_text=on_text, on_delta=on_delta), session_id
+            return backend.execute(task_id=task_id, session_id=session_id, messages=messages, on_text=on_text, on_delta=on_delta, on_event=on_event), session_id
         except Exception as exc:
             self.store.update_task(task_id, "cancelled" if str(exc) == "Task cancelled" else "failed", str(exc))
             self.store.event(task_id, "failed", str(exc))

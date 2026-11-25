@@ -35,6 +35,7 @@ class DesktopState:
         self.cancel_event: threading.Event | None = None
         self.stream_id: str | None = None
         self.stream_text = ""
+        self.stream_status = ""
 
 
 class ApprovalManager:
@@ -117,7 +118,8 @@ class Handler(BaseHTTPRequestHandler):
             stream_id = parse_qs(urlsplit(self.path).query).get("id", [""])[0]
             with self.server.state.lock:
                 text = self.server.state.stream_text if stream_id and stream_id == self.server.state.stream_id else ""
-            self._json(200, {"text": text})
+                status = self.server.state.stream_status if stream_id and stream_id == self.server.state.stream_id else ""
+            self._json(200, {"text": text, "status": status})
         elif self.path == "/v1/approvals":
             self._json(200, {"approvals": self.server.approvals.list()})
         elif self.path == "/v1/settings":
@@ -431,6 +433,7 @@ class Handler(BaseHTTPRequestHandler):
             self.server.state.cancel_event = cancel
             self.server.state.stream_id = stream_id
             self.server.state.stream_text = ""
+            self.server.state.stream_status = "Starting"
         try:
             settings = load_settings()
             if not config_path().exists() and settings.provider == "openai":
@@ -451,8 +454,13 @@ class Handler(BaseHTTPRequestHandler):
                     if self.server.state.stream_id == stream_id:
                         self.server.state.stream_text = (self.server.state.stream_text + text)[-200_000:] if text else ""
 
+            def on_event(status: str) -> None:
+                with self.server.state.lock:
+                    if self.server.state.stream_id == stream_id:
+                        self.server.state.stream_status = status[:120]
+
             if stream_id:
-                answer, result_session = runtime.run(prompt, session_id, on_delta=on_delta)
+                answer, result_session = runtime.run(prompt, session_id, on_delta=on_delta, on_event=on_event)
             else:
                 answer, result_session = runtime.run(prompt, session_id)
             task_id = getattr(runtime, "last_task_id", None)
@@ -471,6 +479,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.state.cancel_event = None
                 self.server.state.stream_id = None
                 self.server.state.stream_text = ""
+                self.server.state.stream_status = ""
 
     def _council(self, body: dict[str, Any]) -> None:
         prompt = body.get("prompt")

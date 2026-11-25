@@ -137,6 +137,7 @@ export function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [running, setRunning] = useState(false);
   const [streamText, setStreamText] = useState("");
+  const [streamStatus, setStreamStatus] = useState("");
   const [booting, setBooting] = useState(true);
   const [usage, setUsage] = useState<string>();
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -321,13 +322,14 @@ export function App() {
     setMessages((items) => [...items, { role: "user", content: text }]);
     setRunning(true);
     setStreamText("");
+    setStreamStatus("Starting");
     const streamId = crypto.randomUUID();
     let polling = true;
     const poll = async () => {
       while (polling) {
         try {
-          const result = await invoke<{ text: string }>("backend_chat_stream", { streamId });
-          if (polling) setStreamText(result.text);
+          const result = await invoke<{ text: string; status: string }>("backend_chat_stream", { streamId });
+          if (polling) { setStreamText(result.text); if (result.status) setStreamStatus(result.status); }
         } catch { /* The chat request reports connection errors. */ }
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
@@ -362,6 +364,7 @@ export function App() {
     } finally {
       polling = false;
       setStreamText("");
+      setStreamStatus("");
       setRunning(false);
       void refreshStatus();
     }
@@ -730,7 +733,7 @@ export function App() {
               ))}
               {running && (
                 <article className="message assistant">
-                  <span className="message-role">assistant · generating</span>
+                  <span className="message-role">assistant · {streamStatus || "working"}</span>
                   <p>{streamText || "Working…"}</p>
                 </article>
               )}

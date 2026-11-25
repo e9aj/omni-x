@@ -87,7 +87,8 @@ def test_desktop_stream_is_incremental_scoped_and_cleared(monkeypatch, tmp_path)
         def __init__(self, *_args, **_kwargs):
             pass
 
-        def run(self, prompt, session_id=None, on_delta=None):
+        def run(self, prompt, session_id=None, on_delta=None, on_event=None):
+            on_event("Thinking")
             on_delta("first ")
             sent.set()
             assert release.wait(3)
@@ -117,6 +118,9 @@ def test_desktop_stream_is_incremental_scoped_and_cleared(monkeypatch, tmp_path)
                 return json.loads(response.read())["text"]
         assert poll("abc-123") == "first "
         assert poll("other") == ""
+        request = urllib.request.Request(base + "/v1/chat/stream?id=abc-123", headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert json.loads(response.read())["status"] == "Thinking"
         release.set()
         worker.join(3)
         assert result[0]["answer"] == "first second"

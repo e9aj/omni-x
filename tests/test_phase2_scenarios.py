@@ -33,13 +33,15 @@ def test_recovery_keeps_failed_operation_state(tmp_path: Path):
     assert tuple(row) == ("failed", "simulated command failure")
 
 
-def test_hermes_skill_tree_is_reused_only_with_explicit_allowlist(monkeypatch, tmp_path: Path):
+def test_skill_tree_uses_explicit_omnix_root_not_hermes_discovery(monkeypatch, tmp_path: Path):
     source = tmp_path / "hermes"
     skill = source / "optional-skills" / "review-code"
     skill.mkdir(parents=True)
     (skill / "SKILL.md").write_text("description: Review code safely\nUse read-only inspection.", encoding="utf-8")
     monkeypatch.setenv("OMNIX_HERMES_SOURCE", str(source))
-    monkeypatch.setenv("OMNIX_HERMES_SKILLS", "review-code")
+    monkeypatch.setenv("OMNIX_SKILLS_DIR", str(tmp_path / "empty"))
+    assert discover_skills(tmp_path / "workspace") == []
+    monkeypatch.setenv("OMNIX_SKILLS_DIR", str(source / "optional-skills"))
     discovered = discover_skills(tmp_path / "workspace")
     assert [item.name for item in discovered] == ["review-code"]
     assert discovered[0].description == "Review code safely"

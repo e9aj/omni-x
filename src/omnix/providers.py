@@ -40,6 +40,11 @@ class ProviderError(RuntimeError):
     pass
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def _safe_generation_parameters(parameters: dict[str, Any] | None) -> dict[str, Any]:
     """Allow only bounded, provider-neutral generation controls."""
     if not parameters:
@@ -86,6 +91,83 @@ class ModelClient:
             body["tool_choice"] = "auto"
         body.update(_safe_generation_parameters(parameters))
         return self._post(url, body, self._auth_headers())
+
+    def stream(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
+               parameters: dict[str, Any] | None = None, on_delta=None, cancel_event=None) -> dict[str, Any]:
+        """Consume OpenAI-compatible SSE incrementally and reconstruct tool calls.
+
+        No retry is attempted here: replaying a partially displayed response can
+        duplicate output or actions. The runtime still owns all tool dispatch.
+        """
+        if self.provider.kind != "openai":
+            raise ProviderError("Streaming is unavailable for this provider")
+        if cancel_event is not None and cancel_event.is_set():
+            raise RuntimeError("Task cancelled")
+        url = _validate_http_url((self.settings.base_url or self.provider.base_url).rstrip("/") + "/chat/completions")
+        body: dict[str, Any] = {"model": self.settings.model, "messages": messages, "stream": True}
+        if tools:
+            body.update({"tools": tools, "tool_choice": "auto"})
+        body.update(_safe_generation_parameters(parameters))
+        request = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "Accept": "text/event-stream", **self._auth_headers()}, method="POST")
+        chunks: list[str] = []
+        calls: dict[int, dict[str, Any]] = {}
+        usage: dict[str, Any] = {}
+        model = self.settings.model
+        total = 0
+        done = False
+        try:
+            opener = urllib.request.build_opener(_NoRedirect)
+            with opener.open(request, timeout=getattr(self.settings, "provider_request_timeout_seconds", self.settings.request_timeout_seconds)) as response:  # nosec B310
+                while True:
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise RuntimeError("Task cancelled")
+                    line = response.readline(1_000_001)
+                    if not line:
+                        break
+                    total += len(line)
+                    if total > 8_000_000 or len(line) > 1_000_000:
+                        raise ProviderError("Provider stream exceeded size limit")
+                    if not line.startswith(b"data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == b"[DONE]":
+                        done = True
+                        break
+                    try:
+                        part = json.loads(data)
+                        if not isinstance(part, dict):
+                            raise ValueError("invalid event")
+                        if part.get("error"):
+                            raise ProviderError("Provider reported a streaming error")
+                        model = part.get("model") or model
+                        usage = part.get("usage") or usage
+                        for choice in part.get("choices") or []:
+                            if choice.get("index", 0) != 0:
+                                continue
+                            delta = choice.get("delta") or {}
+                            text = delta.get("content")
+                            if isinstance(text, str) and text:
+                                chunks.append(text)
+                                if on_delta:
+                                    on_delta(text)
+                            for item in delta.get("tool_calls") or []:
+                                index = item.get("index")
+                                if not isinstance(index, int) or index < 0 or index >= 128:
+                                    raise ValueError("invalid tool call index")
+                                call = calls.setdefault(index, {"id": "", "type": "function", "function": {"name": "", "arguments": ""}})
+                                call["id"] += item.get("id") or ""
+                                function = item.get("function") or {}
+                                call["function"]["name"] += function.get("name") or ""
+                                call["function"]["arguments"] += function.get("arguments") or ""
+                    except (ValueError, TypeError, AttributeError, KeyError) as exc:
+                        raise ProviderError("Invalid provider stream event") from exc
+        except urllib.error.HTTPError as exc:
+            raise ProviderError(f"Provider HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise ProviderError("Provider stream failed or timed out") from exc
+        if not done:
+            raise ProviderError("Provider stream ended before completion")
+        return {"model": model, "choices": [{"message": {"role": "assistant", "content": "".join(chunks), "tool_calls": [calls[i] for i in sorted(calls)]}}], "usage": usage}
 
     def list_models(self) -> list[dict[str, Any]]:
         if self.provider.kind == "anthropic":

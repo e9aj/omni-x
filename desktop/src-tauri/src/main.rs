@@ -81,8 +81,14 @@ fn request(
         Duration::from_secs(2),
     )
     .map_err(|e| e.to_string())?;
+    let quick_request = matches!(path, "/v1/health" | "/v1/approvals" | "/v1/stop")
+        || path.starts_with("/v1/chat/stream?");
     stream
-        .set_read_timeout(Some(Duration::from_secs(180)))
+        .set_read_timeout(Some(Duration::from_secs(if quick_request {
+            5
+        } else {
+            180
+        })))
         .map_err(|e| e.to_string())?;
     let body = payload.map(|value| value.to_string()).unwrap_or_default();
     let request = format!("{} {} HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {}\r\nOrigin: tauri://localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", method, path, state.token, body.len(), body);
@@ -363,27 +369,33 @@ fn shutdown_backend(state: &BackendState) {
 }
 
 #[tauri::command]
-fn backend_status(state: State<'_, BackendState>) -> BackendStatus {
-    match request(&state, "GET", "/v1/health", None) {
-        Ok(value) => BackendStatus {
-            connected: value["status"] == "ok",
-            endpoint: format!("127.0.0.1:{PORT}"),
-            version: value["version"].as_str().map(String::from),
-            error: None,
-        },
-        Err(error) => BackendStatus {
-            connected: false,
-            endpoint: format!("127.0.0.1:{PORT}"),
-            version: None,
-            error: Some(error),
-        },
-    }
+async fn backend_status(app: AppHandle) -> Result<BackendStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<BackendState>();
+        match request(&state, "GET", "/v1/health", None) {
+            Ok(value) => BackendStatus {
+                connected: value["status"] == "ok",
+                endpoint: format!("127.0.0.1:{PORT}"),
+                version: value["version"].as_str().map(String::from),
+                error: None,
+            },
+            Err(error) => BackendStatus {
+                connected: false,
+                endpoint: format!("127.0.0.1:{PORT}"),
+                version: None,
+                error: Some(error),
+            },
+        }
+    })
+    .await
+    .map_err(|_| "Status worker stopped unexpectedly".to_string())
 }
 
 #[tauri::command]
 async fn backend_chat(
     prompt: String,
     session_id: Option<String>,
+    stream_id: String,
     app: AppHandle,
 ) -> Result<Value, String> {
     if prompt.trim().is_empty() {
@@ -395,11 +407,34 @@ async fn backend_chat(
             &state,
             "POST",
             "/v1/chat",
-            Some(json!({"prompt": prompt, "session_id": session_id})),
+            Some(json!({"prompt": prompt, "session_id": session_id, "stream_id": stream_id})),
         )
     })
     .await
     .map_err(|_| "Chat worker stopped unexpectedly".to_string())?
+}
+
+#[tauri::command]
+async fn backend_chat_stream(stream_id: String, app: AppHandle) -> Result<Value, String> {
+    if stream_id.is_empty()
+        || stream_id.len() > 80
+        || !stream_id
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_')
+    {
+        return Err("invalid stream identifier".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<BackendState>();
+        request(
+            &state,
+            "GET",
+            &format!("/v1/chat/stream?id={stream_id}"),
+            None,
+        )
+    })
+    .await
+    .map_err(|_| "Stream worker stopped unexpectedly".to_string())?
 }
 
 #[tauri::command]
@@ -424,13 +459,23 @@ fn backend_council(
 }
 
 #[tauri::command]
-fn backend_stop(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "POST", "/v1/stop", Some(json!({})))
+async fn backend_stop(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<BackendState>();
+        request(&state, "POST", "/v1/stop", Some(json!({})))
+    })
+    .await
+    .map_err(|_| "Stop worker stopped unexpectedly".to_string())?
 }
 
 #[tauri::command]
-fn backend_approvals(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/approvals", None)
+async fn backend_approvals(app: AppHandle) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<BackendState>();
+        request(&state, "GET", "/v1/approvals", None)
+    })
+    .await
+    .map_err(|_| "Approval worker stopped unexpectedly".to_string())?
 }
 
 #[tauri::command]
@@ -969,6 +1014,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             backend_status,
             backend_chat,
+            backend_chat_stream,
             backend_council,
             backend_stop,
             backend_approvals,

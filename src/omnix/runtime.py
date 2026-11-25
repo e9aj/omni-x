@@ -11,7 +11,7 @@ from .config import Settings
 from .routing import Router, Route
 from .store import Store
 from .tools import ToolRegistry
-from .skills import discover_skills, relevant_instructions
+from .skills_manager import SkillsManager
 from .hermes_bridge import TOOL_CALL_CONTRACT
 from .hermes_backend import HermesExecutionBackend
 
@@ -54,12 +54,12 @@ class AgentRuntime:
     def cancel(self) -> None:
         self.cancel_event.set()
 
-    def run(self, prompt: str, session_id: str | None = None, on_text: Callable[[str], None] | None = None) -> tuple[str, str]:
+    def run(self, prompt: str, session_id: str | None = None, on_text: Callable[[str], None] | None = None, on_delta: Callable[[str], None] | None = None) -> tuple[str, str]:
         session_id = session_id or self.store.new_session(prompt[:80])
         task_id = self.store.start_task(session_id)
         self.last_task_id = task_id
         if not self.store.messages(session_id):
-            skills = relevant_instructions(discover_skills(self.workspace), prompt)
+            skills, _, _ = SkillsManager(self.workspace).relevant_context(prompt)
             preference = self.settings.content_preference if self.settings.content_preference in CONTENT_INSTRUCTIONS else "creative"
             content = SYSTEM + "\n\nContent preference: " + CONTENT_INSTRUCTIONS[preference] + (f"\n\n{skills}" if skills else "")
             self.store.add_message(session_id, "system", content)
@@ -77,7 +77,7 @@ class AgentRuntime:
                 record_usage=self._record_usage,
                 record_tool_result=lambda route, success: self._record_tool_result(self.settings, route, success),
             )
-            return backend.execute(task_id=task_id, session_id=session_id, messages=messages, on_text=on_text), session_id
+            return backend.execute(task_id=task_id, session_id=session_id, messages=messages, on_text=on_text, on_delta=on_delta), session_id
         except Exception as exc:
             self.store.update_task(task_id, "cancelled" if str(exc) == "Task cancelled" else "failed", str(exc))
             self.store.event(task_id, "failed", str(exc))

@@ -28,3 +28,48 @@ nav { display: grid; gap: 5px; }.nav-item { background: transparent; color: #858
 .canvas-links line { stroke: #8bd450; stroke-width: 2; opacity: .8; }
 .workflow-node.active { outline: 2px solid #8bd450; }
 .document-preview { max-height: 240px; overflow: auto; white-space: pre-wrap; background: #111; padding: 12px; border-radius: 10px; }
+
+/* Compact workspace: navigation stays available while each view scrolls. */
+:root { color: #e9ece7; background: #0c100e; }
+body { background: #0c100e; }
+button, input, textarea, select { font-family: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+:focus-visible { outline: 2px solid #b4df91; outline-offset: 3px; }
+.app-shell { height: 100vh; min-height: 640px; overflow: hidden; background: #0d120f; }
+.sidebar { width: 214px; flex: 0 0 214px; padding: 22px 12px 12px; border-color: #28332d; background: #101713; }
+.brand { padding: 0 10px 24px; gap: 10px; }
+.brand-mark { width: 34px; height: 34px; object-fit: contain; }
+.brand strong { font-size: 15px; letter-spacing: .1em; }
+.brand small { color: #839287; font-size: 8px; }
+.sidebar nav { display: block; flex: 1; min-height: 0; overflow-y: auto; }
+.nav-group { margin-bottom: 16px; }
+.nav-label { margin: 0; padding: 8px 10px; color: #75867b; font-size: 10px; font-weight: 600; letter-spacing: .13em; }
+.nav-item { width: 100%; padding: 8px 10px; margin: 1px 0; border: 1px solid transparent; border-radius: 8px; color: #aab8ae; font-size: 13px; }
+.nav-item:hover { background: #1b2820; color: #f2f7f0; }
+.nav-item.active { background: #25372a; border-color: #405a43; color: #d9f4c7; font-weight: 600; }
+.sidebar-footer { border-top: 1px solid #28332d; padding: 15px 10px 7px; color: #9caea0; font: 11px "Segoe UI", sans-serif; }
+.status-dot.online { background: #a8d98c; box-shadow: 0 0 9px #82bb6a; }
+.workspace { min-width: 0; max-width: none; height: 100vh; overflow-y: auto; padding: 28px 42px; }
+.workspace header { align-items: center; padding-bottom: 20px; border-color: #27322b; }
+.workspace h1 { font-size: 23px; font-weight: 600; letter-spacing: -.025em; }
+.eyebrow { color: #8da390; font: 600 10px "Segoe UI", sans-serif; letter-spacing: .14em; }
+.connection { color: #a3b4a7; font: 11px "Segoe UI", sans-serif; border: 1px solid #34443a; background: #17221b; border-radius: 20px; padding: 7px 11px; }
+.chat-panel { max-width: 850px; height: calc(100vh - 120px); min-height: 0; margin: 0 auto; padding: 16px 0 12px; }
+.message-list { min-height: 0; padding: 12px 2px 20px; }
+.empty-chat { margin: clamp(65px, 16vh, 150px) 0 30px; }
+.empty-chat h2, .panel h2 { font-size: 34px; font-weight: 550; letter-spacing: -.035em; color: #f0f5ee; }
+.muted { color: #9caea1; }
+.message { margin: 14px 0; padding: 15px 18px; border: 1px solid #2b3a30; border-left: 2px solid #789d7e; border-radius: 10px; background: #151e18; }
+.message.user { background: #1b2920; border-left-color: #acd28f; }
+.message.error { border-left-color: #e49b91; }
+.message-role { color: #a9bcae; font: 600 10px "Segoe UI", sans-serif; }
+.message p { margin-bottom: 0; overflow-wrap: anywhere; }
+.composer { background: #18231b; border: 1px solid #3a5040; border-radius: 14px; padding: 8px; box-shadow: 0 12px 36px #0004; }
+.composer input { color: #f1f7ee; font: 14px "Segoe UI", sans-serif; padding: 12px; }
+.composer button { background: #b7df9f; color: #172318; border-radius: 9px; font-weight: 650; padding: 9px 19px; }
+.composer button:hover { background: #d0edbd; }
+.usage { margin: 9px 4px 0; font-size: 11px; }
+.panel { max-width: 900px; margin: 48px auto; }
+.council-form input, .council-form textarea, .council-form select { background: #141e17; border-color: #35483a; }
+.council-form button { background: #b7df9f; color: #172318; }

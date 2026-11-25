@@ -78,6 +78,56 @@ def test_desktop_chat_uses_existing_runtime_and_returns_session(monkeypatch, tmp
         server.server_close()
 
 
+def test_desktop_stream_is_incremental_scoped_and_cleared(monkeypatch, tmp_path):
+    from omnix.desktop_server import DesktopState
+    sent, release = threading.Event(), threading.Event()
+
+    class FakeRuntime:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def run(self, prompt, session_id=None, on_delta=None):
+            on_delta("first ")
+            sent.set()
+            assert release.wait(3)
+            on_delta("second")
+            return "first second", "session-1"
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("omnix.desktop_server.AgentRuntime", FakeRuntime)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.state = DesktopState()
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+    result = []
+    def chat():
+        request = urllib.request.Request(base + "/v1/chat", data=json.dumps({"prompt": "hello", "stream_id": "abc-123"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=5) as response:
+            result.append(json.loads(response.read()))
+    worker = threading.Thread(target=chat)
+    worker.start()
+    try:
+        assert sent.wait(3)
+        def poll(stream_id):
+            with urllib.request.urlopen(urllib.request.Request(base + "/v1/chat/stream?id=" + stream_id, headers=headers), timeout=2) as response:
+                return json.loads(response.read())["text"]
+        assert poll("abc-123") == "first "
+        assert poll("other") == ""
+        release.set()
+        worker.join(3)
+        assert result[0]["answer"] == "first second"
+        assert poll("abc-123") == ""
+    finally:
+        release.set()
+        worker.join(3)
+        server.shutdown()
+        server_thread.join(3)
+        server.server_close()
+
+
 def test_desktop_approval_is_explicit_scoped_and_time_limited():
     server = DesktopServer(("127.0.0.1", 0), Handler)
     result = []

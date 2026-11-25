@@ -55,6 +55,7 @@ class HermesExecutionBackend:
         session_id: str,
         messages: list[dict[str, Any]],
         on_text: Callable[[str], None] | None = None,
+        on_delta: Callable[[str], None] | None = None,
     ) -> str:
         """Execute until the model returns a final turn or the bounded loop stops.
 
@@ -77,11 +78,15 @@ class HermesExecutionBackend:
             role_chars = {role: sum(len(str(item.get("content") or "")) for item in messages if item.get("role") == role) for role in ("system", "user", "assistant", "tool")}
             self.store.event(task_id, "prompt_metrics", json.dumps({**role_chars, "tool_schema_chars": len(json.dumps(self.tools.schemas(), sort_keys=True)), "message_count": len(messages), "estimated_prompt_tokens": math.ceil(sum(role_chars.values()) / 4)}, sort_keys=True))
             try:
+                options = {"requires_tools": True}
+                if on_delta is not None:
+                    on_delta("")  # Start a new provisional provider turn.
+                    options.update(on_delta=on_delta, cancel_event=self.cancel_event)
                 response, route = self.router.complete(
                     messages,
                     self.tools.schemas(),
                     lambda r, u, latency: self.record_usage(task_id, r, u, latency),
-                    requires_tools=True,
+                    **options,
                 )
             except TypeError as exc:
                 if "requires_tools" not in str(exc):

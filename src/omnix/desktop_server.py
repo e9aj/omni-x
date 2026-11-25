@@ -33,6 +33,8 @@ class DesktopState:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.cancel_event: threading.Event | None = None
+        self.stream_id: str | None = None
+        self.stream_text = ""
 
 
 class ApprovalManager:
@@ -111,6 +113,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/v1/health":
             self._json(200, {"status": "ok", "version": __version__, "pid": os.getpid()})
+        elif urlsplit(self.path).path == "/v1/chat/stream":
+            stream_id = parse_qs(urlsplit(self.path).query).get("id", [""])[0]
+            with self.server.state.lock:
+                text = self.server.state.stream_text if stream_id and stream_id == self.server.state.stream_id else ""
+            self._json(200, {"text": text})
         elif self.path == "/v1/approvals":
             self._json(200, {"approvals": self.server.approvals.list()})
         elif self.path == "/v1/settings":
@@ -409,16 +416,21 @@ class Handler(BaseHTTPRequestHandler):
     def _chat(self, body: dict[str, Any]) -> None:
         prompt = body.get("prompt")
         session_id = body.get("session_id")
+        stream_id = body.get("stream_id")
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 100_000:
             raise ValueError("prompt must be a non-empty string under 100000 characters")
         if session_id is not None and (not isinstance(session_id, str) or len(session_id) > 200):
             raise ValueError("session_id is invalid")
+        if stream_id is not None and (not isinstance(stream_id, str) or not 1 <= len(stream_id) <= 80 or any(char not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for char in stream_id)):
+            raise ValueError("stream_id is invalid")
         cancel = threading.Event()
         with self.server.state.lock:
             if self.server.state.cancel_event is not None:
                 self._json(409, {"error": "another chat task is already running"})
                 return
             self.server.state.cancel_event = cancel
+            self.server.state.stream_id = stream_id
+            self.server.state.stream_text = ""
         try:
             settings = load_settings()
             if not config_path().exists() and settings.provider == "openai":
@@ -434,7 +446,15 @@ class Handler(BaseHTTPRequestHandler):
             # settings are migrated to the native runtime by configuration
             # loading; no Hermes process is started from the desktop shell.
             runtime = AgentRuntime(settings, store, Path.cwd(), approver=approver, cancel_event=cancel)
-            answer, result_session = runtime.run(prompt, session_id)
+            def on_delta(text: str) -> None:
+                with self.server.state.lock:
+                    if self.server.state.stream_id == stream_id:
+                        self.server.state.stream_text = (self.server.state.stream_text + text)[-200_000:] if text else ""
+
+            if stream_id:
+                answer, result_session = runtime.run(prompt, session_id, on_delta=on_delta)
+            else:
+                answer, result_session = runtime.run(prompt, session_id)
             task_id = getattr(runtime, "last_task_id", None)
             usage = []
             tool_events = []
@@ -449,6 +469,8 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             with self.server.state.lock:
                 self.server.state.cancel_event = None
+                self.server.state.stream_id = None
+                self.server.state.stream_text = ""
 
     def _council(self, body: dict[str, Any]) -> None:
         prompt = body.get("prompt")

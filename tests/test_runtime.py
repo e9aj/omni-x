@@ -6,6 +6,30 @@ import pytest
 from omnix.config import Settings
 from omnix.runtime import AgentRuntime
 from omnix.store import Store
+from omnix.skills_manager import SkillsManager
+
+
+def test_runtime_only_loads_enabled_skills(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    skill = tmp_path / "skills" / "specialist-review"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("description: specialist review\nUnique reviewed instructions.", encoding="utf-8")
+
+    class FakeRouter:
+        def __init__(self, *_args):
+            pass
+
+        def complete(self, messages, *_args, **_kwargs):
+            return {"choices": [{"message": {"content": "Done."}}]}, type("Route", (), {"provider": "test", "model": "test"})()
+
+    monkeypatch.setattr("omnix.runtime.Router", FakeRouter)
+    store = Store(tmp_path / "db.sqlite3")
+    runtime = AgentRuntime(Settings(), store, tmp_path)
+    _, first = runtime.run("Perform a specialist review")
+    assert "Unique reviewed instructions" not in store.messages(first)[0]["content"]
+    SkillsManager(tmp_path).set_enabled("specialist-review", True)
+    _, second = runtime.run("Perform a specialist review")
+    assert "Unique reviewed instructions" in store.messages(second)[0]["content"]
 
 
 def test_cancel_during_provider_request_prevents_tool_execution(monkeypatch, tmp_path: Path):

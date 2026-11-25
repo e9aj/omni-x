@@ -118,18 +118,9 @@ type WorkflowItem = {
   definition: { nodes: WorkflowNode[] };
 };
 type WorkflowRun = { id: string; state: string; error?: string | null; result?: Record<string, string> | null; created: number; finished?: number | null };
-const sections = [
-  "Chat",
-  "Council",
-  "Agents",
-  "Tasks",
-  "Models",
-  "Tools & Skills",
-  "Integrations",
-  "Voice",
-  "Workflows",
-  "Memory",
-  "Settings",
+const navigation = [
+  { label: "WORKSPACE", items: ["Chat", "Council", "Agents", "Tasks", "Workflows", "Memory"] },
+  { label: "CONFIGURE", items: ["Models", "Tools & Skills", "Integrations", "Voice", "Settings"] },
 ];
 
 export function App() {
@@ -145,6 +136,7 @@ export function App() {
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [running, setRunning] = useState(false);
+  const [streamText, setStreamText] = useState("");
   const [booting, setBooting] = useState(true);
   const [usage, setUsage] = useState<string>();
   const [approvals, setApprovals] = useState<Approval[]>([]);
@@ -207,16 +199,20 @@ export function App() {
         endpoint: "loopback",
         error: String(error),
       });
+    } finally {
+      setBooting(false);
     }
   }
   useEffect(() => {
-    void refreshStatus();
-    const timer = window.setInterval(() => void refreshStatus(), 5000);
-    return () => window.clearInterval(timer);
+    let stopped = false;
+    let timer: number | undefined;
+    const refresh = async () => {
+      await refreshStatus();
+      if (!stopped) timer = window.setTimeout(refresh, 5000);
+    };
+    void refresh();
+    return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
-  useEffect(() => {
-    if (status.connected) setBooting(false);
-  }, [status.connected]);
   useEffect(() => {
     if (!sessionId) return;
     void invoke<{ messages: Array<{ role: string; content: string }> }>(
@@ -233,6 +229,8 @@ export function App() {
       .catch(() => undefined);
   }, []);
   useEffect(() => {
+    let stopped = false;
+    let timer: number | undefined;
     async function refresh() {
       try {
         const result = await invoke<{ approvals: Approval[] }>(
@@ -242,10 +240,10 @@ export function App() {
       } catch {
         /* backend status displays the connection error */
       }
+      if (!stopped) timer = window.setTimeout(refresh, 1000);
     }
     void refresh();
-    const timer = window.setInterval(() => void refresh(), 1000);
-    return () => window.clearInterval(timer);
+    return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
   useEffect(() => {
     void invoke<{ content_preference: string; model: string }>(
@@ -322,10 +320,24 @@ export function App() {
     setPrompt("");
     setMessages((items) => [...items, { role: "user", content: text }]);
     setRunning(true);
+    setStreamText("");
+    const streamId = crypto.randomUUID();
+    let polling = true;
+    const poll = async () => {
+      while (polling) {
+        try {
+          const result = await invoke<{ text: string }>("backend_chat_stream", { streamId });
+          if (polling) setStreamText(result.text);
+        } catch { /* The chat request reports connection errors. */ }
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    };
+    void poll();
     try {
       const result = await invoke<ChatResult>("backend_chat", {
         prompt: text,
         sessionId,
+        streamId,
       });
       setSessionId(result.session_id);
       localStorage.setItem("omnix-session-id", result.session_id);
@@ -348,6 +360,8 @@ export function App() {
         { role: "error", content: String(error) },
       ]);
     } finally {
+      polling = false;
+      setStreamText("");
       setRunning(false);
       void refreshStatus();
     }
@@ -657,14 +671,20 @@ export function App() {
           </span>
         </div>
         <nav>
-          {sections.map((item) => (
-            <button
-              className={section === item ? "nav-item active" : "nav-item"}
-              onClick={() => setSection(item)}
-              key={item}
-            >
-              {item}
-            </button>
+          {navigation.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <p className="nav-label">{group.label}</p>
+              {group.items.map((item) => (
+                <button
+                  className={section === item ? "nav-item active" : "nav-item"}
+                  onClick={() => setSection(item)}
+                  aria-current={section === item ? "page" : undefined}
+                  key={item}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-footer">
@@ -691,11 +711,11 @@ export function App() {
             <div className="message-list">
               {messages.length === 0 && (
                 <div className="empty-chat">
-                  <p className="eyebrow">FREE MODE · SECURE LOCAL RUNTIME</p>
-                  <h2>Ready when you are.</h2>
+                  <p className="eyebrow">YOUR LOCAL AGENT WORKSPACE</p>
+                  <h2>What shall we work on?</h2>
                   <p className="muted">
-                    Responses use the existing OMNI-X Python runtime, SQLite
-                    sessions, routing, tools and approval controls.
+                    Bring an idea, a question or a task. OMNI-X will keep you
+                    in control as the work takes shape.
                   </p>
                 </div>
               )}
@@ -710,8 +730,8 @@ export function App() {
               ))}
               {running && (
                 <article className="message assistant">
-                  <span className="message-role">assistant</span>
-                  <p>Working…</p>
+                  <span className="message-role">assistant · generating</span>
+                  <p>{streamText || "Working…"}</p>
                 </article>
               )}
             </div>

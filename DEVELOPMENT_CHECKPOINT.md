@@ -23,6 +23,14 @@ Updated: 2026-11-24
 
 ## Overhaul continuation — 25 November 2026
 
+- Resumed from `43c4a65`. Hosted CI, Windows Desktop and security workflows all passed for that head (runs `45521357856`, `45521357930`, `45521358032`); these do not validate subsequent changes.
+- Added incremental OpenAI-compatible SSE parsing, fragmented tool-call reconstruction, bounded stream sizes, route failure handling after partial output, and authenticated per-request desktop polling. Only completed responses are persisted; provisional output is cleared on completion or failure. Anthropic remains one-shot; cancellation cannot interrupt a socket stalled inside a read; live provider and packaged UI testing remain outstanding. Streaming acceptance is not complete.
+- The splash previously stayed visible indefinitely when backend status failed. It now dismisses after the first status result and leaves automatic status retries active; packaged offline/recovery validation remains outstanding.
+- Began the compact workspace redesign with grouped navigation and revised chat layout. The frontend production build passes, but visual inspection, accessibility and complete screen-by-screen redesign remain outstanding.
+- Native chat now uses the existing SkillsManager enabled-state and permission/dependency checks for new sessions, instead of injecting every matching discovered skill. Existing stored session instructions are unchanged.
+- Status, approval polling and Stop now use blocking workers; quick requests have a five-second read timeout and polling is serialised. This addresses identifiable UI-thread stalls but does not establish that all reported desktop crashes are fixed.
+- Local validation for this slice: full Python suite 136 passed, 3 skipped. An earlier run under concurrent Rust compilation had one 0.2-second MCP fixture startup timeout (135 passed, 3 skipped); the full rerun without compilation passed. Frontend production build and `cargo check --locked` passed (the latter used a temporary previously built sidecar solely as a required build resource). No current-head installer has been tested.
+- Two generated sidecar binaries remain untracked under `desktop/src-tauri/binaries/`: automatic approval review rejected their removal. Do not stage them. The earlier unrelated `BotNest/` and `artifacts/` remain untouched.
 - Resumed from `3efe0a5` on `codex/critical-overhaul`; the older exact-next-action and starting-head notes below are historical.
 - Added cancellation and deadline checks after a provider response and before each tool call. This prevents dispatch after the runtime observes cancellation or expiry; it does not interrupt a blocked provider request or an already executing tool.
 - Writes, commands and the legacy browser adapter now recheck cancellation after approval, preventing an approval arriving after Stop from starting those actions. Targeted tool, runtime and browser-manager tests: 16 passed.

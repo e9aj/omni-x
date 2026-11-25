@@ -60,9 +60,11 @@ class Router:
 
     def complete(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None = None,
                  record=None, requires_tools: bool = False,
-                 parameters: dict[str, Any] | None = None) -> tuple[dict[str, Any], Route]:
+                 parameters: dict[str, Any] | None = None, on_delta=None, cancel_event=None) -> tuple[dict[str, Any], Route]:
         errors = []
         for route in self.routes[:5]:
+            if cancel_event is not None and cancel_event.is_set():
+                raise RuntimeError("Task cancelled")
             provider = PROVIDERS[route.provider]
             if requires_tools and route.provider == "omniroute":
                 model_row = self.model_health_provider().get(route.model, {})
@@ -84,9 +86,20 @@ class Router:
                 errors.append(f"{route.provider}: credential unavailable")
                 continue
             started = time.perf_counter()
+            emitted = False
+
+            def emit(text):
+                nonlocal emitted
+                emitted = True
+                if on_delta:
+                    on_delta(text)
+
             try:
                 client = ModelClient(self.settings.__class__(**{**self.settings.__dict__, "provider": route.provider, "model": route.model}))
-                result = client.complete(messages, tools, parameters)
+                if on_delta is not None and client.provider.kind == "openai":
+                    result = client.stream(messages, tools, parameters, emit, cancel_event)
+                else:
+                    result = client.complete(messages, tools, parameters)
                 usage = result.get("usage", {})
                 latency_ms = (time.perf_counter() - started) * 1000
                 actual_model = result.get("model") if isinstance(result, dict) else None
@@ -103,5 +116,7 @@ class Router:
                     self.failure_recorder(route.provider, category, str(exc), (time.perf_counter() - started) * 1000)
                 if self.health_recorder:
                     self.health_recorder(route.provider, False, (time.perf_counter() - started) * 1000, str(exc))
+                if emitted:
+                    raise ProviderError("Provider stream interrupted after partial output") from exc
                 errors.append(f"{route.provider}: {exc}")
         raise ProviderError("All eligible provider routes failed: " + " | ".join(errors))

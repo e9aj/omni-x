@@ -216,30 +216,29 @@ class TaskService:
     def _run(self, job_id: str) -> None:
         # Multiple pollers may see a row; the atomic claim ensures one owner.
         db = Store(self.store.path)
-        if not db.claim_job(job_id):
-            with self._inflight_lock: self._inflight.discard(job_id)
-            return
-        row = db.job(job_id) or {}; cancel = self._cancel.setdefault(job_id, threading.Event())
         try:
-            if cancel.is_set(): raise RuntimeError("Task cancelled")
-            if row.get("deadline") and time.time() > row["deadline"]: raise TimeoutError("task deadline exceeded")
-            session_id = row.get("session_id")
-            if self._executor:
-                result = self._executor(row["prompt"], session_id)
-            else:
-                result, session_id = self._run_omnix_job(row, cancel, job_id)
-            if row.get("parent_job_id"):
-                self._settle_child(db, row["parent_job_id"], job_id, "completed", result, None)
-            # Settle the delegation before exposing the child as completed.
-            # Observers can then aggregate a terminal child without seeing a
-            # transient `running` delegation row.
-            db.finish_job(job_id, "completed", result=result)
-        except Exception as exc:
-            state = "cancelled" if cancel.is_set() or str(exc) == "Task cancelled" else "failed"
-            if row.get("parent_job_id"):
-                self._settle_child(db, row["parent_job_id"], job_id, state, None, str(exc))
-            db.finish_job(job_id, state, error=str(exc))
+            if not db.claim_job(job_id):
+                return
+            row = db.job(job_id) or {}; cancel = self._cancel.setdefault(job_id, threading.Event())
+            try:
+                if cancel.is_set(): raise RuntimeError("Task cancelled")
+                if row.get("deadline") and time.time() > row["deadline"]: raise TimeoutError("task deadline exceeded")
+                session_id = row.get("session_id")
+                if self._executor:
+                    result = self._executor(row["prompt"], session_id)
+                else:
+                    result, session_id = self._run_omnix_job(row, cancel, job_id)
+                if row.get("parent_job_id"):
+                    self._settle_child(db, row["parent_job_id"], job_id, "completed", result, None)
+                # Settle the delegation before exposing the child as completed.
+                db.finish_job(job_id, "completed", result=result)
+            except Exception as exc:
+                state = "cancelled" if cancel.is_set() or str(exc) == "Task cancelled" else "failed"
+                if row.get("parent_job_id"):
+                    self._settle_child(db, row["parent_job_id"], job_id, state, None, str(exc))
+                db.finish_job(job_id, state, error=str(exc))
         finally:
+            db.db.close()
             with self._inflight_lock: self._inflight.discard(job_id)
 
     def _job_settings(self, row: dict) -> Settings:
@@ -251,15 +250,19 @@ class TaskService:
         return Settings(**{**self.settings.__dict__, **values})
 
     def _run_omnix_job(self, row: dict, cancel: threading.Event, job_id: str) -> tuple[str, str | None]:
-        runtime = AgentRuntime(self._job_settings(row), Store(self.store.path), self.workspace, self.approver,
-                               cancel_event=cancel,
-                               delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
-        result, session_id = runtime.run(row["prompt"], row.get("session_id"))
-        if row.get("parent_job_id"):
-            tool_events = Store(self.store.path).db.execute("SELECT 1 FROM events WHERE task_id=? AND kind='tool_result' LIMIT 1", (runtime.last_task_id,)).fetchone()
-            if not tool_events:
-                raise RuntimeError("delegated child completed without a verified tool result")
-        return result, session_id
+        runtime_store = Store(self.store.path)
+        try:
+            runtime = AgentRuntime(self._job_settings(row), runtime_store, self.workspace, self.approver,
+                                   cancel_event=cancel,
+                                   delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
+            result, session_id = runtime.run(row["prompt"], row.get("session_id"))
+            if row.get("parent_job_id"):
+                tool_events = runtime_store.db.execute("SELECT 1 FROM events WHERE task_id=? AND kind='tool_result' LIMIT 1", (runtime.last_task_id,)).fetchone()
+                if not tool_events:
+                    raise RuntimeError("delegated child completed without a verified tool result")
+            return result, session_id
+        finally:
+            runtime_store.db.close()
 
     def _delegate_for_job(self, parent_job_id: str, cancel: threading.Event, prompt: str, role: str = "specialist") -> str:
         if cancel.is_set():
@@ -272,7 +275,8 @@ class TaskService:
         while time.monotonic() < deadline:
             if cancel.is_set():
                 self.cancel(child); raise RuntimeError("Task cancelled")
-            row = Store(self.store.path).job(child)
+            with self.store._lock:
+                row = self.store.job(child)
             if row and row["state"] in {"completed", "failed", "cancelled"}:
                 if row["state"] != "completed":
                     raise RuntimeError(f"delegated child {child} {row['state']}: {row.get('error')}")

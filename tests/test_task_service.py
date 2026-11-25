@@ -1,4 +1,6 @@
 import time
+import sqlite3
+import pytest
 from pathlib import Path
 
 from omnix.config import Settings
@@ -144,6 +146,25 @@ def test_native_background_job_uses_same_runtime(monkeypatch, tmp_path: Path):
     service._run_omnix_job = lambda row, cancel, job_id: ("native result", None)
     job = service.enqueue("background task")
     assert wait_for(service, job, "completed")["result"] == "native result"
+    service.close()
+
+
+def test_job_worker_closes_its_connection(monkeypatch, tmp_path: Path):
+    service = TaskService(Settings(), Store(tmp_path / "closed.sqlite3"), tmp_path, executor=lambda *_: "done")
+    job = service.store.create_job("task")
+    opened = []
+
+    class TrackedStore(Store):
+        def __init__(self, path):
+            super().__init__(path)
+            opened.append(self)
+
+    monkeypatch.setattr("omnix.task_service.Store", TrackedStore)
+    service._run(job)
+    assert service.store.job(job)["state"] == "completed"
+    assert len(opened) == 1
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        opened[0].db.execute("SELECT 1")
     service.close()
 
 

@@ -2,13 +2,30 @@
 
 Updated: 2026-11-24
 
-## Current state
+## Current state — Critical Product Overhaul
 
-- Branch: `codex/alpha-candidate`
-- Head: `836116e`.
-- Consolidated alpha branch is pushed at `836116e`; PR creation via the current GitHub integration returned HTTP 403 (`Resource not accessible by integration`) and requires repository write permission through another authorised route.
-- Draft PR: [#7](https://github.com/e9aj/omni-x/pull/7).
+- Updated: 2026-11-25.
+- Branch: `codex/critical-overhaul`; current starting head: `6d4529d3` (`fix: drain command output during execution`).
+- The user authorised continuous implementation, build, testing, commits and pushes on the overhaul branch. Do not merge or publish a production release.
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
+- The earlier alpha-candidate notes below describe historical work and are not completion evidence for the current overhaul head.
+
+## Overhaul acceptance checklist
+
+- [ ] Reproduce and diagnose Windows startup, chat freeze/crash and relaunch failures; validate recovery, cancellation, timeouts, offline/no-provider startup and safe process cleanup.
+- [ ] Remove remaining Hermes runtime dependencies, including browser and skill paths, while preserving OMNI-X capabilities and security boundaries.
+- [ ] Redesign the desktop as a compact, premium, agent-first workspace with the existing capabilities accessible and no placeholder controls.
+- [ ] Implement real incremental provider/runtime streaming, tool/task events, cancellation, persistence and error recovery.
+- [ ] Use the canonical website logo consistently, including app, splash, installer, favicon and release assets; provide reduced-motion branded boot screen without artificial delay.
+- [ ] Measure packaged cold/warm startup, interactivity, backend readiness, idle CPU/memory and task/chat responsiveness; target interactive within three seconds.
+- [ ] Build/install the Windows app and run repeated launches plus offline, no-credential, chat failure, streaming/cancel, tool/task, Brain, workflow, recovery and shutdown scenarios; capture genuine UI/splash screenshots.
+- [ ] Record current-head tests, installer checksum/signing status and unresolved limitations. Continue independent work after each commit until criteria are met or remaining tasks are genuinely blocked.
+
+## Verified at starting head
+
+- Local history records targeted command-output drain tests at `6d4529d`; this does not diagnose the reported desktop crash or satisfy the overhaul acceptance criteria.
+- Current UI still uses one-shot chat responses and an artificial three-second splash fallback; these are outstanding.
+- Existing Windows packaging/lifecycle evidence in the older checkpoint is for prior alpha-candidate heads and must not be attributed to this branch.
 
 ## Verified in this session
 

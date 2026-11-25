@@ -215,10 +215,6 @@ export function App() {
     return () => window.clearInterval(timer);
   }, []);
   useEffect(() => {
-    const timer = window.setTimeout(() => setBooting(false), 3000);
-    return () => window.clearTimeout(timer);
-  }, []);
-  useEffect(() => {
     if (status.connected) setBooting(false);
   }, [status.connected]);
   useEffect(() => {

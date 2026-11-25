@@ -8,6 +8,8 @@ import pytest
 
 from omnix.config import Settings
 from omnix.providers import ModelClient, ProviderError, _validate_http_url
+from omnix.runtime import AgentRuntime
+from omnix.store import Store
 
 
 def event(value):
@@ -56,3 +58,31 @@ def test_provider_errors_do_not_expose_upstream_body(monkeypatch):
 def test_provider_urls_reject_embedded_credentials_and_query(url):
     with pytest.raises(ProviderError, match="must not contain"):
         _validate_http_url(url)
+
+
+def test_streamed_tool_call_runs_through_native_runtime(monkeypatch, tmp_path):
+    (tmp_path / "note.txt").write_text("verified content", encoding="utf-8")
+    streams = [
+        event({"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "call-1", "function": {"name": "read_file", "arguments": '{"path":'}}]}}]})
+        + event({"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": '"note.txt"}'}}]}}]}) + b"data: [DONE]\n\n",
+        event({"choices": [{"delta": {"content": "Verified content."}}]}) + b"data: [DONE]\n\n",
+    ]
+    requests = []
+
+    def open_stream(request, timeout):
+        requests.append(json.loads(request.data))
+        return io.BytesIO(streams.pop(0))
+
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: None)
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=open_stream))
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    settings = Settings(provider="omniroute", mode="FREE", model="local-free", free_models=["local-free"])
+    store = Store(tmp_path / "state.sqlite3")
+    runtime = AgentRuntime(settings, store, tmp_path)
+    chunks, events = [], []
+    answer, session = runtime.run("Read the note", on_delta=chunks.append, on_event=events.append)
+    assert answer == "Verified content."
+    assert "Running tool: read_file" in events
+    assert "Verified content." in chunks
+    assert any(message.get("role") == "tool" and "verified content" in message.get("content", "") for message in requests[1]["messages"])
+    assert store.messages(session)[-1]["content"] == answer

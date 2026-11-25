@@ -45,7 +45,7 @@ jobs:
           Copy-Item dist/omnix-backend.exe desktop/src-tauri/binaries/omnix-backend-x86_64-pc-windows-msvc.exe -Force
       - name: Generate OMNI-X application icons
         working-directory: desktop
-        run: npm run tauri -- icon src/assets/omnix.svg
+        run: npm run tauri -- icon src/assets/website-logo.png
       - name: Build Windows NSIS installer
         working-directory: desktop
         run: npm run tauri build

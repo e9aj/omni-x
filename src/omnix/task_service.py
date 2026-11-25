@@ -1,11 +1,7 @@
 """Durable OMNI-X task service.
 
-Hermes's cron scheduler and worker ledger are authoritative references for the
-schedule and lifecycle semantics.  Their agent-owned stores are deliberately
-not opened here: OMNI-X remains the sole execution engine and policy authority.
-The adapter uses Hermes's schedule parser when its managed installation is
-available, with a small dependency-free interval/ISO fallback for Windows
-bootstrap and tests.
+OMNI-X owns schedule parsing, the durable worker ledger and execution policy.
+The service does not open an external scheduler or agent-owned store.
 """
 from __future__ import annotations
 
@@ -205,10 +201,8 @@ class TaskService:
             for row in self.store.due_schedules(now):
                 try:
                     kind, parsed_next, recurrence = _parse_schedule(row["schedule"])
-                    # Hermes cron schedules return the next occurrence rather
-                    # than a fixed interval. Re-parse after each fire so DST,
-                    # calendar boundaries and missed runs follow Hermes' own
-                    # semantics without starting Hermes' scheduler process.
+                    # Re-parse cron expressions after each fire; intervals use
+                    # a fixed duration and one-shot schedules do not recur.
                     next_run = (now + recurrence) if recurrence else (parsed_next if kind == "cron" else None)
                     self.store.advance_schedule(row["id"], next_run, now, missed=0)
                     if row.get("workflow_id"):

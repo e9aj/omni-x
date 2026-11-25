@@ -13,7 +13,7 @@ from .store import Store
 from .tools import ToolRegistry
 from .skills_manager import SkillsManager
 from .hermes_bridge import TOOL_CALL_CONTRACT
-from .hermes_backend import HermesExecutionBackend
+from .agent_backend import AgentExecutionBackend
 
 
 SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. When a task asks for a specialist, invoke the supplied delegate_task function immediately; do not merely narrate that you will delegate. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this Hermes-compatible contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
@@ -66,7 +66,7 @@ class AgentRuntime:
         self.store.add_message(session_id, "user", prompt)
         messages = self.store.messages(session_id)
         try:
-            backend = HermesExecutionBackend(
+            backend = AgentExecutionBackend(
                 router=self.router,
                 tools=self.tools,
                 store=self.store,

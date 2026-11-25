@@ -9,6 +9,12 @@ from omnix.store import Store
 from omnix.skills_manager import SkillsManager
 
 
+def test_legacy_backend_import_remains_compatible():
+    from omnix.agent_backend import AgentExecutionBackend
+    from omnix.hermes_backend import HermesExecutionBackend
+    assert HermesExecutionBackend is AgentExecutionBackend
+
+
 def test_runtime_only_loads_enabled_skills(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
     skill = tmp_path / "skills" / "specialist-review"

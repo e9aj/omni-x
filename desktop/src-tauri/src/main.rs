@@ -12,7 +12,7 @@ use std::{
         Mutex,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
@@ -83,8 +83,10 @@ fn request(
         Duration::from_secs(2),
     )
     .map_err(|e| e.to_string())?;
-    let quick_request = matches!(path, "/v1/health" | "/v1/approvals" | "/v1/stop")
-        || path.starts_with("/v1/chat/stream?");
+    let quick_request = matches!(
+        path,
+        "/v1/health" | "/v1/approvals" | "/v1/stop" | "/v1/shutdown"
+    ) || path.starts_with("/v1/chat/stream?");
     stream
         .set_read_timeout(Some(Duration::from_secs(if quick_request {
             5
@@ -304,7 +306,8 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         .child
         .lock()
         .map_err(|_| "backend lock poisoned".to_string())? = Some(child);
-    for _ in 0..30 {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while Instant::now() < deadline {
         if let Ok(value) = request(state, "GET", "/v1/health", None) {
             if let Some(actual_pid) = value["pid"].as_u64().map(|value| value as u32) {
                 if process_is_owned_descendant(actual_pid, expected_pid) {
@@ -335,19 +338,34 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
             discard_child(state);
             return Err("backend exited before authenticated health check".into());
         }
-        thread::sleep(Duration::from_millis(500));
+        thread::sleep(Duration::from_millis(250));
     }
     eprintln!("OMNI-X backend authenticated health check timed out");
     supervisor_log(&format!("health timeout pid={expected_pid}"));
     discard_child(state);
-    Err("backend did not pass authenticated health check within 15 seconds".into())
+    Err("backend did not pass authenticated health check within the startup limit".into())
+}
+
+fn stop_owned_child(child: &mut Child) {
+    if matches!(child.try_wait(), Ok(None)) {
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let _ = Command::new("taskkill")
+                .args(["/PID", &child.id().to_string(), "/T", "/F"])
+                .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+                .status();
+        }
+    }
+    // Child::kill uses the owned process handle, including if status probing failed.
+    let _ = child.kill();
+    let _ = child.wait();
 }
 
 fn discard_child(state: &BackendState) {
     if let Ok(mut guard) = state.child.lock() {
         if let Some(mut child) = guard.take() {
-            let _ = child.kill();
-            let _ = child.wait();
+            stop_owned_child(&mut child);
         }
     }
 }
@@ -364,8 +382,7 @@ fn shutdown_backend(state: &BackendState) {
                 }
                 thread::sleep(Duration::from_millis(50));
             }
-            let _ = child.kill();
-            let _ = child.wait();
+            stop_owned_child(&mut child);
         }
     }
 }

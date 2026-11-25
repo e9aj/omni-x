@@ -1,10 +1,11 @@
 import json
 import os
 import threading
+import time
 import urllib.error
 import urllib.request
 from contextlib import closing
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from socket import socket
 from types import SimpleNamespace
 
@@ -126,6 +127,75 @@ def test_desktop_stream_is_incremental_scoped_and_cleared(monkeypatch, tmp_path)
         server.shutdown()
         server_thread.join(3)
         server.server_close()
+
+
+def test_desktop_streams_provider_response_and_persists_final(monkeypatch, tmp_path):
+    from omnix.desktop_server import DesktopState
+    first_sent, release = threading.Event(), threading.Event()
+
+    class ProviderHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            assert body["stream"] is True
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            self.wfile.write(b'data: {"choices":[{"delta":{"content":"Hello "}}]}\n\n')
+            self.wfile.flush()
+            first_sent.set()
+            assert release.wait(5)
+            self.wfile.write(b'data: {"choices":[{"delta":{"content":"there."}}]}\n\ndata: [DONE]\n\n')
+            self.wfile.flush()
+        def log_message(self, *_args):
+            pass
+
+    monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: None)
+    provider = ThreadingHTTPServer(("127.0.0.1", 0), ProviderHandler)
+    provider_thread = threading.Thread(target=provider.serve_forever, daemon=True)
+    provider_thread.start()
+    save_settings(Settings(provider="omniroute", model="local-free", mode="FREE", free_models=["local-free"], base_url=f"http://127.0.0.1:{provider.server_port}/v1"))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.state = DesktopState()
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+    base = f"http://127.0.0.1:{server.server_port}"
+    headers = {"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost", "Content-Type": "application/json"}
+    result = []
+    def chat():
+        request = urllib.request.Request(base + "/v1/chat", data=json.dumps({"prompt": "Greet me", "stream_id": "local-test"}).encode(), headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=8) as response:
+            result.append(json.loads(response.read()))
+    worker = threading.Thread(target=chat)
+    worker.start()
+    try:
+        assert first_sent.wait(5)
+        deadline = time.monotonic() + 3
+        streamed = ""
+        while not streamed and time.monotonic() < deadline:
+            request = urllib.request.Request(base + "/v1/chat/stream?id=local-test", headers=headers)
+            with urllib.request.urlopen(request, timeout=2) as response:
+                streamed = json.loads(response.read())["text"]
+            if not streamed:
+                time.sleep(0.02)
+        assert streamed == "Hello "
+        release.set()
+        worker.join(5)
+        assert result[0]["answer"] == "Hello there."
+        request = urllib.request.Request(base + "/v1/sessions/" + result[0]["session_id"], headers=headers)
+        with urllib.request.urlopen(request, timeout=2) as response:
+            messages = json.loads(response.read())["messages"]
+        assert messages[-1]["content"] == "Hello there."
+    finally:
+        release.set()
+        worker.join(5)
+        server.shutdown()
+        provider.shutdown()
+        server_thread.join(3)
+        provider_thread.join(3)
+        server.server_close()
+        provider.server_close()
 
 
 def test_desktop_approval_is_explicit_scoped_and_time_limited():

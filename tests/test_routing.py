@@ -1,6 +1,8 @@
 from omnix.config import Settings
 from omnix.providers import ProviderError
-from omnix.routing import Router
+from omnix.routing import Router, Route
+import pytest
+from types import SimpleNamespace
 
 
 def test_free_mode_rejects_paid_requested_provider():
@@ -11,6 +13,29 @@ def test_free_mode_rejects_paid_requested_provider():
         assert "paid inference requires allow_paid=true" in str(exc)
     else:
         raise AssertionError("FREE mode accepted a paid-only route")
+
+
+def test_partial_stream_failure_is_not_retried_on_another_route(monkeypatch):
+    attempted = []
+
+    class FakeClient:
+        def __init__(self, settings):
+            attempted.append(settings.model)
+            self.provider = SimpleNamespace(kind="openai")
+
+        def stream(self, _messages, _tools, _parameters, on_delta, _cancel):
+            on_delta("partial")
+            raise ProviderError("lost connection")
+
+    monkeypatch.setattr("omnix.routing.ModelClient", FakeClient)
+    settings = Settings(provider="omniroute", mode="FREE", model="one-free", free_models=["one-free", "two-free"])
+    router = Router(settings)
+    router.routes = [Route("omniroute", "one-free"), Route("omniroute", "two-free")]
+    received = []
+    with pytest.raises(ProviderError, match="interrupted after partial output"):
+        router.complete([], on_delta=received.append)
+    assert received == ["partial"]
+    assert attempted == ["one-free"]
 
 
 def test_free_omniroute_prefers_verified_tool_model_and_excludes_failed_model():

@@ -171,6 +171,7 @@ export function App() {
     viewport: { x: 0, y: 0, zoom: 1 },
   });
   const [memorySuggestions, setMemorySuggestions] = useState<MemorySuggestion[]>([]);
+  const [memoryEdits, setMemoryEdits] = useState<Record<string, string>>({});
   const [canvasSelected, setCanvasSelected] = useState<string>();
   const [canvasZoom, setCanvasZoom] = useState(1);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
@@ -993,8 +994,8 @@ export function App() {
             ) : memorySuggestions.map((suggestion) => (
               <article className="candidate" key={suggestion.id}>
                 <strong>{suggestion.memory_key}</strong>
-                <input defaultValue={suggestion.memory_value} aria-label={`Edit ${suggestion.memory_key}`} onBlur={(event) => void decideMemory(suggestion.id, "approved", suggestion.memory_key, event.target.value)} />
-                <div><button onClick={() => void decideMemory(suggestion.id, "approved")}>Approve</button><button onClick={() => void decideMemory(suggestion.id, "rejected")}>Reject</button><button onClick={() => void decideMemory(suggestion.id, "deleted")}>Delete</button></div>
+                <input value={memoryEdits[suggestion.id] ?? suggestion.memory_value} aria-label={`Edit ${suggestion.memory_key}`} onChange={(event) => setMemoryEdits((items) => ({ ...items, [suggestion.id]: event.target.value }))} />
+                <div><button onClick={() => void decideMemory(suggestion.id, "approved", suggestion.memory_key, memoryEdits[suggestion.id] ?? suggestion.memory_value)}>Approve</button><button onClick={() => void decideMemory(suggestion.id, "rejected")}>Reject</button><button onClick={() => void decideMemory(suggestion.id, "deleted")}>Delete</button></div>
               </article>
             ))}
             <label>

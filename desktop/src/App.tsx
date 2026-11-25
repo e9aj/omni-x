@@ -143,6 +143,8 @@ export function App() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [contentPreference, setContentPreference] = useState("creative");
   const [model, setModel] = useState("auto/best-free");
+  const [provider, setProvider] = useState("");
+  const [routingMode, setRoutingMode] = useState("");
   const [councilMode, setCouncilMode] = useState("standard");
   const [councilModels, setCouncilModels] = useState("");
   const [councilPrompt, setCouncilPrompt] = useState("");
@@ -252,15 +254,18 @@ export function App() {
     return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
   useEffect(() => {
-    void invoke<{ content_preference: string; model: string }>(
+    if (!status.connected) return;
+    void invoke<{ content_preference: string; model: string; provider: string; mode: string }>(
       "backend_settings",
     )
       .then((result) => {
         setContentPreference(result.content_preference);
         setModel(result.model);
+        setProvider(result.provider);
+        setRoutingMode(result.mode);
       })
       .catch(() => undefined);
-  }, []);
+  }, [status.connected]);
   useEffect(() => {
     if (section !== "Models") return;
     void invoke<{ models: ModelInfo[]; error?: string }>("backend_models")
@@ -349,6 +354,8 @@ export function App() {
       setSessionId(result.session_id);
       localStorage.setItem("omnix-session-id", result.session_id);
       setModel(result.model ?? model);
+      setProvider(result.provider ?? provider);
+      setRoutingMode(result.mode);
       setUsage(
         result.usage
           ?.map(
@@ -759,7 +766,7 @@ export function App() {
             </form>
             {usage && (
               <p className="muted usage">
-                {usage} · FREE mode · {model}
+                {usage} · {routingMode} mode · {model}
               </p>
             )}
           </section>
@@ -1240,7 +1247,7 @@ export function App() {
               permissions.
             </p>
             <p className="muted">
-              Provider: OmniRoute · Model: {model} · FREE mode
+              {status.connected && provider ? `Provider: ${provider} · Model: ${model} · ${routingMode} mode` : "Provider details are unavailable."}
             </p>
           </section>
         ) : (

@@ -43,16 +43,24 @@ class ApprovalManager:
         self.lock = threading.Lock()
         self.pending: dict[str, dict[str, Any]] = {}
 
-    def request(self, action: str, timeout: float = 60.0) -> bool:
+    def request(self, action: str, timeout: float = 60.0, cancel_event: threading.Event | None = None) -> bool:
         ident = str(uuid.uuid4())
         event = threading.Event()
         item = {"id": ident, "action": action, "status": "pending", "expires_at": time.time() + timeout, "event": event}
         with self.lock:
             self.pending[ident] = item
-        event.wait(timeout)
+        deadline = time.monotonic() + timeout
+        while not event.is_set():
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            event.wait(min(remaining, 0.1))
         with self.lock:
             current = self.pending.pop(ident, item)
-        return current["status"] == "approved" and current["expires_at"] > time.time()
+        return (current["status"] == "approved" and current["expires_at"] > time.time()
+                and not (cancel_event is not None and cancel_event.is_set()))
 
     def list(self) -> list[dict[str, Any]]:
         now = time.time()
@@ -457,7 +465,7 @@ class Handler(BaseHTTPRequestHandler):
             # TaskService is the server's authoritative persistence owner.
             task_service = getattr(self.server, "tasks", None)
             store = task_service.store if task_service is not None else self._store()
-            approver = self.server.approvals.request if hasattr(self.server, "approvals") else (lambda _: False)
+            approver = (lambda action: self.server.approvals.request(action, cancel_event=cancel)) if hasattr(self.server, "approvals") else (lambda _: False)
             # OMNI-X is the sole desktop execution authority. Legacy Hermes
             # settings are migrated to the native runtime by configuration
             # loading; no Hermes process is started from the desktop shell.

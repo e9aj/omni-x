@@ -255,6 +255,24 @@ def test_desktop_approval_is_explicit_scoped_and_time_limited():
     server.server_close()
 
 
+def test_cancelling_approval_unblocks_and_removes_pending_request():
+    from omnix.desktop_server import ApprovalManager
+    manager = ApprovalManager()
+    cancel = threading.Event()
+    result = []
+    worker = threading.Thread(target=lambda: result.append(manager.request("write file", timeout=5, cancel_event=cancel)))
+    worker.start()
+    deadline = time.monotonic() + 2
+    while not manager.list() and time.monotonic() < deadline:
+        time.sleep(.01)
+    assert manager.list()
+    cancel.set()
+    worker.join(1)
+    assert not worker.is_alive()
+    assert result == [False]
+    assert manager.list() == []
+
+
 def test_desktop_content_preference_is_backend_owned(monkeypatch, tmp_path):
     monkeypatch.setenv("OMNIX_IPC_TOKEN", "unit-test-token")
     monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path))

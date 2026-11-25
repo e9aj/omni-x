@@ -715,10 +715,10 @@ export function App() {
             <p className="eyebrow">WORKSPACE</p>
             <h1>{section}</h1>
           </div>
-          <div className="connection">
+          <div className="connection" title={status.error} role="status">
             {status.connected
               ? `OMNI-X ${status.version ?? "runtime"}`
-              : (status.error ?? "Offline")}
+              : "Local runtime unavailable · retrying"}
           </div>
         </header>
         {section === "Chat" ? (

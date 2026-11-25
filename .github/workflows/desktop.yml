@@ -51,6 +51,7 @@ jobs:
         run: npm run tauri build
       - name: Smoke install and launch on hosted Windows runner
         shell: pwsh
+        timeout-minutes: 15
         run: |
           $installer = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
           Write-Host "Installer: $($installer.FullName)"
@@ -136,6 +137,30 @@ jobs:
           $desktop.Refresh()
           $cpuDelta = $desktop.TotalProcessorTime.TotalSeconds - $cpuStart
           Write-Host "Desktop process idle sample: CPU seconds over 2s=$cpuDelta; private bytes=$($desktop.PrivateMemorySize64) (excludes WebView and backend processes)"
+          Add-Type -AssemblyName System.Drawing
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class OmnixWindowCapture {
+            [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+            [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+            [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+          }
+          '@
+          $desktop.Refresh()
+          $captureRect = New-Object OmnixWindowCapture+Rect
+          if ($desktop.MainWindowHandle -ne [IntPtr]::Zero -and [OmnixWindowCapture]::GetWindowRect($desktop.MainWindowHandle, [ref]$captureRect)) {
+            $captureWidth = $captureRect.Right - $captureRect.Left
+            $captureHeight = $captureRect.Bottom - $captureRect.Top
+            if ($captureWidth -gt 0 -and $captureHeight -gt 0 -and $captureWidth -le 8192 -and $captureHeight -le 8192) {
+              $bitmap = [System.Drawing.Bitmap]::new($captureWidth, $captureHeight)
+              $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+              $hdc = $graphics.GetHdc()
+              try { $captured = [OmnixWindowCapture]::PrintWindow($desktop.MainWindowHandle, $hdc, 2) } finally { $graphics.ReleaseHdc($hdc); $graphics.Dispose() }
+              if ($captured) { $bitmap.Save((Join-Path $env:RUNNER_TEMP 'omnix-window.png'), [System.Drawing.Imaging.ImageFormat]::Png); Write-Host 'Window capture saved for visual review' }
+              $bitmap.Dispose()
+            }
+          }
           $ownedBackendIds = @($ownedBackend | ForEach-Object { [int]$_.ProcessId })
           function Test-ProcessDescendant([int]$processId, [int]$ancestorId) {
             if ($processId -eq $ancestorId) { return $true }
@@ -246,3 +271,9 @@ jobs:
           name: omnix-windows-installer-${{ github.sha }}
           path: desktop/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
+      - name: Upload Windows window capture
+        uses: actions/upload-artifact@v4
+        with:
+          name: omnix-window-capture-${{ github.sha }}
+          path: ${{ runner.temp }}/omnix-window.png
+          if-no-files-found: warn

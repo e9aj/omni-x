@@ -54,6 +54,8 @@ class TaskService:
 
     def close(self) -> None:
         self._stop.set(); self._wake.set()
+        for event in list(self._cancel.values()) + list(self._workflow_cancel.values()):
+            event.set()
         if self._thread: self._thread.join(timeout=5)
         self._pool.shutdown(wait=True, cancel_futures=True)
 

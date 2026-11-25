@@ -191,6 +191,27 @@ def test_workflow_cancellation_removes_pending_approval(tmp_path: Path):
         service.close()
 
 
+def test_shutdown_cancels_pending_workflow_approval(tmp_path: Path):
+    from omnix.desktop_server import ApprovalManager
+    manager = ApprovalManager()
+    store = Store(tmp_path / "workflow-shutdown.sqlite3")
+    workflow = store.save_workflow("approval", {"nodes": [{"id": "confirm", "action": "approval"}]})
+    service = TaskService(Settings(), store, tmp_path,
+                          cancellable_approver=lambda action, event: manager.request(action, timeout=5, cancel_event=event))
+    service.start_workflow(workflow)
+    try:
+        deadline = time.monotonic() + 3
+        while not manager.list() and time.monotonic() < deadline:
+            time.sleep(.01)
+        assert manager.list()
+    finally:
+        started = time.monotonic()
+        service.close()
+    assert time.monotonic() - started < 2
+    assert manager.list() == []
+    assert store.workflow_runs(workflow)[0]["state"] == "cancelled"
+
+
 def test_native_queued_job_cancellation_reaches_terminal_state(tmp_path: Path):
     service = TaskService(Settings(), Store(tmp_path / "native-cancel.sqlite3"), tmp_path, max_workers=1)
     job = service.enqueue("cancel before claim")

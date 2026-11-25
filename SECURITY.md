@@ -11,6 +11,7 @@ in `docs/security/`.
 - The desktop generates its default loopback bearer token from operating-system randomness; an explicit `OMNIX_IPC_TOKEN` override remains available for controlled test environments and must be kept secret.
 - API keys are stored with Windows DPAPI. Non-Windows fallback encryption requires an `OMNIX_MASTER_KEY`, integrity-checks ciphertext, and restricts the secret file to the owner.
 - Secrets are never included in provider errors, task events, or source control.
+- Provider HTTP response bodies are not copied into returned errors or provider-health records, and provider URLs reject embedded user information, queries and fragments.
 - Relative and absolute tool paths must remain inside the configured workspace.
 - File writes and command execution require an approval callback; dangerous command patterns are rejected before approval.
 - Tool calls are schema-checked and malformed JSON fails the task instead of executing.

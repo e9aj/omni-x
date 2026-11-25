@@ -65,6 +65,8 @@ def _validate_http_url(url: str) -> str:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ProviderError("provider URL must use HTTP(S)")
+    if parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment:
+        raise ProviderError("provider URL must not contain credentials, query or fragment")
     if parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
         raise ProviderError("unencrypted provider URLs are limited to loopback")
     return url
@@ -162,6 +164,7 @@ class ModelClient:
                     except (ValueError, TypeError, AttributeError, KeyError) as exc:
                         raise ProviderError("Invalid provider stream event") from exc
         except urllib.error.HTTPError as exc:
+            exc.close()
             raise ProviderError(f"Provider HTTP {exc.code}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             raise ProviderError("Provider stream failed or timed out") from exc
@@ -213,13 +216,13 @@ class ModelClient:
                 with urllib.request.urlopen(request, timeout=getattr(self.settings, "provider_request_timeout_seconds", self.settings.request_timeout_seconds)) as response:  # nosec B310
                     return json.loads(response.read())
             except urllib.error.HTTPError as exc:
-                detail = exc.read().decode(errors="replace")
                 retryable = exc.code == 429 or exc.code in {500, 502, 503, 504}
+                exc.close()
                 if not retryable or attempt >= self.settings.retry_limit:
                     label = "rate limit" if exc.code == 429 else f"HTTP {exc.code}"
-                    raise ProviderError(f"Provider {label}: {detail}") from exc
+                    raise ProviderError(f"Provider {label}") from exc
             except (urllib.error.URLError, TimeoutError) as exc:
                 if attempt >= self.settings.retry_limit:
-                    raise ProviderError(f"Provider request failed: {exc}") from exc
+                    raise ProviderError("Provider request failed or timed out") from exc
             time.sleep(min(2 ** attempt, 8))
         raise ProviderError("Provider request exhausted retry limit")

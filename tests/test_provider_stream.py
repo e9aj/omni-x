@@ -1,12 +1,13 @@
 import io
 import json
 import threading
+import urllib.error
 from types import SimpleNamespace
 
 import pytest
 
 from omnix.config import Settings
-from omnix.providers import ModelClient, ProviderError
+from omnix.providers import ModelClient, ProviderError, _validate_http_url
 
 
 def event(value):
@@ -38,3 +39,20 @@ def test_stream_rejects_truncation_and_honours_cancellation(monkeypatch):
     cancelled.set()
     with pytest.raises(RuntimeError, match="Task cancelled"):
         client.stream([], cancel_event=cancelled)
+
+
+def test_provider_errors_do_not_expose_upstream_body(monkeypatch):
+    def fail(request, timeout):
+        raise urllib.error.HTTPError(request.full_url, 400, "Bad request", {}, io.BytesIO(b"private-response-sentinel"))
+
+    monkeypatch.setattr("urllib.request.urlopen", fail)
+    client = ModelClient(Settings(provider="omniroute", retry_limit=0))
+    with pytest.raises(ProviderError) as error:
+        client.complete([])
+    assert str(error.value) == "Provider HTTP 400"
+
+
+@pytest.mark.parametrize("url", ["https://userinfo@example.test/v1", "https://example.test/v1?parameter=value", "https://example.test/v1#fragment"])
+def test_provider_urls_reject_embedded_credentials_and_query(url):
+    with pytest.raises(ProviderError, match="must not contain"):
+        _validate_http_url(url)

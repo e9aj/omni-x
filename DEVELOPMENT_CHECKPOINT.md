@@ -24,7 +24,7 @@ Updated: 2026-11-26
 ## Current open risks and verification gaps
 
 - High: the original packaged crash has not been reproduced or conclusively diagnosed. Shared SQLite locking, process-output bounds and shutdown fixes have targeted coverage, but broader packaged stress remains necessary.
-- High: Stop cannot interrupt a provider connection or stalled read promptly; Anthropic remains one-shot. The installed loopback fixture covers OpenAI-compatible streaming, not live inference.
+- High: Stop cannot interrupt a provider connection or stalled read promptly. The installed loopback fixture covers OpenAI-compatible streaming; Anthropic streaming has local fixture coverage only, and live inference is unverified.
 - Medium: the optional browser adapter still depends on an inspected Hermes checkout. Native skill discovery no longer scans Hermes automatically.
 - Medium: cold first-frame markers on hosted Windows were about 7 seconds before the latest startup-overlap change, and input responsiveness has not been measured. Its installed result is pending.
 - Medium: packaged screen-by-screen visual, keyboard and accessibility review, splash capture, live provider, stalled cancellation, full process resource sampling and several user-interaction scenarios remain unverified. The installer is unsigned and is for development testing, not a production release.
@@ -32,6 +32,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Added Anthropic SSE handling for incremental text, fragmented tool inputs, usage and stream errors, and conversion of native tool-call/result history into Anthropic message blocks. Local provider fixtures and the full Python suite pass (3 skipped). No external provider was contacted; packaged and live Anthropic inference and stalled-read cancellation are unverified. The streaming event format follows the official Claude API documentation.
 - Hosted CI `45838724282` failed Windows 3.11 because a TaskService test directly committed on its shared connection without the store lock while the scheduler was running. Direct accesses in that test module now use the lock; focused TaskService tests and the full local Python suite pass (3 skipped). Hosted verification of this test fix is pending. This test race does not establish the original desktop crash cause.
 - Hosted Windows installer `45838724353` for startup-overlap `5c952ee` passed the existing smoke: backend readiness was observed at 6,062 ms, versus roughly 12 seconds in earlier runs. Its cold frontend marker was checked before it arrived, so no cold frame or input responsiveness is claimed; the workflow now waits up to ten seconds for that marker. Hosted run `45838931066` for `699239f` passed the new rapid-close cleanup check as well as the existing smoke; its unsigned installer SHA-256 was `6AEB424F7A0DA7B59FE821A6F99A2010F9CF55EC65C9A179AF109465D0CBB39C`. This is one rapid-close attempt, not exhaustive race coverage.
 - Added accessible names for workflow actions, Brain search and task entry, and a visible voice-note path label. The frontend build passes; a full accessibility review remains open.

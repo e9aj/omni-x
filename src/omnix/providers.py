@@ -101,8 +101,8 @@ class ModelClient:
         No retry is attempted here: replaying a partially displayed response can
         duplicate output or actions. The runtime still owns all tool dispatch.
         """
-        if self.provider.kind != "openai":
-            raise ProviderError("Streaming is unavailable for this provider")
+        if self.provider.kind == "anthropic":
+            return self._anthropic_stream(messages, tools or [], parameters, on_delta, cancel_event)
         if cancel_event is not None and cancel_event.is_set():
             raise RuntimeError("Task cancelled")
         url = _validate_http_url((self.settings.base_url or self.provider.base_url).rstrip("/") + "/chat/completions")
@@ -189,21 +189,127 @@ class ModelClient:
         except ProviderError as exc:
             return {"provider": self.provider.name, "healthy": False, "latency_ms": round((time.perf_counter() - started) * 1000, 1), "error": str(exc)}
 
-    def _anthropic(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
-                   parameters: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _anthropic_body(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                        parameters: dict[str, Any] | None = None) -> dict[str, Any]:
         system = "\n".join(m["content"] for m in messages if m["role"] == "system")
-        converted = [{"role": m["role"], "content": m["content"]} for m in messages if m["role"] != "system"]
+        converted: list[dict[str, Any]] = []
+        for message in messages:
+            role = message.get("role")
+            if role == "system":
+                continue
+            if role == "tool":
+                block = {"type": "tool_result", "tool_use_id": message.get("tool_call_id", ""), "content": message.get("content") or ""}
+                if converted and converted[-1]["role"] == "user" and isinstance(converted[-1]["content"], list):
+                    converted[-1]["content"].append(block)
+                else:
+                    converted.append({"role": "user", "content": [block]})
+            elif role == "assistant" and message.get("tool_calls"):
+                blocks = []
+                if message.get("content"):
+                    blocks.append({"type": "text", "text": message["content"]})
+                for call in message["tool_calls"]:
+                    try:
+                        arguments = json.loads(call["function"].get("arguments") or "{}")
+                        if not isinstance(arguments, dict):
+                            raise ValueError("tool arguments must be an object")
+                        blocks.append({"type": "tool_use", "id": call["id"], "name": call["function"]["name"], "input": arguments})
+                    except (KeyError, TypeError, ValueError) as exc:
+                        raise ProviderError("Invalid tool call in provider history") from exc
+                converted.append({"role": "assistant", "content": blocks})
+            elif role in {"user", "assistant"}:
+                converted.append({"role": role, "content": message.get("content") or ""})
         body: dict[str, Any] = {"model": self.settings.model, "max_tokens": 4096, "messages": converted}
         if system:
             body["system"] = system
         if tools:
             body["tools"] = [{"name": t["function"]["name"], "description": t["function"].get("description", ""), "input_schema": t["function"]["parameters"]} for t in tools]
-        body.update(_safe_generation_parameters(parameters))
-        result = self._post(self.provider.base_url + "/v1/messages", body, {"x-api-key": self.api_key, "anthropic-version": "2023-06-01"})
+        controls = _safe_generation_parameters(parameters)
+        controls.pop("seed", None)
+        body.update(controls)
+        return body
+
+    def _anthropic(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
+                   parameters: dict[str, Any] | None = None) -> dict[str, Any]:
+        body = self._anthropic_body(messages, tools, parameters)
+        result = self._post((self.settings.base_url or self.provider.base_url).rstrip("/") + "/v1/messages", body, {"x-api-key": self.api_key, "anthropic-version": "2023-06-01"})
         text = "".join(part.get("text", "") for part in result.get("content", []) if part.get("type") == "text")
         calls = [{"id": part.get("id", ""), "type": "function", "function": {"name": part["name"], "arguments": json.dumps(part.get("input", {}))}} for part in result.get("content", []) if part.get("type") == "tool_use"]
         usage = result.get("usage", {})
         return {"choices": [{"message": {"role": "assistant", "content": text, "tool_calls": calls}}], "usage": {"prompt_tokens": usage.get("input_tokens", 0), "completion_tokens": usage.get("output_tokens", 0)}}
+
+    def _anthropic_stream(self, messages, tools, parameters, on_delta, cancel_event):
+        if cancel_event is not None and cancel_event.is_set():
+            raise RuntimeError("Task cancelled")
+        body = self._anthropic_body(messages, tools, parameters)
+        body["stream"] = True
+        url = _validate_http_url((self.settings.base_url or self.provider.base_url).rstrip("/") + "/v1/messages")
+        request = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "Accept": "text/event-stream", "x-api-key": self.api_key, "anthropic-version": "2023-06-01"}, method="POST")
+        chunks, calls, usage = [], {}, {}
+        model, total, done = self.settings.model, 0, False
+        try:
+            with urllib.request.build_opener(_NoRedirect).open(request, timeout=getattr(self.settings, "provider_request_timeout_seconds", self.settings.request_timeout_seconds)) as response:  # nosec B310
+                while True:
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise RuntimeError("Task cancelled")
+                    line = response.readline(1_000_001)
+                    if not line:
+                        break
+                    total += len(line)
+                    if total > 8_000_000 or len(line) > 1_000_000:
+                        raise ProviderError("Provider stream exceeded size limit")
+                    if not line.startswith(b"data:"):
+                        continue
+                    try:
+                        part = json.loads(line[5:].strip())
+                        kind = part.get("type")
+                        if kind == "error":
+                            raise ProviderError("Provider reported a streaming error")
+                        if kind == "message_start":
+                            message = part.get("message") or {}
+                            model = message.get("model") or model
+                            usage.update(message.get("usage") or {})
+                        elif kind == "message_delta":
+                            usage.update(part.get("usage") or {})
+                        elif kind == "content_block_start":
+                            block, index = part.get("content_block") or {}, part.get("index")
+                            if block.get("type") == "tool_use":
+                                if not isinstance(index, int) or not 0 <= index < 128:
+                                    raise ValueError("invalid tool index")
+                                initial = block.get("input") or {}
+                                if not isinstance(initial, dict):
+                                    raise ValueError("invalid tool input")
+                                calls[index] = {"id": block["id"], "type": "function", "function": {"name": block["name"], "arguments": json.dumps(initial) if initial else ""}}
+                            elif block.get("type") == "text" and block.get("text"):
+                                text = block["text"]
+                                if not isinstance(text, str):
+                                    raise ValueError("invalid text")
+                                chunks.append(text)
+                                if on_delta:
+                                    on_delta(text)
+                        elif kind == "content_block_delta":
+                            delta = part.get("delta") or {}
+                            if delta.get("type") == "text_delta":
+                                text = delta.get("text") or ""
+                                if not isinstance(text, str):
+                                    raise ValueError("invalid text")
+                                chunks.append(text)
+                                if text and on_delta:
+                                    on_delta(text)
+                            elif delta.get("type") == "input_json_delta":
+                                calls[part["index"]]["function"]["arguments"] += delta.get("partial_json") or ""
+                        elif kind == "message_stop":
+                            done = True
+                            break
+                    except (ValueError, TypeError, AttributeError, KeyError) as exc:
+                        raise ProviderError("Invalid provider stream event") from exc
+        except urllib.error.HTTPError as exc:
+            exc.close()
+            raise ProviderError(f"Provider HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            raise ProviderError("Provider stream failed or timed out") from exc
+        if not done:
+            raise ProviderError("Provider stream ended before completion")
+        return {"model": model, "choices": [{"message": {"role": "assistant", "content": "".join(chunks), "tool_calls": [calls[i] for i in sorted(calls)]}}], "usage": {"prompt_tokens": usage.get("input_tokens", 0), "completion_tokens": usage.get("output_tokens", 0)}}
 
     def _post(self, url: str, body: dict[str, Any], headers: dict[str, str]) -> dict[str, Any]:
         return self._request_json(url, headers, body)

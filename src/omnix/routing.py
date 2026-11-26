@@ -96,7 +96,7 @@ class Router:
 
             try:
                 client = ModelClient(self.settings.__class__(**{**self.settings.__dict__, "provider": route.provider, "model": route.model}))
-                if on_delta is not None and client.provider.kind == "openai":
+                if on_delta is not None:
                     result = client.stream(messages, tools, parameters, emit, cancel_event)
                 else:
                     result = client.complete(messages, tools, parameters)

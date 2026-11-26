@@ -43,6 +43,36 @@ def test_stream_rejects_truncation_and_honours_cancellation(monkeypatch):
         client.stream([], cancel_event=cancelled)
 
 
+def test_anthropic_stream_reconstructs_tool_calls_and_history(monkeypatch):
+    payload = (event({"type": "message_start", "message": {"model": "claude-fixture", "usage": {"input_tokens": 8}}})
+               + event({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Checking"}})
+               + event({"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "call-1", "name": "read_file", "input": {}}})
+               + event({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": '{"path":'}})
+               + event({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": '"note.txt"}'}})
+               + event({"type": "message_delta", "usage": {"output_tokens": 3}})
+               + event({"type": "message_stop"}))
+    sent = []
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=lambda request, timeout: sent.append(json.loads(request.data)) or io.BytesIO(payload)))
+    client = ModelClient(Settings(provider="anthropic"))
+    messages = [{"role": "user", "content": "read"}, {"role": "assistant", "content": "", "tool_calls": [{"id": "old", "function": {"name": "read_file", "arguments": '{"path":"old.txt"}'}}]}, {"role": "tool", "tool_call_id": "old", "content": "old content"}]
+    deltas = []
+    result = client.stream(messages, on_delta=deltas.append)
+    assert deltas == ["Checking"]
+    assert result["choices"][0]["message"]["tool_calls"][0]["function"] == {"name": "read_file", "arguments": '{"path":"note.txt"}'}
+    assert result["usage"] == {"prompt_tokens": 8, "completion_tokens": 3}
+    assert sent[0]["stream"] is True
+    assert sent[0]["messages"][1]["content"][0]["type"] == "tool_use"
+    assert sent[0]["messages"][2]["content"][0]["tool_use_id"] == "old"
+
+
+def test_anthropic_stream_rejects_truncated_response(monkeypatch):
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=lambda *args, **kwargs: io.BytesIO(event({"type": "ping"}))))
+    with pytest.raises(ProviderError, match="before completion"):
+        ModelClient(Settings(provider="anthropic")).stream([])
+
+
 def test_provider_errors_do_not_expose_upstream_body(monkeypatch):
     def fail(request, timeout):
         raise urllib.error.HTTPError(request.full_url, 400, "Bad request", {}, io.BytesIO(b"private-response-sentinel"))

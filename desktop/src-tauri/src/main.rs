@@ -1063,9 +1063,21 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if matches!(event, WindowEvent::CloseRequested { .. }) {
-                let state = window.app_handle().state::<BackendState>();
-                shutdown_backend(&state);
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                // Shutdown can wait on a stalled backend. Keep that work off
+                // the window thread so Windows can continue processing it.
+                api.prevent_close();
+                let handle = window.app_handle().clone();
+                let first_close = !handle
+                    .state::<BackendState>()
+                    .stopping
+                    .swap(true, Ordering::SeqCst);
+                if first_close {
+                    thread::spawn(move || {
+                        shutdown_backend(&handle.state::<BackendState>());
+                        handle.exit(0);
+                    });
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![

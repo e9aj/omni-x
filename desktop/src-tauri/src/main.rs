@@ -299,7 +299,10 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
     }
     // Publish the child under the same lock used by shutdown. Otherwise a
     // close racing with spawn can observe no child and leave a new orphan.
-    let mut child_guard = state.child.lock().map_err(|_| "backend lock poisoned".to_string())?;
+    let mut child_guard = state
+        .child
+        .lock()
+        .map_err(|_| "backend lock poisoned".to_string())?;
     if state.stopping.load(Ordering::SeqCst) {
         return Err("backend is stopping".into());
     }
@@ -1051,7 +1054,8 @@ fn main() {
             let window_result = tauri::WebviewWindowBuilder::from_config(
                 app.handle(),
                 &app.config().app.windows[0],
-            ).and_then(|builder| builder.build());
+            )
+            .and_then(|builder| builder.build());
             if let Err(error) = window_result {
                 shutdown_backend(&app.state::<BackendState>());
                 return Err(error.into());

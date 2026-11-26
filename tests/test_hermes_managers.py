@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 from omnix.credentials import CredentialManager
@@ -54,3 +55,19 @@ def test_hermes_browser_adapter_requires_omnix_approval(tmp_path: Path):
     (source / "tools" / "browser_use_cli.py").write_text("", encoding="utf-8")
     adapter = HermesBrowserAdapter(source=source, approver=lambda _: False)
     assert "denied" in adapter.execute("open('https://example.com')").lower()
+
+
+def test_hermes_browser_drains_verbose_child_output(tmp_path: Path, monkeypatch):
+    source = tmp_path / "hermes"
+    (source / "tools").mkdir(parents=True)
+    (source / "tools" / "browser_use_cli.py").write_text(
+        "import sys\ndef browser_exec(code, timeout_s):\n"
+        "    sys.stdout.write('o' * 200000)\n"
+        "    sys.stderr.write('e' * 200000)\n"
+        "    return 'finished'\n", encoding="utf-8")
+    monkeypatch.setattr("omnix.hermes_browser.hermes_python", lambda: Path(sys.executable))
+    adapter = HermesBrowserAdapter(source=source, approver=lambda _: True)
+    result = adapter.execute("fixture", timeout_s=2)
+    assert "timeout" not in result.lower()
+    assert len(result) <= 20_000
+    assert "e" in result

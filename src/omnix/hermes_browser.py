@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import threading
+from collections import deque
 from pathlib import Path
 
 from .hermes_runtime import hermes_python, installed_hermes_source
@@ -52,13 +53,24 @@ class HermesBrowserAdapter:
         try:
             process = subprocess.Popen([str(python), "-c", launcher, code, str(max(1, min(int(timeout_s), 600)))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0), start_new_session=(os.name != "nt"))
             self._active.add(process)
+            # Drain both pipes while the child runs. Waiting first can deadlock
+            # when a verbose browser fills an OS pipe; retain only a bounded tail.
+            outputs = [deque(maxlen=20), deque(maxlen=20)]
+            def drain(pipe, output):
+                while chunk := pipe.read(1024):
+                    output.append(chunk)
+            readers = [threading.Thread(target=drain, args=(pipe, output), daemon=True)
+                       for pipe, output in zip((process.stdout, process.stderr), outputs)]
+            for reader in readers:
+                reader.start()
             _, stopped = wait_owned_process(process, self.cancel_event, max(5, min(int(timeout_s) + 15, 615)))
-            stdout, stderr = process.communicate(timeout=10)
+            for reader in readers:
+                reader.join(timeout=10)
             if stopped and self.cancel_event.is_set():
                 return "Browser cancelled; owned browser process tree terminated"
             if stopped:
                 return "Browser error: timeout; owned browser process tree terminated"
-            output = (stdout + stderr).strip()
+            output = ("".join(outputs[0]) + "".join(outputs[1])).strip()
             return output[-20_000:] or "Browser completed without output"
         except (OSError, subprocess.SubprocessError) as exc:
             return f"Browser error: {exc}"

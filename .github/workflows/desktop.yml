@@ -53,6 +53,8 @@ jobs:
         shell: pwsh
         timeout-minutes: 15
         run: |
+          $env:OMNIX_DATA_DIR = Join-Path $env:RUNNER_TEMP 'omnix-smoke-data'
+          $env:OMNIX_VAULT_DIR = Join-Path $env:RUNNER_TEMP 'omnix-smoke-vault'
           $installer = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis -Filter '*.exe' | Select-Object -First 1
           Write-Host "Installer: $($installer.FullName)"
           if (-not $installer) { throw 'NSIS installer was not produced' }
@@ -253,6 +255,43 @@ jobs:
             $healthAfterFailure = Invoke-RestMethod -Uri "$base/v1/health" -Headers $headers -TimeoutSec 5
             if ($healthAfterFailure.status -ne 'ok') { throw 'Backend did not remain responsive after no-provider chat' }
             Write-Host 'No-provider chat failure and subsequent backend health passed'
+          }
+          $fixture = Start-Process -FilePath (Get-Command python).Source -ArgumentList '-u','scripts/fixture_stream_provider.py','--port','27464' -WindowStyle Hidden -PassThru
+          $streamJob = $null
+          try {
+            $fixtureReady = $false
+            for ($attempt = 0; $attempt -lt 40; $attempt++) {
+              if ($fixture.HasExited) { break }
+              $probeSocket = [System.Net.Sockets.TcpClient]::new()
+              try { $probeSocket.Connect('127.0.0.1', 27464); $fixtureReady = $true; break } catch { Start-Sleep -Milliseconds 100 } finally { $probeSocket.Dispose() }
+            }
+            if (-not $fixtureReady) { throw 'Loopback stream fixture did not start' }
+            $configPath = Join-Path $env:OMNIX_DATA_DIR 'config.json'
+            $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+            $config.provider = 'omniroute'; $config.model = 'fixture-free'; $config.base_url = 'http://127.0.0.1:27464/v1'; $config.mode = 'FREE'; $config.allow_paid = $false; $config.free_models = @('fixture-free')
+            $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding utf8
+            $streamJob = Start-Job -ArgumentList $base,$appToken -ScriptBlock {
+              param($endpoint, $token)
+              $jobHeaders = @{ Authorization = "Bearer $token"; Origin = 'tauri://localhost' }
+              $body = @{ prompt = 'Return the fixture response'; stream_id = 'fixture-smoke' } | ConvertTo-Json
+              Invoke-RestMethod -Method Post -Uri "$endpoint/v1/chat" -Headers $jobHeaders -ContentType 'application/json' -Body $body -TimeoutSec 30
+            }
+            $partialSeen = $false
+            for ($attempt = 0; $attempt -lt 150; $attempt++) {
+              $partial = Invoke-RestMethod -Uri "$base/v1/chat/stream?id=fixture-smoke" -Headers $headers -TimeoutSec 5
+              if ($partial.text -eq 'fixture ') { $partialSeen = $true; break }
+              if ($streamJob.State -in @('Completed', 'Failed', 'Stopped')) { break }
+              Start-Sleep -Milliseconds 100
+            }
+            if (-not $partialSeen) { throw 'Packaged chat did not expose incremental fixture output' }
+            if (-not (Wait-Job -Job $streamJob -Timeout 30)) { throw 'Packaged streaming chat timed out' }
+            $streamResult = Receive-Job -Job $streamJob -ErrorAction Stop
+            if ($streamResult.answer -ne 'fixture response' -or -not $streamResult.session_id) { throw 'Packaged streaming chat returned an invalid result' }
+            $liveSession = $streamResult.session_id
+            Write-Host 'Packaged loopback streaming and final response passed'
+          } finally {
+            if ($streamJob) { if ($streamJob.State -eq 'Running') { Stop-Job -Job $streamJob }; Remove-Job -Job $streamJob -Force }
+            if (-not $fixture.HasExited) { Stop-Process -Id $fixture.Id -Force; Wait-Process -Id $fixture.Id -Timeout 10 -ErrorAction SilentlyContinue }
           }
           $desktop.CloseMainWindow() | Out-Null
           if (-not $desktop.WaitForExit(15000)) { $desktop.Kill(); throw 'OMNI-X did not shut down gracefully' }

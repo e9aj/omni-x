@@ -963,8 +963,18 @@ export function App() {
                 <article
                   className="candidate workflow-node"
                   draggable
+                  tabIndex={0}
+                  aria-label={`${node.id}, use arrow keys to move`}
                   key={node.id}
                   style={{ left: node.x, top: node.y }}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    const delta: Record<string, [number, number]> = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] };
+                    const move = delta[event.key];
+                    if (!move) return;
+                    event.preventDefault();
+                    setWorkflowNodes((items) => items.map((item) => item.id === node.id ? { ...item, x: Math.max(0, item.x + move[0]), y: Math.max(0, item.y + move[1]) } : item));
+                  }}
                   onDragEnd={(event) => {
                     const rect =
                       event.currentTarget.parentElement?.getBoundingClientRect();
@@ -1002,6 +1012,7 @@ export function App() {
                 </article>
               ))}
             </div>
+            <p className="muted">Drag a step, or focus it and use the arrow keys to move it.</p>
             <button onClick={addWorkflowNode}>Add step</button>
             <button onClick={() => void saveWorkflow()}>Save workflow</button>
             <h3>Saved workflows</h3>
@@ -1069,9 +1080,16 @@ export function App() {
             <h3>Infinite canvas</h3>
             <div className="workflow-canvas" style={{ transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${canvasZoom})`, transformOrigin: "top left" }}>
               <svg className="canvas-links" aria-hidden="true">{brainCanvas.edges.map((edge) => { const source = brainCanvas.nodes.find((node) => node.path === edge.source); const target = brainCanvas.nodes.find((node) => node.path === edge.target); return source && target ? <line key={`${edge.source}-${edge.target}`} x1={source.x + 60} y1={source.y + 30} x2={target.x + 60} y2={target.y + 30} /> : null; })}</svg>
-              {brainCanvas.nodes.map((node) => <article className={`candidate workflow-node${canvasSelected === node.path ? " active" : ""}`} draggable key={node.id} style={{ left: node.x, top: node.y }} onClick={() => connectCanvasNode(node.path)} onDragEnd={(event) => { const rect = event.currentTarget.parentElement?.getBoundingClientRect(); if (rect) setBrainCanvas((canvas) => ({ ...canvas, nodes: canvas.nodes.map((item) => item.id === node.id ? { ...item, x: Math.max(0, (event.clientX - rect.left - canvasPan.x) / canvasZoom - 60), y: Math.max(0, (event.clientY - rect.top - canvasPan.y) / canvasZoom - 30) } : item) })); }}><strong>{node.path}</strong></article>)}
+              {brainCanvas.nodes.map((node) => <article className={`candidate workflow-node${canvasSelected === node.path ? " active" : ""}`} draggable role="button" tabIndex={0} aria-label={`${node.path}, press Enter to connect or use arrow keys to move`} key={node.id} style={{ left: node.x, top: node.y }} onClick={() => connectCanvasNode(node.path)} onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") { event.preventDefault(); connectCanvasNode(node.path); return; }
+                const delta: Record<string, [number, number]> = { ArrowLeft: [-20, 0], ArrowRight: [20, 0], ArrowUp: [0, -20], ArrowDown: [0, 20] };
+                const move = delta[event.key];
+                if (!move) return;
+                event.preventDefault();
+                setBrainCanvas((canvas) => ({ ...canvas, nodes: canvas.nodes.map((item) => item.id === node.id ? { ...item, x: Math.max(0, item.x + move[0]), y: Math.max(0, item.y + move[1]) } : item) }));
+              }} onDragEnd={(event) => { const rect = event.currentTarget.parentElement?.getBoundingClientRect(); if (rect) setBrainCanvas((canvas) => ({ ...canvas, nodes: canvas.nodes.map((item) => item.id === node.id ? { ...item, x: Math.max(0, (event.clientX - rect.left - canvasPan.x) / canvasZoom - 60), y: Math.max(0, (event.clientY - rect.top - canvasPan.y) / canvasZoom - 30) } : item) })); }}><strong>{node.path}</strong></article>)}
             </div>
-            <p className="muted">Click two notes to connect them. Drag cards to reposition. Use pan controls to navigate the canvas.</p>
+            <p className="muted">Select two notes to connect them. Drag cards or use arrow keys to move them; use the pan controls to navigate.</p>
             <button onClick={() => setCanvasZoom((value) => Math.min(2, value + 0.1))}>Zoom in</button><button onClick={() => setCanvasZoom((value) => Math.max(0.5, value - 0.1))}>Zoom out</button><button onClick={() => moveCanvas(-80, 0)}>Pan left</button><button onClick={() => moveCanvas(80, 0)}>Pan right</button><button onClick={() => moveCanvas(0, -80)}>Pan up</button><button onClick={() => moveCanvas(0, 80)}>Pan down</button><button onClick={() => void saveCanvas()}>Save layout</button>
             <h3>Document import and OCR</h3><p className="muted">Documents are read locally from the backend workspace. OCR is opt-in and requires reviewed local OCR engines.</p><input value={documentPath} onChange={(event) => setDocumentPath(event.target.value)} placeholder="relative/path/to/document.pdf" /><label><input type="checkbox" checked={ocrEnabled} onChange={(event) => setOcrEnabled(event.target.checked)} /> Enable local OCR</label><button onClick={() => void inspectDocument()}>Inspect document</button>{documentResult && <pre className="document-preview">{documentResult}</pre>}
             {selectedNote && (

@@ -1,11 +1,11 @@
 # OMNI-X Development Checkpoint
 
-Updated: 2026-11-24
+Updated: 2026-11-26
 
 ## Current state — Critical Product Overhaul
 
-- Updated: 2026-11-25.
-- Branch: `codex/critical-overhaul`; current starting head: `6d4529d3` (`fix: drain command output during execution`).
+- Updated: 2026-11-26.
+- Branch: `codex/critical-overhaul`; continuation resumed from `43c4a65`. Use `git log -1` for the current head.
 - The user authorised continuous implementation, build, testing, commits and pushes on the overhaul branch. Do not merge or publish a production release.
 - Unrelated untracked directories `BotNest/` and `artifacts/` are preserved and must not be staged.
 - The earlier alpha-candidate notes below describe historical work and are not completion evidence for the current overhaul head.
@@ -21,7 +21,7 @@ Updated: 2026-11-24
 - [ ] Build/install the Windows app and run repeated launches plus offline, no-credential, chat failure, streaming/cancel, tool/task, Brain, workflow, recovery and shutdown scenarios; capture genuine UI/splash screenshots.
 - [ ] Record current-head tests, installer checksum/signing status and unresolved limitations. Continue independent work after each commit until criteria are met or remaining tasks are genuinely blocked.
 
-## Overhaul continuation — 25 November 2026
+## Overhaul continuation — 25–26 November 2026
 
 - Resumed from `43c4a65`. Hosted CI, Windows Desktop and security workflows all passed for that head (runs `45521357856`, `45521357930`, `45521358032`); these do not validate subsequent changes.
 - Added incremental OpenAI-compatible SSE parsing, fragmented tool-call reconstruction, bounded stream sizes, route failure handling after partial output, and authenticated per-request desktop polling. Only completed responses are persisted; provisional output is cleared on completion or failure. Anthropic remains one-shot; cancellation cannot interrupt a socket stalled inside a read; live provider and packaged UI testing remain outstanding. Streaming acceptance is not complete.
@@ -67,9 +67,11 @@ Updated: 2026-11-24
 - A Windows Rust regression now starts a dedicated hidden test process and verifies that owned-child cleanup terminates it; the local Rust suite passes (7/7). Packaged process-tree cleanup after an actual stalled backend remains unverified.
 - A deterministic streaming regression now feeds fragmented provider tool-call arguments through the native Router and runtime, verifies the actual read-only tool result reaches the next provider turn, and checks final response persistence and activity notification. Provider tests pass (7 tests); the full local suite passes (150 passed, 3 skipped). Live provider and packaged streaming tests remain open.
 - The desktop now records elapsed time to the first frontend animation-frame callback in the existing supervisor log, and the Windows smoke workflow reports it if available. This marker does not measure input responsiveness. Frontend build, local Rust tests (7/7), workflow YAML and PowerShell syntax checks pass; a packaged measurement for this change is pending.
+- Hosted Windows run `45832150487` for `48d4abc` passed. Its first frontend animation-frame marker was 7,017 ms, first window handle 122 ms and observed backend readiness 11,849 ms; the requested three-second interactivity target is not demonstrated. The unsigned installer SHA-256 was `552EEFAE93708FB28A387D4F2791EECEF717949A4012876A28F9227027109E56` (artifact `15123300497`); window capture artifact `15123975223` was produced. These are runner observations, not input-response or full-process measurements. The workflow now also reports a warm-launch frontend marker when present.
 - TaskService now stops scanning when shutdown starts and safely handles an executor-shutdown submission race, preserving an unclaimed job as queued for recovery. Targeted TaskService tests passed (15 tests); the full local suite passed (151 passed, 3 skipped). The earlier hosted interpreter-shutdown traceback followed a failed test, so this is a race mitigation rather than proof of a production crash cause.
 - Hosted CI, security and Windows workflows passed for `7117be5` (`45585764434`, `45585764416`, `45585764485`). The current Windows smoke script also adds Brain note readback, workflow approval cancellation and note/workflow persistence across relaunch using isolated runner data. Its YAML and PowerShell syntax parse locally; these new checks await hosted execution and do not exercise the UI controls.
 - The chat Stop control now displays a stopping state until the current request actually returns and avoids repeated Stop submissions. The frontend production build passes. It does not itself interrupt a stalled provider connection.
+- Saved-session loading now runs off the window thread and retries after backend connection, while ignoring stale loads during active work. Frontend build and Rust tests pass (7/7); interactive restoration after packaged relaunch remains unverified.
 - Resumed from `3efe0a5` on `codex/critical-overhaul`; the older exact-next-action and starting-head notes below are historical.
 - Added cancellation and deadline checks after a provider response and before each tool call. This prevents dispatch after the runtime observes cancellation or expiry; it does not interrupt a blocked provider request or an already executing tool.
 - Writes, commands and the legacy browser adapter now recheck cancellation after approval, preventing an approval arriving after Stop from starting those actions. Targeted tool, runtime and browser-manager tests: 16 passed.
@@ -154,7 +156,7 @@ Updated: 2026-11-24
 - Token optimisation now includes bounded context selection, token estimation, terminal compression and an exact-request in-process cache. A fixed local fixture measured 95.66% context reduction, 6.298 ms selection latency and 26,240 bytes peak allocation; this is not provider billing evidence.
 - `codex/alpha-candidate` is a linear consolidation of the focused Brain, voice, messaging and workflow branches plus external adapters and optimisation. It has been pushed without merging into `main`.
 
-## Exact next action
+## Historical next action — superseded by the overhaul checklist above
 
 The current head is `ecd4195`; await its hosted Windows and security workflows,
 complete the current-head Codex Security scan, and obtain authorised

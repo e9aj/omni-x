@@ -278,6 +278,8 @@ jobs:
           }
           if (-not $relaunchReady) { throw 'OMNI-X failed to relaunch with an authenticated owned backend' }
           Write-Host 'Relaunch and authenticated readiness passed without requiring live inference'
+          $warmMarkers = @(Select-String -Path $supervisorLog -SimpleMatch 'frontend animation frame elapsed_ms=')
+          if ($warmMarkers.Count -ge 2) { Write-Host "Warm frontend frame marker: $($warmMarkers[-1].Line) (does not measure input responsiveness)" } else { Write-Host 'Warm frontend frame marker unavailable' }
           $persistedNote = Invoke-RestMethod -Uri "$base/v1/brain/note?path=smoke%2Fnote.md" -Headers $headers -TimeoutSec 10
           if ($persistedNote.content -ne 'OMNI-X isolated smoke note') { throw 'Brain note did not persist across relaunch' }
           $persistedWorkflows = Invoke-RestMethod -Uri "$base/v1/workflows" -Headers $headers -TimeoutSec 10

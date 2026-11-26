@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import logo from "./assets/website-logo-256.png";
 
@@ -136,6 +136,7 @@ export function App() {
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);
   const [stopping, setStopping] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [streamStatus, setStreamStatus] = useState("");
@@ -226,20 +227,22 @@ export function App() {
     return () => { stopped = true; window.clearTimeout(timer); };
   }, []);
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || !status.connected || running) return;
+    let current = true;
     void invoke<{ messages: Array<{ role: string; content: string }> }>(
       "backend_session",
       { sessionId },
     )
-      .then((result) =>
-        setMessages(
+      .then((result) => {
+        if (current && !runningRef.current) setMessages(
           result.messages.filter((item): item is Message =>
             ["user", "assistant", "error"].includes(item.role),
           ) as Message[],
-        ),
-      )
+        );
+      })
       .catch(() => undefined);
-  }, []);
+    return () => { current = false; };
+  }, [sessionId, status.connected]);
   useEffect(() => {
     let stopped = false;
     let timer: number | undefined;
@@ -334,6 +337,7 @@ export function App() {
     if (!text || running) return;
     setPrompt("");
     setMessages((items) => [...items, { role: "user", content: text }]);
+    runningRef.current = true;
     setRunning(true);
     setStreamText("");
     setStreamStatus("Starting");
@@ -382,6 +386,7 @@ export function App() {
       setStreamText("");
       setStreamStatus("");
       setStopping(false);
+      runningRef.current = false;
       setRunning(false);
       void refreshStatus();
     }
@@ -424,6 +429,7 @@ export function App() {
     event.preventDefault();
     const text = councilPrompt.trim();
     if (!text || running) return;
+    runningRef.current = true;
     setRunning(true);
     setCouncilResult(undefined);
     try {
@@ -446,6 +452,7 @@ export function App() {
         { role: "error", content: String(error) },
       ]);
     } finally {
+      runningRef.current = false;
       setRunning(false);
     }
   }

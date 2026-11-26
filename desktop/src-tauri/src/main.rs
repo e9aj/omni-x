@@ -87,7 +87,8 @@ fn request(
     let quick_request = matches!(
         path,
         "/v1/health" | "/v1/approvals" | "/v1/stop" | "/v1/shutdown"
-    ) || path.starts_with("/v1/chat/stream?");
+    ) || path.starts_with("/v1/chat/stream?")
+        || path.starts_with("/v1/sessions/");
     stream
         .set_read_timeout(Some(Duration::from_secs(if quick_request {
             5
@@ -921,11 +922,16 @@ fn backend_integration_action(
 }
 
 #[tauri::command]
-fn backend_session(session_id: String, state: State<'_, BackendState>) -> Result<Value, String> {
+async fn backend_session(session_id: String, app: AppHandle) -> Result<Value, String> {
     if session_id.trim().is_empty() || session_id.len() > 200 {
         return Err("session id is invalid".into());
     }
-    request(&state, "GET", &format!("/v1/sessions/{session_id}"), None)
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<BackendState>();
+        request(&state, "GET", &format!("/v1/sessions/{session_id}"), None)
+    })
+    .await
+    .map_err(|_| "Session worker stopped unexpectedly".to_string())?
 }
 
 #[tauri::command]

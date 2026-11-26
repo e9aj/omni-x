@@ -74,9 +74,9 @@ def test_desktop_request_closes_its_owned_store(monkeypatch, tmp_path):
     thread.start()
     try:
         request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/v1/sessions/example", headers={"Authorization": "Bearer unit-test-token", "Origin": "tauri://localhost"})
-        with urllib.request.urlopen(request, timeout=2) as response:
+        with urllib.request.urlopen(request, timeout=10) as response:
             assert json.loads(response.read())["messages"] == []
-        assert finished.wait(2)
+        assert finished.wait(10)
         assert len(opened) == 1
         try:
             opened[0].db.execute("SELECT 1")

@@ -160,13 +160,14 @@ jobs:
             if (-not $inputElement.Current.IsEnabled) { $automationStage = 'input-disabled'; throw 'Chat input not enabled' }
             $automationStage = 'value-pattern'
             $valuePattern = $inputElement.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-            $automationStage = 'value-round-trip'
+            $automationStage = 'set-value'
             $inputTimer = [System.Diagnostics.Stopwatch]::StartNew()
             $valuePattern.SetValue('local interaction probe')
-            if ($valuePattern.Current.Value -ne 'local interaction probe') { throw 'Input value did not round-trip' }
+            $automationStage = 'read-value'
+            if ($valuePattern.Current.Value -ne 'local interaction probe') { $automationStage = 'value-mismatch'; throw 'Input value did not round-trip' }
             $inputTimer.Stop()
             Write-Host "Chat input UI Automation value round-trip (ms): $($inputTimer.ElapsedMilliseconds) (after readiness; not cold startup or physical typing)"
-          } catch { Write-Host "Chat input UI Automation measurement unavailable at $automationStage ($($_.Exception.GetType().Name))" } finally { if ($valuePattern) { try { $valuePattern.SetValue('') } catch { } } }
+          } catch { $innerType = if ($_.Exception.InnerException) { $_.Exception.InnerException.GetType().Name } else { 'none' }; Write-Host "Chat input UI Automation measurement unavailable at $automationStage ($($_.Exception.GetType().Name), inner=$innerType)" } finally { if ($valuePattern) { try { $valuePattern.SetValue('') } catch { } } }
           $desktop.Refresh()
           $cpuStart = $desktop.TotalProcessorTime.TotalSeconds
           Start-Sleep -Seconds 2

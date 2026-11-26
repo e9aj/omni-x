@@ -32,6 +32,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Hosted installer `45848376451` for `23231bf` passed its smoke. UI Automation found the Chat control and its value pattern but failed during the value operation, so no input timing is claimed; set, read and mismatch stages are now distinguished. Cold frame was 11,154 ms, warm 1,797 ms and observed backend readiness 7,540 ms. The unsigned installer SHA-256 was `0D8F724887548729F289F1512EBED54F4FAC4487A4BA0EB223F2B5E4B7A6ABAF`.
 - Reviewed Workflow, Memory and Voice in a local browser preview with no desktop bridge. Offline Memory and Voice copy now says their data requires the runtime instead of claiming unloaded data is empty, and the status tooltip no longer exposes a raw JavaScript error. Frontend build and local offline UI checks pass; this does not verify packaged interactions or connected data.
 - New runtime prompts and textual tool-result messages now use OMNI-X branding while retaining the existing Hermes-compatible parser and source attribution. A local runtime regression verifies the actual tool result reaches the next model turn; runtime/provider tests pass. Existing persisted conversation messages are not rewritten.
 - The desktop bridge now limits an authenticated backend HTTP response to 32 MB and rejects invalid UTF-8, avoiding an unbounded desktop allocation. Local Rust tests pass (8/8). Responses over the limit, including exceptionally large session histories, now return an error in the desktop; stored data is unchanged. Installed verification remains pending.

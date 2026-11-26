@@ -32,6 +32,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Added accessible names for workflow actions, Brain search and task entry, and a visible voice-note path label. The frontend build passes; a full accessibility review remains open.
 - Added an installed rapid-close scenario to the Windows smoke: close on first native window without awaiting readiness, then check for a new leftover backend process and open backend port. YAML and PowerShell syntax parse locally; hosted execution remains pending.
 - Backend supervision now begins before the configured Tauri window is created, allowing backend startup and WebView initialisation to overlap. Window creation still uses the same configuration and shutdown is invoked if creation fails. Rust tests pass (7/7); the installed Windows smoke and measured cold/warm timings must pass before treating this as an improvement. Tauri's documented `create: false` / `from_config` mechanism is used.
 - Backend child creation is now synchronised with shutdown using the existing child lock and a stopping recheck. This closes a race where a close could observe no child just before one was published. Local Rust tests passed (7/7), including owned-child cleanup; an installed rapid-close race test remains outstanding.

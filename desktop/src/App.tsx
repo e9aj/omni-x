@@ -939,7 +939,7 @@ export function App() {
             <label>Local Whisper model directory<input value={voiceModel} onChange={(event) => setVoiceModel(event.target.value)} placeholder="C:/local/whisper-model" /></label>
             <button onClick={() => void transcribeVoice()}>Transcribe locally</button>
             <label>Transcription or text to speak<textarea value={voiceText} onChange={(event) => setVoiceText(event.target.value)} rows={4} /></label>
-            <button onClick={() => void speakVoice()}>Speak locally</button><input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} aria-label="voice note path" /><button onClick={() => void recordVoiceNote()}>Record a 5-second note</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
+            <button onClick={() => void speakVoice()}>Speak locally</button><label>Voice note path<input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} /></label><button onClick={() => void recordVoiceNote()}>Record a 5-second note</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
             {voiceDevices.map((device) => <small key={device}>{device}</small>)}
             <p className="muted">Recording and speech require approved local audio components. Wake-word activation is unavailable.</p>
           </section>
@@ -994,6 +994,7 @@ export function App() {
                 >
                   <strong>{node.id}</strong>
                   <select
+                    aria-label={`Action for ${node.id}`}
                     value={node.action}
                     onChange={(event) =>
                       setWorkflowNodes((items) =>
@@ -1031,6 +1032,7 @@ export function App() {
             <h2>Brain notes</h2>
             <form className="council-form" onSubmit={searchBrain}>
               <input
+                aria-label="Search the Brain vault"
                 value={brainQuery}
                 onChange={(event) => setBrainQuery(event.target.value)}
                 placeholder="Search the Brain vault"
@@ -1117,6 +1119,7 @@ export function App() {
             {section === "Tasks" && (
               <form className="council-form" onSubmit={enqueueTask}>
                 <input
+                  aria-label="Background task"
                   value={taskPrompt}
                   onChange={(event) => setTaskPrompt(event.target.value)}
                   placeholder="Describe a background task"

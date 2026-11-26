@@ -335,7 +335,10 @@ export function App() {
   useEffect(() => {
     if (section !== "Workflows" || !status.connected) return;
     void invoke<{ workflows: WorkflowItem[] }>("backend_workflows")
-      .then((result) => setWorkflows(result.workflows))
+      .then((result) => {
+        if (!Array.isArray(result.workflows)) throw new Error("Could not load workflows.");
+        setWorkflows(result.workflows);
+      })
       .catch((error) => setModelsError(String(error)));
   }, [section, status.connected]);
 

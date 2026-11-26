@@ -7,6 +7,10 @@ html { scrollbar-color: #75867b #101a14; }
 ::-webkit-scrollbar-track { background: #101a14; }
 ::-webkit-scrollbar-thumb { background: #75867b; border: 2px solid #101a14; border-radius: 8px; }
 body { margin: 0; min-width: 960px; min-height: 100vh; background: #090909; }
+.recovery-screen { max-width: 580px; margin: 18vh auto; padding: 32px; color: #ecf3e9; background: #141e17; border: 1px solid #35483a; border-radius: 14px; }
+.recovery-screen h1 { font-size: 28px; letter-spacing: -.03em; }
+.recovery-screen p { line-height: 1.6; color: #b6c8ba; }
+.recovery-screen button { margin-top: 12px; padding: 10px 16px; color: #102016; background: #b4df91; border: 0; border-radius: 8px; cursor: pointer; }
 button { font: inherit; }
 .app-shell { display: flex; min-height: 100vh; background: #090909; }
 .boot-screen { position: fixed; z-index: 20; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; background: #000; animation: boot-in .24s ease-out; }

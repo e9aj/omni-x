@@ -1046,6 +1046,16 @@ fn main() {
                     }
                 }
             });
+            // Start the backend while WebView2 initialises, using the same
+            // configured window and capabilities as automatic creation.
+            let window_result = tauri::WebviewWindowBuilder::from_config(
+                app.handle(),
+                &app.config().app.windows[0],
+            ).and_then(|builder| builder.build());
+            if let Err(error) = window_result {
+                shutdown_backend(&app.state::<BackendState>());
+                return Err(error.into());
+            }
             Ok(())
         })
         .on_window_event(|window, event| {

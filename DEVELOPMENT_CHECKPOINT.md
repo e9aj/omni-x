@@ -23,6 +23,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Backend supervision now begins before the configured Tauri window is created, allowing backend startup and WebView initialisation to overlap. Window creation still uses the same configuration and shutdown is invoked if creation fails. Rust tests pass (7/7); the installed Windows smoke and measured cold/warm timings must pass before treating this as an improvement. Tauri's documented `create: false` / `from_config` mechanism is used.
 - Backend child creation is now synchronised with shutdown using the existing child lock and a stopping recheck. This closes a race where a close could observe no child just before one was published. Local Rust tests passed (7/7), including owned-child cleanup; an installed rapid-close race test remains outstanding.
 - Hosted Windows installer run `45836845244` for `cdf3144` passed four concurrent workers making 100 authenticated task-list reads, plus loopback streaming, no-provider failure, recovery and Brain/workflow persistence. The unsigned installer SHA-256 was `349AE5CA40B59D103E09CB8B812CC6F945000522048163F551662B6C4C76476E`; cold first frame was 7,193 ms, warm 588 ms and observed backend readiness 12,088 ms. This predates later frontend and command-output fixes; it is not broad crash stress or a measurement of input responsiveness.
 - Added visible labels to Voice and document path fields and accessible names to the note editor. The frontend production build passes; packaged screen-reader and visual review remains outstanding.

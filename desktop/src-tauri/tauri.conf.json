@@ -4,6 +4,6 @@
   "version": "0.1.0",
   "identifier": "uk.digisol.omnix",
   "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://localhost:5173", "frontendDist": "../dist" },
-  "app": { "windows": [{ "title": "OMNI-X", "width": 1280, "height": 800, "minWidth": 960, "minHeight": 640, "resizable": true }], "security": { "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost" } },
+  "app": { "windows": [{ "create": false, "title": "OMNI-X", "width": 1280, "height": 800, "minWidth": 960, "minHeight": 640, "resizable": true }], "security": { "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost" } },
   "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico", "icons/icon.png"], "externalBin": ["binaries/omnix-backend"], "resources": ["binaries/omnix-backend.exe"], "windows": { "nsis": { "installMode": "currentUser", "displayLanguageSelector": false, "startMenuFolder": "OMNI-X" } } }
 }

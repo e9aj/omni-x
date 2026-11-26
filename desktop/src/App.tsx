@@ -208,7 +208,10 @@ export function App() {
   useEffect(() => {
     // Let the branded first frame paint, then expose the workspace while the
     // backend starts or recovers. Readiness remains visible in the status UI.
-    const frame = window.requestAnimationFrame(() => setBooting(false));
+    const frame = window.requestAnimationFrame(() => {
+      setBooting(false);
+      void invoke("frontend_ready").catch(() => undefined);
+    });
     return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {

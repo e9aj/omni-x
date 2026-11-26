@@ -35,6 +35,7 @@ struct BackendState {
     stopping: AtomicBool,
     starting: AtomicBool,
     restart_attempts: AtomicU32,
+    launched_at: Instant,
 }
 
 struct StartupGuard<'a>(&'a AtomicBool);
@@ -385,6 +386,14 @@ fn shutdown_backend(state: &BackendState) {
             stop_owned_child(&mut child);
         }
     }
+}
+
+#[tauri::command]
+fn frontend_ready(state: State<'_, BackendState>) {
+    supervisor_log(&format!(
+        "frontend animation frame elapsed_ms={}",
+        state.launched_at.elapsed().as_millis()
+    ));
 }
 
 #[tauri::command]
@@ -939,6 +948,7 @@ fn main() {
         stopping: AtomicBool::new(false),
         starting: AtomicBool::new(false),
         restart_attempts: AtomicU32::new(0),
+        launched_at: Instant::now(),
     };
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
@@ -1031,6 +1041,7 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            frontend_ready,
             backend_status,
             backend_chat,
             backend_chat_stream,

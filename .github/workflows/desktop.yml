@@ -131,6 +131,8 @@ jobs:
           Write-Host "Desktop-owned backend processes: $(@($ownedBackend).Count)"
           if (-not $ownedBackend -or -not $readyHealth) { Write-Host 'OMNI-X stderr:'; if (Test-Path $stderr) { Get-Content $stderr -Tail 100 }; Write-Host 'OMNI-X stdout:'; if (Test-Path $stdout) { Get-Content $stdout -Tail 100 }; Write-Host 'Supervisor log:'; if (Test-Path $supervisorLog) { Get-Content $supervisorLog -Tail 100 }; throw 'Desktop-owned backend did not reach authenticated readiness' }
           Write-Host "Backend authenticated readiness observed (ms): $($launchTimer.ElapsedMilliseconds) (includes window and polling overhead)"
+          $frontendMarker = if (Test-Path $supervisorLog) { Select-String -Path $supervisorLog -SimpleMatch 'frontend animation frame elapsed_ms=' | Select-Object -First 1 } else { $null }
+          if ($frontendMarker) { Write-Host "Frontend frame marker: $($frontendMarker.Line) (does not measure input responsiveness)" } else { Write-Host 'Frontend frame marker unavailable' }
           $desktop.Refresh()
           $cpuStart = $desktop.TotalProcessorTime.TotalSeconds
           Start-Sleep -Seconds 2

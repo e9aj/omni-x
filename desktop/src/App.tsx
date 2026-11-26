@@ -301,6 +301,7 @@ export function App() {
   }, [section, status.connected, modelsRefresh]);
   useEffect(() => {
     if (section !== "Memory" || !status.connected) return;
+    let current = true;
     void Promise.all([
       invoke<{ notes: BrainNote[] }>("backend_brain_notes"),
       invoke<BrainGraph>("backend_brain_graph"),
@@ -308,6 +309,7 @@ export function App() {
       invoke<{ suggestions: MemorySuggestion[] }>("backend_memory_suggestions"),
     ])
       .then(([noteResult, graphResult, canvas, suggestions]) => {
+        if (!current) return;
         const loadedNotes = requireList<BrainNote>(noteResult?.notes, "notes");
         requireList(graphResult?.nodes, "knowledge graph");
         requireList(graphResult?.edges, "knowledge graph");
@@ -318,42 +320,56 @@ export function App() {
         setBrainGraph(graphResult);
         setBrainCanvas(canvas);
         setMemorySuggestions(loadedSuggestions.filter((item) => item.state === "pending"));
+        setModelsError(undefined);
       })
-      .catch((error) => setModelsError(String(error)));
+      .catch((error) => { if (current) setModelsError(String(error)); });
+    return () => { current = false; };
   }, [section, status.connected]);
   useEffect(() => {
     if ((section !== "Tasks" && section !== "Agents") || !status.connected) return;
+    let current = true;
     void invoke<{ tasks: TaskItem[] }>("backend_tasks")
-      .then((result) => setTasks(requireList<TaskItem>(result?.tasks, "tasks")))
-      .catch((error) => setModelsError(String(error)));
+      .then((result) => { if (current) { setTasks(requireList<TaskItem>(result?.tasks, "tasks")); setModelsError(undefined); } })
+      .catch((error) => { if (current) setModelsError(String(error)); });
+    return () => { current = false; };
   }, [section, status.connected]);
   useEffect(() => {
     if (section !== "Tools & Skills" || !status.connected) return;
+    let current = true;
     void invoke<{ skills: SkillItem[] }>("backend_skills")
-      .then((result) => setSkills(requireList<SkillItem>(result?.skills, "skills")))
-      .catch((error) => setModelsError(String(error)));
+      .then((result) => { if (current) { setSkills(requireList<SkillItem>(result?.skills, "skills")); setModelsError(undefined); } })
+      .catch((error) => { if (current) setModelsError(String(error)); });
+    return () => { current = false; };
   }, [section, status.connected]);
   useEffect(() => {
     if (section !== "Integrations" || !status.connected) return;
+    let current = true;
     void invoke<{ integrations: IntegrationItem[] }>("backend_integrations")
-      .then((result) => setIntegrations(requireList<IntegrationItem>(result?.integrations, "integrations")))
-      .catch((error) => setModelsError(String(error)));
+      .then((result) => { if (current) { setIntegrations(requireList<IntegrationItem>(result?.integrations, "integrations")); setModelsError(undefined); } })
+      .catch((error) => { if (current) setModelsError(String(error)); });
+    return () => { current = false; };
   }, [section, status.connected]);
   useEffect(() => {
     if (section !== "Voice" || !status.connected) return;
+    let current = true;
     void invoke<{ capabilities: VoiceCapabilities }>(
       "backend_voice_capabilities",
     )
-      .then((result) => setVoiceCapabilities(result.capabilities))
-      .catch((error) => setModelsError(String(error)));
+      .then((result) => { if (current) { if (!result?.capabilities || typeof result.capabilities !== "object" || Array.isArray(result.capabilities)) throw new Error("Could not load voice capabilities."); setVoiceCapabilities(result.capabilities); setModelsError(undefined); } })
+      .catch((error) => { if (current) setModelsError(String(error)); });
+    return () => { current = false; };
   }, [section, status.connected]);
   useEffect(() => {
     if (section !== "Workflows" || !status.connected) return;
+    let current = true;
     void invoke<{ workflows: WorkflowItem[] }>("backend_workflows")
       .then((result) => {
+        if (!current) return;
         setWorkflows(requireList<WorkflowItem>(result?.workflows, "workflows"));
+        setModelsError(undefined);
       })
-      .catch((error) => setModelsError(String(error)));
+      .catch((error) => { if (current) setModelsError(String(error)); });
+    return () => { current = false; };
   }, [section, status.connected]);
 
   async function send(event: FormEvent) {
@@ -965,7 +981,7 @@ export function App() {
                 ))}
               </div>
             ) : (
-              <p className="muted">{status.connected ? "Checking local capabilities…" : "Connect the local runtime to check voice capabilities."}</p>
+              <p className="muted">{!status.connected ? "Connect the local runtime to check voice capabilities." : modelsError ? "Voice capabilities could not be loaded." : "Checking local capabilities…"}</p>
             )}
             <h3>Offline dictation</h3>
             <p className="muted">Choose a workspace-relative WAV fixture and an existing local Whisper model directory. No weights are downloaded.</p>

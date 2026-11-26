@@ -730,7 +730,7 @@ export function App() {
             <p className="eyebrow">WORKSPACE</p>
             <h1>{section}</h1>
           </div>
-          <div className="connection" title={status.error} role="status">
+          <div className="connection" title={status.connected ? undefined : "The local runtime is unavailable; OMNI-X will retry."} role="status">
             {status.connected
               ? `OMNI-X ${status.version ?? "runtime"}`
               : "Local runtime unavailable · retrying"}
@@ -932,7 +932,7 @@ export function App() {
                 ))}
               </div>
             ) : (
-              <p className="muted">Checking local capabilities…</p>
+              <p className="muted">{status.connected ? "Checking local capabilities…" : "Connect the local runtime to check voice capabilities."}</p>
             )}
             <h3>Offline dictation</h3>
             <p className="muted">Choose a workspace-relative WAV fixture and an existing local Whisper model directory. No weights are downloaded.</p>
@@ -1047,13 +1047,11 @@ export function App() {
               </article>
             ))}
             <p className="muted">
-              Knowledge graph: {brainGraph.nodes.length} notes ·{" "}
-              {brainGraph.edges.length} links. Local semantic search is active;
-              neural embeddings and OCR are optional local engines.
+              {status.connected ? `Knowledge graph: ${brainGraph.nodes.length} notes · ${brainGraph.edges.length} links. Local semantic search is active; neural embeddings and OCR are optional local engines.` : "Connect the local runtime to load the knowledge graph."}
             </p>
             <h3>Memory suggestions</h3>
             {memorySuggestions.length === 0 ? (
-              <p className="muted">No pending suggestions. Suggestions always require approval.</p>
+              <p className="muted">{status.connected ? "No pending suggestions. Suggestions always require approval." : "Connect the local runtime to load memory suggestions."}</p>
             ) : memorySuggestions.map((suggestion) => (
               <article className="candidate" key={suggestion.id}>
                 <strong>{suggestion.memory_key}</strong>
@@ -1072,7 +1070,7 @@ export function App() {
             <div className="note-list">
               {notes.length === 0 ? (
                 <p className="muted">
-                  No Markdown notes yet. Create one in the Brain vault to begin.
+                  {status.connected ? "No Markdown notes yet. Create one in the Brain vault to begin." : "Connect the local runtime to load Brain notes."}
                 </p>
               ) : (
                 notes.map((note) => (

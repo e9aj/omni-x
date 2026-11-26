@@ -23,6 +23,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Backend child creation is now synchronised with shutdown using the existing child lock and a stopping recheck. This closes a race where a close could observe no child just before one was published. Local Rust tests passed (7/7), including owned-child cleanup; an installed rapid-close race test remains outstanding.
 - Hosted Windows installer run `45836845244` for `cdf3144` passed four concurrent workers making 100 authenticated task-list reads, plus loopback streaming, no-provider failure, recovery and Brain/workflow persistence. The unsigned installer SHA-256 was `349AE5CA40B59D103E09CB8B812CC6F945000522048163F551662B6C4C76476E`; cold first frame was 7,193 ms, warm 588 ms and observed backend readiness 12,088 ms. This predates later frontend and command-output fixes; it is not broad crash stress or a measurement of input responsiveness.
 - Added visible labels to Voice and document path fields and accessible names to the note editor. The frontend production build passes; packaged screen-reader and visual review remains outstanding.
 - Approved command output is now drained into bounded tails rather than accumulated without limit; invalid text bytes are replaced. The first full-suite run exposed a short-final-chunk truncation regression; after correcting tail capacity, the full Python suite passed with 3 skips, including the existing pipe-drain and new two-megabyte output tests. This reduces one memory-exhaustion risk, not a proven original-crash diagnosis.

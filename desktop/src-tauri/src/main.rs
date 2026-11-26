@@ -297,6 +297,12 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
             std::env::var("OMNIX_PYTHONPATH").unwrap_or_else(|_| "../src".into()),
         );
     }
+    // Publish the child under the same lock used by shutdown. Otherwise a
+    // close racing with spawn can observe no child and leave a new orphan.
+    let mut child_guard = state.child.lock().map_err(|_| "backend lock poisoned".to_string())?;
+    if state.stopping.load(Ordering::SeqCst) {
+        return Err("backend is stopping".into());
+    }
     let child = command
         .env("OMNIX_IPC_TOKEN", &state.token)
         .spawn()
@@ -307,10 +313,8 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         "spawned backend pid={expected_pid} elapsed_ms={}",
         state.launched_at.elapsed().as_millis()
     ));
-    *state
-        .child
-        .lock()
-        .map_err(|_| "backend lock poisoned".to_string())? = Some(child);
+    *child_guard = Some(child);
+    drop(child_guard);
     let deadline = Instant::now() + Duration::from_secs(30);
     while Instant::now() < deadline {
         if let Ok(value) = request(state, "GET", "/v1/health", None) {

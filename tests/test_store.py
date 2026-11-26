@@ -1,6 +1,24 @@
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 from omnix.store import Store
+
+
+def test_shared_store_serialises_concurrent_reads_and_writes(tmp_path: Path):
+    store = Store(tmp_path / "concurrent.sqlite3")
+    session = store.new_session("concurrency")
+
+    def exercise(worker):
+        for index in range(30):
+            store.create_job(f"job-{worker}-{index}")
+            store.add_message(session, "user", f"message-{worker}-{index}")
+            assert all("id" in row and "state" in row for row in store.jobs(1000))
+            assert all("role" in row and "content" in row for row in store.messages(session))
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        list(pool.map(exercise, range(6)))
+    assert len(store.jobs(1000)) == 180
+    assert len(store.messages(session)) == 180
 
 
 def test_sessions_messages_and_memory(tmp_path: Path):

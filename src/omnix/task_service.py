@@ -185,7 +185,8 @@ class TaskService:
         try:
             while not self._stop.is_set():
                 rows = self.store.jobs(100)
-                schedules = self.store.db.execute("SELECT 1 FROM schedules WHERE enabled=1 LIMIT 1").fetchone()
+                with self.store._lock:
+                    schedules = self.store.db.execute("SELECT 1 FROM schedules WHERE enabled=1 LIMIT 1").fetchone()
                 active = any(row["state"] in {"queued", "running"} for row in rows)
                 if active or schedules:
                     idle_since = time.monotonic()
@@ -278,7 +279,8 @@ class TaskService:
                                    delegate_handler=lambda **args: self._delegate_for_job(job_id, cancel, **args))
             result, session_id = runtime.run(row["prompt"], row.get("session_id"))
             if row.get("parent_job_id"):
-                tool_events = runtime_store.db.execute("SELECT 1 FROM events WHERE task_id=? AND kind='tool_result' LIMIT 1", (runtime.last_task_id,)).fetchone()
+                with runtime_store._lock:
+                    tool_events = runtime_store.db.execute("SELECT 1 FROM events WHERE task_id=? AND kind='tool_result' LIMIT 1", (runtime.last_task_id,)).fetchone()
                 if not tool_events:
                     raise RuntimeError("delegated child completed without a verified tool result")
             return result, session_id

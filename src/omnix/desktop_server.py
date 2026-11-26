@@ -488,8 +488,9 @@ class Handler(BaseHTTPRequestHandler):
             usage = []
             tool_events = []
             if task_id:
-                usage = [dict(row) for row in store.db.execute("SELECT provider, model, input_tokens, output_tokens, estimated_cost FROM usage WHERE task_id=? ORDER BY id", (task_id,)).fetchall()]
-                tool_events = [dict(row) for row in store.db.execute("SELECT kind, detail, created FROM events WHERE task_id=? AND kind LIKE 'tool_%' ORDER BY id", (task_id,)).fetchall()]
+                with store._lock:
+                    usage = [dict(row) for row in store.db.execute("SELECT provider, model, input_tokens, output_tokens, estimated_cost FROM usage WHERE task_id=? ORDER BY id", (task_id,)).fetchall()]
+                    tool_events = [dict(row) for row in store.db.execute("SELECT kind, detail, created FROM events WHERE task_id=? AND kind LIKE 'tool_%' ORDER BY id", (task_id,)).fetchall()]
             actual_model = usage[-1]["model"] if usage else settings.model
             actual_provider = usage[-1]["provider"] if usage else settings.provider
             self._json(200, {"answer": answer, "session_id": result_session, "mode": settings.mode, "runtime": "omnix", "allow_paid": settings.allow_paid, "model": actual_model, "provider": actual_provider, "usage": usage, "tool_events": tool_events})

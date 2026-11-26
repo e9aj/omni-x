@@ -221,7 +221,9 @@ def main(argv: list[str] | None = None) -> int:
                     parser.error("schedule add requires PROMPT and ISO_TIMESTAMP or INTERVAL")
                 print(f"Scheduled: {service.schedule(args.prompt, args.when)}")
             elif args.command == "schedule":
-                for row in service.store.db.execute("SELECT id,prompt,schedule,next_run_at,enabled,missed_runs FROM schedules ORDER BY next_run_at"):
+                with service.store._lock:
+                    rows = service.store.db.execute("SELECT id,prompt,schedule,next_run_at,enabled,missed_runs FROM schedules ORDER BY next_run_at").fetchall()
+                for row in rows:
                     print(dict(row))
             elif args.action == "run":
                 if not args.value:

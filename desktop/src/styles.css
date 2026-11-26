@@ -55,6 +55,8 @@ button:disabled { cursor: not-allowed; }
 .workspace h1 { font-size: 23px; font-weight: 600; letter-spacing: -.025em; }
 .eyebrow { color: #8da390; font: 600 10px "Segoe UI", sans-serif; letter-spacing: .14em; }
 .connection { color: #a3b4a7; font: 11px "Segoe UI", sans-serif; border: 1px solid #34443a; background: #17221b; border-radius: 20px; padding: 7px 11px; }
+.offline-notice { max-width: 900px; margin: 18px auto 0; padding: 11px 14px; border: 1px solid #705b37; border-radius: 9px; background: #2a2418; color: #efd7aa; font-size: 13px; }
+.error-notice { max-width: 900px; margin: 18px auto 0; padding: 11px 14px; border: 1px solid #744b47; border-radius: 9px; background: #2d1d1c; color: #f4c5be; font-size: 13px; overflow-wrap: anywhere; }
 .chat-panel { max-width: 850px; height: calc(100vh - 120px); min-height: 0; margin: 0 auto; padding: 16px 0 12px; }
 .message-list { min-height: 0; padding: 12px 2px 20px; }
 .empty-chat { margin: clamp(65px, 16vh, 150px) 0 30px; }

@@ -273,17 +273,18 @@ export function App() {
       })
       .catch(() => undefined);
   }, [status.connected]);
+  useEffect(() => { setModelsError(undefined); }, [section]);
   useEffect(() => {
-    if (section !== "Models") return;
+    if (section !== "Models" || !status.connected) return;
     void invoke<{ models: ModelInfo[]; error?: string }>("backend_models")
       .then((result) => {
         setModels(result.models);
         setModelsError(result.error);
       })
       .catch((error) => setModelsError(String(error)));
-  }, [section]);
+  }, [section, status.connected]);
   useEffect(() => {
-    if (section !== "Memory") return;
+    if (section !== "Memory" || !status.connected) return;
     void Promise.all([
       invoke<{ notes: BrainNote[] }>("backend_brain_notes"),
       invoke<BrainGraph>("backend_brain_graph"),
@@ -297,39 +298,39 @@ export function App() {
         setMemorySuggestions(suggestions.suggestions.filter((item) => item.state === "pending"));
       })
       .catch((error) => setModelsError(String(error)));
-  }, [section]);
+  }, [section, status.connected]);
   useEffect(() => {
-    if (section !== "Tasks" && section !== "Agents") return;
+    if ((section !== "Tasks" && section !== "Agents") || !status.connected) return;
     void invoke<{ tasks: TaskItem[] }>("backend_tasks")
       .then((result) => setTasks(result.tasks))
       .catch((error) => setModelsError(String(error)));
-  }, [section]);
+  }, [section, status.connected]);
   useEffect(() => {
-    if (section !== "Tools & Skills") return;
+    if (section !== "Tools & Skills" || !status.connected) return;
     void invoke<{ skills: SkillItem[] }>("backend_skills")
       .then((result) => setSkills(result.skills))
       .catch((error) => setModelsError(String(error)));
-  }, [section]);
+  }, [section, status.connected]);
   useEffect(() => {
-    if (section !== "Integrations") return;
+    if (section !== "Integrations" || !status.connected) return;
     void invoke<{ integrations: IntegrationItem[] }>("backend_integrations")
       .then((result) => setIntegrations(result.integrations))
       .catch((error) => setModelsError(String(error)));
-  }, [section]);
+  }, [section, status.connected]);
   useEffect(() => {
-    if (section !== "Voice") return;
+    if (section !== "Voice" || !status.connected) return;
     void invoke<{ capabilities: VoiceCapabilities }>(
       "backend_voice_capabilities",
     )
       .then((result) => setVoiceCapabilities(result.capabilities))
       .catch((error) => setModelsError(String(error)));
-  }, [section]);
+  }, [section, status.connected]);
   useEffect(() => {
-    if (section !== "Workflows") return;
+    if (section !== "Workflows" || !status.connected) return;
     void invoke<{ workflows: WorkflowItem[] }>("backend_workflows")
       .then((result) => setWorkflows(result.workflows))
       .catch((error) => setModelsError(String(error)));
-  }, [section]);
+  }, [section, status.connected]);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -735,6 +736,14 @@ export function App() {
               : "Local runtime unavailable · retrying"}
           </div>
         </header>
+        {!status.connected && section !== "Chat" && (
+          <p className="offline-notice" role="status">
+            The local runtime is unavailable. Data in this view may be incomplete until it reconnects.
+          </p>
+        )}
+        {modelsError && section !== "Models" && (
+          <p className="error-notice" role="alert">{modelsError}</p>
+        )}
         {section === "Chat" ? (
           <section className="chat-panel">
             <div className="message-list">

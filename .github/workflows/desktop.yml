@@ -257,6 +257,7 @@ jobs:
           if ($note.content -ne 'OMNI-X isolated smoke note') { throw 'Brain note readback failed' }
           $workflowBody = @{ name = 'Smoke approval'; definition = @{ nodes = @(@{ id = 'confirm'; action = 'approval' }) } } | ConvertTo-Json -Depth 8
           $workflow = Invoke-RestMethod -Method Post -Uri "$base/v1/workflows" -Headers $headers -ContentType 'application/json' -Body $workflowBody -TimeoutSec 10
+          $workflowTimer = [System.Diagnostics.Stopwatch]::StartNew()
           $workflowRun = Invoke-RestMethod -Method Post -Uri "$base/v1/workflows/$($workflow.workflow_id)/run" -Headers $headers -ContentType 'application/json' -Body '{}' -TimeoutSec 10
           $pendingApproval = $false
           for ($attempt = 0; $attempt -lt 50; $attempt++) {
@@ -265,6 +266,8 @@ jobs:
             Start-Sleep -Milliseconds 100
           }
           if (-not $pendingApproval) { throw 'Workflow approval was not requested' }
+          $approvalMs = $workflowTimer.ElapsedMilliseconds
+          $cancelTimer = [System.Diagnostics.Stopwatch]::StartNew()
           Invoke-RestMethod -Method Post -Uri "$base/v1/workflow-runs/$($workflowRun.run_id)/cancel" -Headers $headers -ContentType 'application/json' -Body '{}' -TimeoutSec 5 | Out-Null
           $approvalCleared = $false
           for ($attempt = 0; $attempt -lt 50; $attempt++) {
@@ -273,6 +276,7 @@ jobs:
             Start-Sleep -Milliseconds 100
           }
           if (-not $approvalCleared) { throw 'Cancelled workflow approval remained pending' }
+          Write-Host "Workflow approval observed (ms): $approvalMs; cancellation observed (ms): $($cancelTimer.ElapsedMilliseconds) (includes HTTP polling overhead)"
           Write-Host 'Brain note readback and workflow approval cancellation passed'
           # Exercise concurrent reads while the scheduler owns the same SQLite store.
           $readJobs = @()
@@ -351,6 +355,7 @@ jobs:
             $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
             $config.provider = 'omniroute'; $config.model = 'fixture-free'; $config.base_url = 'http://127.0.0.1:27464/v1'; $config.mode = 'FREE'; $config.allow_paid = $false; $config.free_models = @('fixture-free')
             $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding utf8
+            $streamTimer = [System.Diagnostics.Stopwatch]::StartNew()
             $streamJob = Start-Job -ArgumentList $base,$appToken -ScriptBlock {
               param($endpoint, $token)
               $jobHeaders = @{ Authorization = "Bearer $token"; Origin = 'tauri://localhost' }
@@ -365,10 +370,12 @@ jobs:
               Start-Sleep -Milliseconds 100
             }
             if (-not $partialSeen) { throw 'Packaged chat did not expose incremental fixture output' }
+            $firstPartialMs = $streamTimer.ElapsedMilliseconds
             if (-not (Wait-Job -Job $streamJob -Timeout 30)) { throw 'Packaged streaming chat timed out' }
             $streamResult = Receive-Job -Job $streamJob -ErrorAction Stop
             if ($streamResult.answer -ne 'fixture response' -or -not $streamResult.session_id) { throw 'Packaged streaming chat returned an invalid result' }
             $liveSession = $streamResult.session_id
+            Write-Host "Fixture chat first partial observed (ms): $firstPartialMs; completion observed (ms): $($streamTimer.ElapsedMilliseconds) (includes job and polling overhead; fixture deliberately pauses)"
             Write-Host 'Packaged loopback streaming and final response passed'
           } finally {
             if ($streamJob) { if ($streamJob.State -eq 'Running') { Stop-Job -Job $streamJob }; Remove-Job -Job $streamJob -Force }

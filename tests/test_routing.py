@@ -5,14 +5,34 @@ import pytest
 from types import SimpleNamespace
 
 
-def test_free_mode_rejects_paid_requested_provider():
-    router = Router(Settings(provider="openai", mode="FREE"))
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+def test_free_mode_rejects_paid_requested_provider(provider):
+    router = Router(Settings(provider=provider, mode="FREE"))
     try:
         router.complete([{"role": "user", "content": "hello"}])
     except ProviderError as exc:
         assert "paid inference requires allow_paid=true" in str(exc)
     else:
         raise AssertionError("FREE mode accepted a paid-only route")
+
+
+def test_anthropic_route_uses_stream_when_callback_requested(monkeypatch):
+    class FakeClient:
+        def __init__(self, settings):
+            pass
+
+        def stream(self, _messages, _tools, _parameters, on_delta, _cancel):
+            on_delta("live")
+            return {"choices": [{"message": {"content": "live"}}], "usage": {}}
+
+    monkeypatch.setattr("omnix.routing.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("omnix.routing.ModelClient", FakeClient)
+    router = Router(Settings(provider="anthropic", mode="SMART", allow_paid=True))
+    received = []
+    result, route = router.complete([], on_delta=received.append)
+    assert route.provider == "anthropic"
+    assert received == ["live"]
+    assert result["choices"][0]["message"]["content"] == "live"
 
 
 def test_partial_stream_failure_is_not_retried_on_another_route(monkeypatch):

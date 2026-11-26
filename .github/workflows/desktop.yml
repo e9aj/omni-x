@@ -147,10 +147,17 @@ jobs:
             Add-Type -AssemblyName UIAutomationClient
             $automationStage = 'window'
             $windowElement = [System.Windows.Automation.AutomationElement]::FromHandle($desktop.MainWindowHandle)
-            $automationStage = 'find-input'
+            $automationStage = 'condition'
             $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, 'Message OMNI-X')
-            $inputElement = $windowElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-            if (-not $inputElement -or -not $inputElement.Current.IsEnabled) { throw 'Accessible chat input unavailable' }
+            $automationStage = 'find-input'
+            $inputElement = $null
+            for ($attempt = 0; $attempt -lt 30; $attempt++) {
+              $inputElement = $windowElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+              if ($inputElement -and $inputElement.Current.IsEnabled) { break }
+              Start-Sleep -Milliseconds 100
+            }
+            if (-not $inputElement) { $automationStage = 'input-not-found'; throw 'Accessible chat input unavailable' }
+            if (-not $inputElement.Current.IsEnabled) { $automationStage = 'input-disabled'; throw 'Chat input not enabled' }
             $automationStage = 'value-pattern'
             $valuePattern = $inputElement.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
             $automationStage = 'value-round-trip'

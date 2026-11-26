@@ -141,6 +141,20 @@ jobs:
           }
           if ($frontendMarker) { Write-Host "Frontend frame marker: $($frontendMarker.Line) (does not measure input responsiveness)" } else { Write-Host 'Frontend frame marker unavailable' }
           if (Test-Path $supervisorLog) { Select-String -Path $supervisorLog -Pattern 'spawned backend pid=|health passed launcher_pid=' | ForEach-Object { Write-Host "Startup marker: $($_.Line)" } }
+          $valuePattern = $null
+          try {
+            Add-Type -AssemblyName UIAutomationClient
+            $windowElement = [System.Windows.Automation.AutomationElement]::FromHandle($desktop.MainWindowHandle)
+            $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, 'Message OMNI-X')
+            $inputElement = $windowElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            if (-not $inputElement -or -not $inputElement.Current.IsEnabled) { throw 'Accessible chat input unavailable' }
+            $valuePattern = $inputElement.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+            $inputTimer = [System.Diagnostics.Stopwatch]::StartNew()
+            $valuePattern.SetValue('local interaction probe')
+            if ($valuePattern.Current.Value -ne 'local interaction probe') { throw 'Input value did not round-trip' }
+            $inputTimer.Stop()
+            Write-Host "Chat input UI Automation value round-trip (ms): $($inputTimer.ElapsedMilliseconds) (after readiness; not cold startup or physical typing)"
+          } catch { Write-Host "Chat input UI Automation measurement unavailable: $($_.Exception.GetType().Name)" } finally { if ($valuePattern) { try { $valuePattern.SetValue('') } catch { } } }
           $desktop.Refresh()
           $cpuStart = $desktop.TotalProcessorTime.TotalSeconds
           Start-Sleep -Seconds 2

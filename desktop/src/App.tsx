@@ -789,6 +789,7 @@ export function App() {
             </div>
             <form className="composer" onSubmit={send}>
               <input
+                aria-label="Message OMNI-X"
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
                 placeholder="Ask OMNI-X anything…"

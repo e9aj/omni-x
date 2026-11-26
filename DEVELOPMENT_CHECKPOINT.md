@@ -32,6 +32,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Named the Chat input for assistive technology and added a best-effort installed UI Automation value round-trip timing after backend readiness. The workflow clears the probe text and reports if UI Automation is unavailable; this is not physical typing or a cold-start interactivity measurement. Frontend build and workflow syntax pass; hosted verification is pending.
 - Added a bounded Windows process-tree idle sample to the installer smoke, reporting aggregate private bytes and CPU for surviving descendants. It is a snapshot and excludes outside-tree processes and CPU from children started or exited between samples. YAML and PowerShell syntax parse; hosted measurement is pending.
 - Inspected hosted Windows window capture artifact `15128217874` for `de468a9`: Chat shows the redesigned workspace, quick links, connected status and canonical logo. A bright default scrollbar was visible; dark workspace scrollbar styling has been added and the frontend build passes. A new packaged capture is needed to verify that styling.
 - Hosted CI `45841543044`, security `45841543035` and Windows installer `45841543094` passed for `de468a9`, including rapid close, concurrent reads and OpenAI-compatible loopback streaming. The unsigned installer SHA-256 was `676BFA7129C81E6EC0FA789A1D615C4FCA4B331D69332E1184E21C917D5F669F` (artifact `15128282531`). Cold frame was 7,292 ms, warm 658 ms and observed backend readiness 5,470 ms; no input-response or live Anthropic measurement is claimed.

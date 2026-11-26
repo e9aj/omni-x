@@ -1,9 +1,10 @@
 import json
 import threading
+import pytest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from omnix.config import Settings
-from omnix.providers import ModelClient
+from omnix.providers import ModelClient, ProviderError
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -34,3 +35,42 @@ def test_openai_compatible_provider(monkeypatch):
         assert result["choices"][0]["message"]["content"] == "hello"
     finally:
         server.shutdown()
+
+
+def test_provider_does_not_follow_redirects(monkeypatch):
+    reached = threading.Event()
+
+    class Destination(BaseHTTPRequestHandler):
+        def do_GET(self):
+            reached.set()
+            self.send_response(200)
+            self.end_headers()
+        def log_message(self, *_):
+            pass
+
+    destination = HTTPServer(("127.0.0.1", 0), Destination)
+    class Redirect(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{destination.server_port}/target")
+            self.end_headers()
+        def log_message(self, *_):
+            pass
+
+    source = HTTPServer(("127.0.0.1", 0), Redirect)
+    threads = [threading.Thread(target=server.serve_forever, daemon=True) for server in (source, destination)]
+    for thread in threads:
+        thread.start()
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: None)
+    try:
+        client = ModelClient(Settings(provider="omniroute", base_url=f"http://127.0.0.1:{source.server_port}", retry_limit=0))
+        with pytest.raises(ProviderError, match="HTTP 302"):
+            client.list_models()
+        assert not reached.is_set()
+    finally:
+        for server in (source, destination):
+            server.shutdown()
+        for thread in threads:
+            thread.join(2)
+        for server in (source, destination):
+            server.server_close()

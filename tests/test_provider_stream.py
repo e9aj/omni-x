@@ -47,7 +47,7 @@ def test_provider_errors_do_not_expose_upstream_body(monkeypatch):
     def fail(request, timeout):
         raise urllib.error.HTTPError(request.full_url, 400, "Bad request", {}, io.BytesIO(b"private-response-sentinel"))
 
-    monkeypatch.setattr("urllib.request.urlopen", fail)
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=fail))
     client = ModelClient(Settings(provider="omniroute", retry_limit=0))
     with pytest.raises(ProviderError) as error:
         client.complete([])

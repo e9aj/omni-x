@@ -213,7 +213,8 @@ class ModelClient:
         for attempt in range(self.settings.retry_limit + 1):
             request = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, headers={"Content-Type": "application/json", **headers}, method="POST" if body is not None else "GET")
             try:
-                with urllib.request.urlopen(request, timeout=getattr(self.settings, "provider_request_timeout_seconds", self.settings.request_timeout_seconds)) as response:  # nosec B310
+                opener = urllib.request.build_opener(_NoRedirect)
+                with opener.open(request, timeout=getattr(self.settings, "provider_request_timeout_seconds", self.settings.request_timeout_seconds)) as response:  # nosec B310
                     return json.loads(response.read())
             except urllib.error.HTTPError as exc:
                 retryable = exc.code == 429 or exc.code in {500, 502, 503, 504}

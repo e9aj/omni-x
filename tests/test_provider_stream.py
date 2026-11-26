@@ -54,6 +54,16 @@ def test_provider_errors_do_not_expose_upstream_body(monkeypatch):
     assert str(error.value) == "Provider HTTP 400"
 
 
+def test_one_shot_provider_response_is_bounded_and_validated(monkeypatch):
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=lambda *args, **kwargs: io.BytesIO(b"x" * 8_000_001)))
+    client = ModelClient(Settings(provider="omniroute", retry_limit=0))
+    with pytest.raises(ProviderError, match="size limit"):
+        client.complete([])
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=lambda *args, **kwargs: io.BytesIO(b"not-json")))
+    with pytest.raises(ProviderError, match="invalid JSON"):
+        client.complete([])
+
+
 @pytest.mark.parametrize("url", ["https://userinfo@example.test/v1", "https://example.test/v1?parameter=value", "https://example.test/v1#fragment"])
 def test_provider_urls_reject_embedded_credentials_and_query(url):
     with pytest.raises(ProviderError, match="must not contain"):

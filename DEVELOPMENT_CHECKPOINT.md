@@ -32,6 +32,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- An in-process Anthropic fixture now verifies a streamed tool call runs through the native runtime, sends its result in the following provider turn and persists the final answer. Targeted provider/routing tests pass; the fixture intercepts every provider request and makes no external call.
 - Added routing regressions confirming an Anthropic callback selects the streaming path and FREE mode still rejects the paid-only provider. Provider and routing tests pass locally; no paid request was made.
 - Added Anthropic SSE handling for incremental text, fragmented tool inputs, usage and stream errors, and conversion of native tool-call/result history into Anthropic message blocks. Local provider fixtures and the full Python suite pass (3 skipped). No external provider was contacted; packaged and live Anthropic inference and stalled-read cancellation are unverified. The streaming event format follows the official Claude API documentation.
 - Hosted CI `45838724282` failed Windows 3.11 because a TaskService test directly committed on its shared connection without the store lock while the scheduler was running. Direct accesses in that test module now use the lock; focused TaskService tests and the full local Python suite pass (3 skipped). Hosted verification of this test fix is pending. This test race does not establish the original desktop crash cause.

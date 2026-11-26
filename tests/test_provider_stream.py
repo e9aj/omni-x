@@ -73,6 +73,34 @@ def test_anthropic_stream_rejects_truncated_response(monkeypatch):
         ModelClient(Settings(provider="anthropic")).stream([])
 
 
+def test_anthropic_streamed_tool_call_runs_through_runtime(monkeypatch, tmp_path):
+    (tmp_path / "note.txt").write_text("local fixture content", encoding="utf-8")
+    tool_stream = (event({"type": "content_block_start", "index": 0, "content_block": {"type": "tool_use", "id": "call-1", "name": "read_file", "input": {}}})
+                   + event({"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", "partial_json": '{"path":"note.txt"}'}})
+                   + event({"type": "message_stop"}))
+    final_stream = (event({"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Verified."}})
+                    + event({"type": "message_stop"}))
+    streams, requests = [tool_stream, final_stream], []
+    def open_stream(request, timeout):
+        requests.append(json.loads(request.data))
+        return io.BytesIO(streams.pop(0))
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("omnix.routing.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=open_stream))
+    monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
+    settings = Settings(provider="anthropic", mode="SMART", allow_paid=True, model="fixture")
+    store = Store(tmp_path / "state.sqlite3")
+    runtime = AgentRuntime(settings, store, tmp_path)
+    chunks = []
+    answer, session = runtime.run("Read the note", on_delta=chunks.append)
+    assert answer == "Verified."
+    assert "Verified." in chunks
+    assert any(block.get("type") == "tool_result" and "local fixture content" in block.get("content", "")
+               for message in requests[1]["messages"] if isinstance(message["content"], list)
+               for block in message["content"])
+    assert store.messages(session)[-1]["content"] == answer
+
+
 def test_provider_errors_do_not_expose_upstream_body(monkeypatch):
     def fail(request, timeout):
         raise urllib.error.HTTPError(request.full_url, 400, "Bad request", {}, io.BytesIO(b"private-response-sentinel"))

@@ -38,11 +38,13 @@ def test_persistent_one_shot_schedule_and_restart_recovery(tmp_path: Path):
             time.sleep(.05)
     assert job is not None
     assert job["result"] == "done:scheduled work"
-    assert service.store.db.execute("SELECT enabled FROM schedules WHERE id=?", (schedule,)).fetchone()[0] == 1
+    with service.store._lock:
+        assert service.store.db.execute("SELECT enabled FROM schedules WHERE id=?", (schedule,)).fetchone()[0] == 1
     service.close()
     recovered = TaskService(Settings(), Store(db), tmp_path, executor=lambda prompt, session: "recovered")
     orphan = recovered.store.create_job("after crash")
-    recovered.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (orphan,)); recovered.store.db.commit()
+    with recovered.store._lock:
+        recovered.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (orphan,)); recovered.store.db.commit()
     recovered.close()
     after = TaskService(Settings(), Store(db), tmp_path, executor=lambda prompt, session: "recovered")
     assert after.store.job(orphan)["state"] == "queued"
@@ -86,7 +88,8 @@ def test_delegation_inherits_policy_and_aggregates_results(tmp_path: Path):
     settings = Settings(mode="FREE", allow_paid=False, max_cost_usd=0.0, tool_policy="deny")
     service = TaskService(settings, Store(db), tmp_path, executor=lambda prompt, session: "tool-result:" + prompt)
     parent = service.store.create_job("parent", policy={"mode": "FREE", "allow_paid": False, "max_cost_usd": 0.0, "tool_policy": "deny"})
-    service.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (parent,)); service.store.db.commit()
+    with service.store._lock:
+        service.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (parent,)); service.store.db.commit()
     children = service.delegate(parent, [{"role": "research", "prompt": "approved read"}, {"role": "verify", "prompt": "verify"}])
     for child in children:
         wait_for(service, child, "completed")
@@ -119,7 +122,8 @@ def test_end_to_end_schedule_background_delegate_tool_restart(tmp_path: Path):
             time.sleep(.05)
     assert scheduled and (workspace / "result.txt").read_text() == "completed"
     parent = service.store.create_job("parent", policy={"mode": "FREE", "allow_paid": False, "max_cost_usd": 0.0, "tool_policy": "ask"})
-    service.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (parent,)); service.store.db.commit()
+    with service.store._lock:
+        service.store.db.execute("UPDATE jobs SET state='running' WHERE id=?", (parent,)); service.store.db.commit()
     child = service.delegate(parent, [{"role": "specialist", "prompt": "analysis"}])[0]
     wait_for(service, child, "completed")
     assert service.aggregate(parent)["state"] == "completed"

@@ -231,7 +231,7 @@ class ModelClient:
     def _anthropic(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
                    parameters: dict[str, Any] | None = None) -> dict[str, Any]:
         body = self._anthropic_body(messages, tools, parameters)
-        result = self._post((self.settings.base_url or self.provider.base_url).rstrip("/") + "/v1/messages", body, {"x-api-key": self.api_key, "anthropic-version": "2023-06-01"})
+        result = self._post(self.provider.base_url + "/v1/messages", body, {"x-api-key": self.api_key, "anthropic-version": "2023-06-01"})
         text = "".join(part.get("text", "") for part in result.get("content", []) if part.get("type") == "text")
         calls = [{"id": part.get("id", ""), "type": "function", "function": {"name": part["name"], "arguments": json.dumps(part.get("input", {}))}} for part in result.get("content", []) if part.get("type") == "tool_use"]
         usage = result.get("usage", {})
@@ -242,7 +242,9 @@ class ModelClient:
             raise RuntimeError("Task cancelled")
         body = self._anthropic_body(messages, tools, parameters)
         body["stream"] = True
-        url = _validate_http_url((self.settings.base_url or self.provider.base_url).rstrip("/") + "/v1/messages")
+        # A generic custom endpoint may belong to another provider. Never send
+        # the Anthropic credential to it implicitly when routes change.
+        url = _validate_http_url(self.provider.base_url + "/v1/messages")
         request = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "Accept": "text/event-stream", "x-api-key": self.api_key, "anthropic-version": "2023-06-01"}, method="POST")
         chunks, calls, usage = [], {}, {}
         model, total, done = self.settings.model, 0, False

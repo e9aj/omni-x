@@ -51,10 +51,14 @@ def test_anthropic_stream_reconstructs_tool_calls_and_history(monkeypatch):
                + event({"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": '"note.txt"}'}})
                + event({"type": "message_delta", "usage": {"output_tokens": 3}})
                + event({"type": "message_stop"}))
-    sent = []
+    sent, urls = [], []
     monkeypatch.setattr("omnix.providers.get_secret", lambda _: True)
-    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=lambda request, timeout: sent.append(json.loads(request.data)) or io.BytesIO(payload)))
-    client = ModelClient(Settings(provider="anthropic"))
+    def open_stream(request, timeout):
+        urls.append(request.full_url)
+        sent.append(json.loads(request.data))
+        return io.BytesIO(payload)
+    monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=open_stream))
+    client = ModelClient(Settings(provider="anthropic", base_url="http://127.0.0.1:20128/v1"))
     messages = [{"role": "user", "content": "read"}, {"role": "assistant", "content": "", "tool_calls": [{"id": "old", "function": {"name": "read_file", "arguments": '{"path":"old.txt"}'}}]}, {"role": "tool", "tool_call_id": "old", "content": "old content"}]
     deltas = []
     result = client.stream(messages, on_delta=deltas.append)
@@ -62,6 +66,7 @@ def test_anthropic_stream_reconstructs_tool_calls_and_history(monkeypatch):
     assert result["choices"][0]["message"]["tool_calls"][0]["function"] == {"name": "read_file", "arguments": '{"path":"note.txt"}'}
     assert result["usage"] == {"prompt_tokens": 8, "completion_tokens": 3}
     assert sent[0]["stream"] is True
+    assert urls == ["https://api.anthropic.com/v1/messages"]
     assert sent[0]["messages"][1]["content"][0]["type"] == "tool_use"
     assert sent[0]["messages"][2]["content"][0]["tool_use_id"] == "old"
 

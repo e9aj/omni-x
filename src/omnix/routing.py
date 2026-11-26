@@ -95,7 +95,12 @@ class Router:
                     on_delta(text)
 
             try:
-                client = ModelClient(self.settings.__class__(**{**self.settings.__dict__, "provider": route.provider, "model": route.model}))
+                route_settings = {**self.settings.__dict__, "provider": route.provider, "model": route.model}
+                # A custom endpoint belongs to the configured provider, not
+                # to fallback providers whose credentials have different scope.
+                if route.provider != self.settings.provider:
+                    route_settings["base_url"] = ""
+                client = ModelClient(self.settings.__class__(**route_settings))
                 if on_delta is not None:
                     result = client.stream(messages, tools, parameters, emit, cancel_event)
                 else:

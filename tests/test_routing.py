@@ -35,6 +35,26 @@ def test_anthropic_route_uses_stream_when_callback_requested(monkeypatch):
     assert result["choices"][0]["message"]["content"] == "live"
 
 
+def test_custom_endpoint_is_not_reused_for_fallback_provider(monkeypatch):
+    endpoints = []
+    class FakeClient:
+        def __init__(self, settings):
+            self.settings = settings
+            endpoints.append((settings.provider, settings.base_url))
+
+        def complete(self, *_args):
+            if self.settings.provider == "omniroute":
+                raise ProviderError("unavailable")
+            return {"choices": [{"message": {"content": "ok"}}], "usage": {}}
+
+    monkeypatch.setattr("omnix.routing.get_secret", lambda _: True)
+    monkeypatch.setattr("omnix.routing.ModelClient", FakeClient)
+    router = Router(Settings(provider="omniroute", base_url="http://127.0.0.1:20128/v1", mode="SMART"))
+    router.routes = [Route("omniroute", "local"), Route("groq", "fallback")]
+    router.complete([])
+    assert endpoints == [("omniroute", "http://127.0.0.1:20128/v1"), ("groq", "")]
+
+
 def test_partial_stream_failure_is_not_retried_on_another_route(monkeypatch):
     attempted = []
 

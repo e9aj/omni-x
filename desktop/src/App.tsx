@@ -746,6 +746,20 @@ export function App() {
                     Bring an idea, a question or a task. OMNI-X will keep you
                     in control as the work takes shape.
                   </p>
+                  <div className="quick-links" aria-label="Explore your workspace">
+                    <button type="button" onClick={() => setSection("Tasks")}>
+                      <strong>Tasks <span aria-hidden="true">↗</span></strong>
+                      <small>Queue work for later</small>
+                    </button>
+                    <button type="button" onClick={() => setSection("Workflows")}>
+                      <strong>Workflows <span aria-hidden="true">↗</span></strong>
+                      <small>Arrange repeatable steps</small>
+                    </button>
+                    <button type="button" onClick={() => setSection("Memory")}>
+                      <strong>Memory <span aria-hidden="true">↗</span></strong>
+                      <small>Explore your local notes</small>
+                    </button>
+                  </div>
                 </div>
               )}
               {messages.map((message, index) => (

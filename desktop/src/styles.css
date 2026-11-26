@@ -58,6 +58,12 @@ button:disabled { cursor: not-allowed; }
 .chat-panel { max-width: 850px; height: calc(100vh - 120px); min-height: 0; margin: 0 auto; padding: 16px 0 12px; }
 .message-list { min-height: 0; padding: 12px 2px 20px; }
 .empty-chat { margin: clamp(65px, 16vh, 150px) 0 30px; }
+.quick-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 28px; max-width: 700px; }
+.quick-links button { display: grid; gap: 9px; min-width: 0; padding: 15px; text-align: left; color: #e8f1e5; background: #151f18; border: 1px solid #304136; border-radius: 11px; }
+.quick-links button:hover { background: #203027; border-color: #66846a; }
+.quick-links strong { display: flex; justify-content: space-between; font-size: 13px; }
+.quick-links strong span { color: #a9d39a; }
+.quick-links small { color: #a6b7a9; font-size: 12px; }
 .empty-chat h2, .panel h2 { font-size: 34px; font-weight: 550; letter-spacing: -.035em; color: #f0f5ee; }
 .muted { color: #9caea1; }
 .message { margin: 14px 0; padding: 15px 18px; border: 1px solid #2b3a30; border-left: 2px solid #789d7e; border-radius: 10px; background: #151e18; }

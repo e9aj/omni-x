@@ -23,6 +23,8 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Corrected Brain canvas drag coordinates after panning: the transformed canvas bounds already include its translation. The frontend production build passes; an interactive packaged drag check remains outstanding.
+- Windows run `45835233786` reported backend spawn at 10,403 ms, authenticated health at 11,417 ms, first frontend frame at 6,627 ms and warm first frame at 389 ms. These runner markers do not measure input responsiveness; they locate substantial cold delay before the backend is spawned.
 - Added concurrent packaged task-list reads to the Windows installer smoke test to exercise the shared store alongside the scheduler. Workflow YAML and PowerShell syntax parse locally; the hosted test has not yet run.
 - Workflow steps and Brain canvas cards now support keyboard repositioning; canvas cards can also be selected with Enter or Space. The frontend production build passes. Packaged keyboard and screen-reader interaction remains to be verified.
 - Resumed from `43c4a65`. Hosted CI, Windows Desktop and security workflows all passed for that head (runs `45521357856`, `45521357930`, `45521358032`); these do not validate subsequent changes.

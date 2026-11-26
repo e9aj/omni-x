@@ -83,6 +83,7 @@ button:disabled { cursor: not-allowed; }
 .council-form button { background: #b7df9f; color: #172318; }
 .panel h3 { color: #e5eee2; font-size: 16px; margin: 30px 0 12px; }
 .panel > label { display: block; margin: 16px 0 8px; color: #b6c8ba; font-size: 13px; }
+.panel > label > input:not([type="checkbox"]), .panel > label > textarea { display: block; width: min(100%, 650px); margin-top: 8px; }
 .panel input:not([type="checkbox"]), .panel textarea, .panel select { min-width: 0; color: #ecf3e9; background: #141e17; border: 1px solid #35483a; border-radius: 8px; padding: 10px 12px; font-size: 13px; }
 .panel input:not([type="checkbox"]):focus, .panel textarea:focus, .panel select:focus { border-color: #9ec88d; }
 .panel > input:not([type="checkbox"]), .panel > textarea { display: block; width: min(100%, 650px); margin: 9px 0; }

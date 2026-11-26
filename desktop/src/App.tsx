@@ -935,10 +935,10 @@ export function App() {
             )}
             <h3>Offline dictation</h3>
             <p className="muted">Choose a workspace-relative WAV fixture and an existing local Whisper model directory. No weights are downloaded.</p>
-            <input value={voicePath} onChange={(event) => setVoicePath(event.target.value)} placeholder="fixtures/voice.wav" />
-            <input value={voiceModel} onChange={(event) => setVoiceModel(event.target.value)} placeholder="C:/local/whisper-model" />
+            <label>WAV file path<input value={voicePath} onChange={(event) => setVoicePath(event.target.value)} placeholder="fixtures/voice.wav" /></label>
+            <label>Local Whisper model directory<input value={voiceModel} onChange={(event) => setVoiceModel(event.target.value)} placeholder="C:/local/whisper-model" /></label>
             <button onClick={() => void transcribeVoice()}>Transcribe locally</button>
-            <textarea value={voiceText} onChange={(event) => setVoiceText(event.target.value)} rows={4} placeholder="Transcribed text or text to speak" />
+            <label>Transcription or text to speak<textarea value={voiceText} onChange={(event) => setVoiceText(event.target.value)} rows={4} /></label>
             <button onClick={() => void speakVoice()}>Speak locally</button><input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} aria-label="voice note path" /><button onClick={() => void recordVoiceNote()}>Record a 5-second note</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
             {voiceDevices.map((device) => <small key={device}>{device}</small>)}
             <p className="muted">Recording and speech require approved local audio components. Wake-word activation is unavailable.</p>
@@ -1091,12 +1091,13 @@ export function App() {
             </div>
             <p className="muted">Select two notes to connect them. Drag cards or use arrow keys to move them; use the pan controls to navigate.</p>
             <button onClick={() => setCanvasZoom((value) => Math.min(2, value + 0.1))}>Zoom in</button><button onClick={() => setCanvasZoom((value) => Math.max(0.5, value - 0.1))}>Zoom out</button><button onClick={() => moveCanvas(-80, 0)}>Pan left</button><button onClick={() => moveCanvas(80, 0)}>Pan right</button><button onClick={() => moveCanvas(0, -80)}>Pan up</button><button onClick={() => moveCanvas(0, 80)}>Pan down</button><button onClick={() => void saveCanvas()}>Save layout</button>
-            <h3>Document import and OCR</h3><p className="muted">Documents are read locally from the backend workspace. OCR is opt-in and requires reviewed local OCR engines.</p><input value={documentPath} onChange={(event) => setDocumentPath(event.target.value)} placeholder="relative/path/to/document.pdf" /><label><input type="checkbox" checked={ocrEnabled} onChange={(event) => setOcrEnabled(event.target.checked)} /> Enable local OCR</label><button onClick={() => void inspectDocument()}>Inspect document</button>{documentResult && <pre className="document-preview">{documentResult}</pre>}
+            <h3>Document import and OCR</h3><p className="muted">Documents are read locally from the backend workspace. OCR is opt-in and requires reviewed local OCR engines.</p><label>Document path<input value={documentPath} onChange={(event) => setDocumentPath(event.target.value)} placeholder="relative/path/to/document.pdf" /></label><label><input type="checkbox" checked={ocrEnabled} onChange={(event) => setOcrEnabled(event.target.checked)} /> Enable local OCR</label><button onClick={() => void inspectDocument()}>Inspect document</button>{documentResult && <pre className="document-preview">{documentResult}</pre>}
             {selectedNote && (
               <>
-                <input value={selectedNote} readOnly />
+                <input value={selectedNote} aria-label="Selected note path" readOnly />
                 <textarea
                   value={noteContent}
+                  aria-label="Note content"
                   onChange={(event) => setNoteContent(event.target.value)}
                   rows={14}
                 />

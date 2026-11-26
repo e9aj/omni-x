@@ -32,6 +32,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Hosted CI `45840591138`, security `45840590975` and Windows installer `45840590956` passed for `5880dd6`. Its corrected cold first-frame marker was 6,764 ms, warm marker 905 ms and observed authenticated backend readiness 6,134 ms; rapid close, concurrent reads and loopback streaming passed. These are hosted-runner markers, not input-response measurements. The installer was unsigned, SHA-256 `9D00330D7E59650FB2CDF78D9F13A8E16A9C6CCA58C89F9F88C07E1645FD1E15`; this predates Anthropic streaming.
 - An in-process Anthropic fixture now verifies a streamed tool call runs through the native runtime, sends its result in the following provider turn and persists the final answer. Targeted provider/routing tests pass; the fixture intercepts every provider request and makes no external call.
 - Added routing regressions confirming an Anthropic callback selects the streaming path and FREE mode still rejects the paid-only provider. Provider and routing tests pass locally; no paid request was made.
 - Added Anthropic SSE handling for incremental text, fragmented tool inputs, usage and stream errors, and conversion of native tool-call/result history into Anthropic message blocks. Local provider fixtures and the full Python suite pass (3 skipped). No external provider was contacted; packaged and live Anthropic inference and stalled-read cancellation are unverified. The streaming event format follows the official Claude API documentation.

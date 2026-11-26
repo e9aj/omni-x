@@ -23,6 +23,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Hosted CI `45835973298`, security `45835974025` and Windows installer `45835973317` passed for shared-store fix `50a9f20`. The Windows smoke covered loopback streaming, no-provider failure, recovery, Brain and workflow persistence. Its unsigned installer SHA-256 was `8E60C2E0CA6D5E99B3E479F272B2D081050B92B04B5F9EAE8656A747FA05DF7E`; cold first-frame marker was 7,505 ms, warm 488 ms and observed backend readiness 12,968 ms. This predates the new concurrent packaged read stress and keyboard changes.
 - Corrected Brain canvas drag coordinates after panning: the transformed canvas bounds already include its translation. The frontend production build passes; an interactive packaged drag check remains outstanding.
 - Windows run `45835233786` reported backend spawn at 10,403 ms, authenticated health at 11,417 ms, first frontend frame at 6,627 ms and warm first frame at 389 ms. These runner markers do not measure input responsiveness; they locate substantial cold delay before the backend is spawned.
 - Added concurrent packaged task-list reads to the Windows installer smoke test to exercise the shared store alongside the scheduler. Workflow YAML and PowerShell syntax parse locally; the hosted test has not yet run.

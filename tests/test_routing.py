@@ -25,7 +25,7 @@ def test_anthropic_route_uses_stream_when_callback_requested(monkeypatch):
             on_delta("live")
             return {"choices": [{"message": {"content": "live"}}], "usage": {}}
 
-    monkeypatch.setattr("omnix.routing.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("omnix.routing.get_secret", lambda _: True)
     monkeypatch.setattr("omnix.routing.ModelClient", FakeClient)
     router = Router(Settings(provider="anthropic", mode="SMART", allow_paid=True))
     received = []

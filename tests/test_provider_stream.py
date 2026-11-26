@@ -52,7 +52,7 @@ def test_anthropic_stream_reconstructs_tool_calls_and_history(monkeypatch):
                + event({"type": "message_delta", "usage": {"output_tokens": 3}})
                + event({"type": "message_stop"}))
     sent = []
-    monkeypatch.setattr("omnix.providers.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: True)
     monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=lambda request, timeout: sent.append(json.loads(request.data)) or io.BytesIO(payload)))
     client = ModelClient(Settings(provider="anthropic"))
     messages = [{"role": "user", "content": "read"}, {"role": "assistant", "content": "", "tool_calls": [{"id": "old", "function": {"name": "read_file", "arguments": '{"path":"old.txt"}'}}]}, {"role": "tool", "tool_call_id": "old", "content": "old content"}]
@@ -67,7 +67,7 @@ def test_anthropic_stream_reconstructs_tool_calls_and_history(monkeypatch):
 
 
 def test_anthropic_stream_rejects_truncated_response(monkeypatch):
-    monkeypatch.setattr("omnix.providers.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: True)
     monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=lambda *args, **kwargs: io.BytesIO(event({"type": "ping"}))))
     with pytest.raises(ProviderError, match="before completion"):
         ModelClient(Settings(provider="anthropic")).stream([])
@@ -84,8 +84,8 @@ def test_anthropic_streamed_tool_call_runs_through_runtime(monkeypatch, tmp_path
     def open_stream(request, timeout):
         requests.append(json.loads(request.data))
         return io.BytesIO(streams.pop(0))
-    monkeypatch.setattr("omnix.providers.get_secret", lambda _: "fixture-only")
-    monkeypatch.setattr("omnix.routing.get_secret", lambda _: "fixture-only")
+    monkeypatch.setattr("omnix.providers.get_secret", lambda _: True)
+    monkeypatch.setattr("omnix.routing.get_secret", lambda _: True)
     monkeypatch.setattr("urllib.request.build_opener", lambda *_: SimpleNamespace(open=open_stream))
     monkeypatch.setenv("OMNIX_DATA_DIR", str(tmp_path / "data"))
     settings = Settings(provider="anthropic", mode="SMART", allow_paid=True, model="fixture")

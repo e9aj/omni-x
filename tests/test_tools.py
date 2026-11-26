@@ -45,6 +45,13 @@ def test_dangerous_command_is_rejected(tmp_path: Path):
     assert "dangerous command rejected" in registry.call("run_command", {"command": "git reset --hard HEAD"})
 
 
+def test_verbose_command_output_is_bounded(tmp_path: Path):
+    registry = ToolRegistry(tmp_path, approver=lambda _: True)
+    result = registry.run_command(f'"{sys.executable}" -c "import sys; sys.stdout.write(\'x\' * 2000000); sys.stderr.write(\'done\')"')
+    assert len(result) <= 20_000
+    assert result.endswith("done")
+
+
 def test_hanging_command_is_gracefully_then_hard_cancelled(tmp_path: Path):
     cancel = threading.Event()
     registry = ToolRegistry(tmp_path, approver=lambda _: True, cancel_event=cancel)

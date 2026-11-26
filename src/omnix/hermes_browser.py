@@ -51,11 +51,11 @@ class HermesBrowserAdapter:
             "print(browser_exec(sys.argv[1], timeout_s=int(sys.argv[2])))"
         )
         try:
-            process = subprocess.Popen([str(python), "-c", launcher, code, str(max(1, min(int(timeout_s), 600)))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0), start_new_session=(os.name != "nt"))
+            process = subprocess.Popen([str(python), "-c", launcher, code, str(max(1, min(int(timeout_s), 600)))], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors="replace", env=env, creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0), start_new_session=(os.name != "nt"))
             self._active.add(process)
             # Drain both pipes while the child runs. Waiting first can deadlock
             # when a verbose browser fills an OS pipe; retain only a bounded tail.
-            outputs = [deque(maxlen=20), deque(maxlen=20)]
+            outputs = [deque(maxlen=21), deque(maxlen=21)]
             def drain(pipe, output):
                 while chunk := pipe.read(1024):
                     output.append(chunk)
@@ -66,6 +66,8 @@ class HermesBrowserAdapter:
             _, stopped = wait_owned_process(process, self.cancel_event, max(5, min(int(timeout_s) + 15, 615)))
             for reader in readers:
                 reader.join(timeout=10)
+            if any(reader.is_alive() for reader in readers):
+                raise subprocess.SubprocessError("browser output could not be collected")
             if stopped and self.cancel_event.is_set():
                 return "Browser cancelled; owned browser process tree terminated"
             if stopped:

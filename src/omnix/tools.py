@@ -5,6 +5,7 @@ import os
 import subprocess
 import re
 import threading
+from collections import deque
 from pathlib import Path
 from typing import Any, Callable
 
@@ -117,24 +118,29 @@ class ToolRegistry:
         # The command is a deliberately explicit, approval-gated tool.  The
         # dangerous-command denylist, workspace cwd, owned-process tracking and
         # cancellation controls are applied before shell execution.
-        process = subprocess.Popen(command, cwd=self.workspace, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=os.environ.copy(), creationflags=flags, start_new_session=(os.name != "nt"))  # nosec B602
+        process = subprocess.Popen(command, cwd=self.workspace, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, errors="replace", env=os.environ.copy(), creationflags=flags, start_new_session=(os.name != "nt"))  # nosec B602
         with self._active_lock: self._active.add(process)
         try:
             # Drain both pipes while the process runs. Waiting for exit before
             # reading can deadlock when a child fills the OS pipe buffer.
-            output: list[tuple[str, str]] = []
-            reader = threading.Thread(target=lambda: output.append(process.communicate()), daemon=True)
-            reader.start()
+            output = [deque(maxlen=21), deque(maxlen=21)]
+            def drain(pipe, tail):
+                while chunk := pipe.read(1024):
+                    tail.append(chunk)
+            readers = [threading.Thread(target=drain, args=(pipe, tail), daemon=True)
+                       for pipe, tail in zip((process.stdout, process.stderr), output)]
+            for reader in readers:
+                reader.start()
             _, stopped = wait_owned_process(process, self.cancel_event, 120)
-            reader.join(timeout=10)
-            if reader.is_alive() or not output:
+            for reader in readers:
+                reader.join(timeout=10)
+            if any(reader.is_alive() for reader in readers):
                 raise subprocess.SubprocessError("command output could not be collected")
-            stdout, stderr = output[0]
             if stopped and self.cancel_event.is_set():
                 raise RuntimeError("Task cancelled; owned command process tree terminated")
             if stopped:
                 raise subprocess.TimeoutExpired(command, 120)
-            return (stdout + stderr)[-20_000:]
+            return ("".join(output[0]) + "".join(output[1]))[-20_000:]
         finally:
             with self._active_lock: self._active.discard(process)
 

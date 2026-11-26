@@ -21,6 +21,15 @@ Updated: 2026-11-26
 - [ ] Build/install the Windows app and run repeated launches plus offline, no-credential, chat failure, streaming/cancel, tool/task, Brain, workflow, recovery and shutdown scenarios; capture genuine UI/splash screenshots.
 - [ ] Record current-head tests, installer checksum/signing status and unresolved limitations. Continue independent work after each commit until criteria are met or remaining tasks are genuinely blocked.
 
+## Current open risks and verification gaps
+
+- High: the original packaged crash has not been reproduced or conclusively diagnosed. Shared SQLite locking, process-output bounds and shutdown fixes have targeted coverage, but broader packaged stress remains necessary.
+- High: Stop cannot interrupt a provider connection or stalled read promptly; Anthropic remains one-shot. The installed loopback fixture covers OpenAI-compatible streaming, not live inference.
+- Medium: the optional browser adapter still depends on an inspected Hermes checkout. Native skill discovery no longer scans Hermes automatically.
+- Medium: cold first-frame markers on hosted Windows were about 7 seconds before the latest startup-overlap change, and input responsiveness has not been measured. Its installed result is pending.
+- Medium: packaged screen-by-screen visual, keyboard and accessibility review, splash capture, live provider, stalled cancellation, full process resource sampling and several user-interaction scenarios remain unverified. The installer is unsigned and is for development testing, not a production release.
+- The original user-owned security handbook remains authoritative. No production release or external account integration has been authorised.
+
 ## Overhaul continuation — 25–26 November 2026
 
 - Added an installed rapid-close scenario to the Windows smoke: close on first native window without awaiting readiness, then check for a new leftover backend process and open backend port. YAML and PowerShell syntax parse locally; hosted execution remains pending.

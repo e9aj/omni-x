@@ -32,6 +32,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Disabled backend-dependent actions while disconnected across Voice, Workflows, Memory, Tasks, approvals, skills, integrations and model selection; local canvas editing remains available. Frontend production build passes. Reconnection and installed interaction checks remain outstanding.
 - Rechecked the revised local offline preview: Models shows a disabled refresh control and connection guidance, Agents and Tools & Skills no longer claim unloaded data is empty, and the Council prompt has an accessible name. Connected model refresh and packaged UI interactions remain unverified.
 - Local offline preview covered Council, Agents, Tools & Skills, Integrations and Settings. Corrected unloaded task/approval/skill/integration states, named the Council prompt, disabled content-style changes while disconnected and added an explicit model refresh control. Simplified implementation-heavy copy. The frontend build passes; connected and packaged interactions remain to be checked.
 - Hosted CI `45848866291`, security `45848866179` and installer `45848866237` passed for `028de15`. The accessible Chat input value round trip measured 35 ms after readiness on that runner; it was an automation value operation, not physical typing or cold-start interactivity. Cold frame was 6,255 ms, warm 460 ms and observed readiness 6,070 ms. Rapid close passed. The unsigned installer SHA-256 was `50657DA549F3A4FD736605AE4ADFF39FC80AB40E9C152DFE6C524B2BFA35ACB4`.

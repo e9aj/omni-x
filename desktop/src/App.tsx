@@ -908,6 +908,7 @@ export function App() {
                 </span>
                 {item.free && (
                   <button
+                    disabled={!status.connected}
                     onClick={() =>
                       void invoke("backend_set_model", { model: item.id })
                         .then(() => setModel(item.id))
@@ -945,15 +946,15 @@ export function App() {
             <p className="muted">Choose a workspace-relative WAV fixture and an existing local Whisper model directory. No weights are downloaded.</p>
             <label>WAV file path<input value={voicePath} onChange={(event) => setVoicePath(event.target.value)} placeholder="fixtures/voice.wav" /></label>
             <label>Local Whisper model directory<input value={voiceModel} onChange={(event) => setVoiceModel(event.target.value)} placeholder="C:/local/whisper-model" /></label>
-            <button onClick={() => void transcribeVoice()}>Transcribe locally</button>
+            <button disabled={!status.connected} onClick={() => void transcribeVoice()}>Transcribe locally</button>
             <label>Transcription or text to speak<textarea value={voiceText} onChange={(event) => setVoiceText(event.target.value)} rows={4} /></label>
-            <button onClick={() => void speakVoice()}>Speak locally</button><label>Voice note path<input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} /></label><button onClick={() => void recordVoiceNote()}>Record a 5-second note</button><button onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
+            <button disabled={!status.connected} onClick={() => void speakVoice()}>Speak locally</button><label>Voice note path<input value={voiceNotePath} onChange={(event) => setVoiceNotePath(event.target.value)} /></label><button disabled={!status.connected} onClick={() => void recordVoiceNote()}>Record a 5-second note</button><button disabled={!status.connected} onClick={() => void listVoiceDevices()}>List input devices (approval required)</button>
             {voiceDevices.map((device) => <small key={device}>{device}</small>)}
             <p className="muted">Recording and speech require approved local audio components. Wake-word activation is unavailable.</p>
           </section>
         ) : section === "Workflows" ? (
           <section className="panel">
-            <p className="eyebrow">TASKSERVICE · PERSISTENT DEFINITION</p>
+            <p className="eyebrow">REPEATABLE WORK</p>
             <h2>Workflow builder</h2>
             <p className="muted">
               Arrange steps, then save, run or schedule your workflow. Actions
@@ -1023,14 +1024,14 @@ export function App() {
             </div>
             <p className="muted">Drag a step, or focus it and use the arrow keys to move it.</p>
             <button onClick={addWorkflowNode}>Add step</button>
-            <button onClick={() => void saveWorkflow()}>Save workflow</button>
+            <button disabled={!status.connected} onClick={() => void saveWorkflow()}>Save workflow</button>
             <h3>Saved workflows</h3>
             {workflows.map((workflow) => (
               <article className="candidate" key={workflow.id}>
                 <strong>{workflow.name}</strong>
                 <span>{workflow.definition.nodes.length} steps</span>
-                <button onClick={() => void runWorkflow(workflow.id)}>Run workflow</button><button onClick={() => void scheduleWorkflow(workflow.id)}>Schedule</button><button onClick={() => void loadWorkflowRuns(workflow.id)}>Refresh history</button>
-                {(workflowRuns[workflow.id] ?? []).map((run) => <span key={run.id}><small>{run.state}{run.error ? ` · ${run.error}` : ""}</small>{run.state === "running" && <button onClick={() => void cancelWorkflow(run.id, workflow.id)}>Stop</button>}</span>)}
+                <button disabled={!status.connected} onClick={() => void runWorkflow(workflow.id)}>Run workflow</button><button disabled={!status.connected} onClick={() => void scheduleWorkflow(workflow.id)}>Schedule</button><button disabled={!status.connected} onClick={() => void loadWorkflowRuns(workflow.id)}>Refresh history</button>
+                {(workflowRuns[workflow.id] ?? []).map((run) => <span key={run.id}><small>{run.state}{run.error ? ` · ${run.error}` : ""}</small>{run.state === "running" && <button disabled={!status.connected} onClick={() => void cancelWorkflow(run.id, workflow.id)}>Stop</button>}</span>)}
               </article>
             ))}
           </section>
@@ -1045,7 +1046,7 @@ export function App() {
                 onChange={(event) => setBrainQuery(event.target.value)}
                 placeholder="Search the Brain vault"
               />
-              <button type="submit">Search</button>
+              <button type="submit" disabled={!status.connected}>Search</button>
             </form>
             {brainResults.map((result) => (
               <article className="candidate" key={result.path}>
@@ -1063,7 +1064,7 @@ export function App() {
               <article className="candidate" key={suggestion.id}>
                 <strong>{suggestion.memory_key}</strong>
                 <input value={memoryEdits[suggestion.id] ?? suggestion.memory_value} aria-label={`Edit ${suggestion.memory_key}`} onChange={(event) => setMemoryEdits((items) => ({ ...items, [suggestion.id]: event.target.value }))} />
-                <div><button onClick={() => void decideMemory(suggestion.id, "approved", suggestion.memory_key, memoryEdits[suggestion.id] ?? suggestion.memory_value)}>Approve</button><button onClick={() => void decideMemory(suggestion.id, "rejected")}>Reject</button><button onClick={() => void decideMemory(suggestion.id, "deleted")}>Delete</button></div>
+                <div><button disabled={!status.connected} onClick={() => void decideMemory(suggestion.id, "approved", suggestion.memory_key, memoryEdits[suggestion.id] ?? suggestion.memory_value)}>Approve</button><button disabled={!status.connected} onClick={() => void decideMemory(suggestion.id, "rejected")}>Reject</button><button disabled={!status.connected} onClick={() => void decideMemory(suggestion.id, "deleted")}>Delete</button></div>
               </article>
             ))}
             <label>
@@ -1073,7 +1074,7 @@ export function App() {
                 onChange={(event) => setNewNotePath(event.target.value)}
               />
             </label>
-            <button onClick={() => void createNote()}>Create note</button>
+            <button disabled={!status.connected} onClick={() => void createNote()}>Create note</button>
             <div className="note-list">
               {notes.length === 0 ? (
                 <p className="muted">
@@ -1081,7 +1082,7 @@ export function App() {
                 </p>
               ) : (
                 notes.map((note) => (
-                  <span key={note.path}><button className="note-link" onClick={() => void openNote(note.path)}>{note.path}</button><button onClick={() => addCanvasNote(note.path)}>Add to canvas</button></span>
+                  <span key={note.path}><button className="note-link" disabled={!status.connected} onClick={() => void openNote(note.path)}>{note.path}</button><button onClick={() => addCanvasNote(note.path)}>Add to canvas</button></span>
                 ))
               )}
             </div>
@@ -1098,8 +1099,8 @@ export function App() {
               }} onDragEnd={(event) => { const rect = event.currentTarget.parentElement?.getBoundingClientRect(); if (rect) setBrainCanvas((canvas) => ({ ...canvas, nodes: canvas.nodes.map((item) => item.id === node.id ? { ...item, x: Math.max(0, (event.clientX - rect.left) / canvasZoom - 60), y: Math.max(0, (event.clientY - rect.top) / canvasZoom - 30) } : item) })); }}><strong>{node.path}</strong></article>)}
             </div>
             <p className="muted">Select two notes to connect them. Drag cards or use arrow keys to move them; use the pan controls to navigate.</p>
-            <button onClick={() => setCanvasZoom((value) => Math.min(2, value + 0.1))}>Zoom in</button><button onClick={() => setCanvasZoom((value) => Math.max(0.5, value - 0.1))}>Zoom out</button><button onClick={() => moveCanvas(-80, 0)}>Pan left</button><button onClick={() => moveCanvas(80, 0)}>Pan right</button><button onClick={() => moveCanvas(0, -80)}>Pan up</button><button onClick={() => moveCanvas(0, 80)}>Pan down</button><button onClick={() => void saveCanvas()}>Save layout</button>
-            <h3>Document import and OCR</h3><p className="muted">Documents are read locally from the backend workspace. OCR is opt-in and requires reviewed local OCR engines.</p><label>Document path<input value={documentPath} onChange={(event) => setDocumentPath(event.target.value)} placeholder="relative/path/to/document.pdf" /></label><label><input type="checkbox" checked={ocrEnabled} onChange={(event) => setOcrEnabled(event.target.checked)} /> Enable local OCR</label><button onClick={() => void inspectDocument()}>Inspect document</button>{documentResult && <pre className="document-preview">{documentResult}</pre>}
+            <button onClick={() => setCanvasZoom((value) => Math.min(2, value + 0.1))}>Zoom in</button><button onClick={() => setCanvasZoom((value) => Math.max(0.5, value - 0.1))}>Zoom out</button><button onClick={() => moveCanvas(-80, 0)}>Pan left</button><button onClick={() => moveCanvas(80, 0)}>Pan right</button><button onClick={() => moveCanvas(0, -80)}>Pan up</button><button onClick={() => moveCanvas(0, 80)}>Pan down</button><button disabled={!status.connected} onClick={() => void saveCanvas()}>Save layout</button>
+            <h3>Document import and OCR</h3><p className="muted">Documents are read locally from the backend workspace. OCR is opt-in and requires reviewed local OCR engines.</p><label>Document path<input value={documentPath} onChange={(event) => setDocumentPath(event.target.value)} placeholder="relative/path/to/document.pdf" /></label><label><input type="checkbox" checked={ocrEnabled} onChange={(event) => setOcrEnabled(event.target.checked)} /> Enable local OCR</label><button disabled={!status.connected} onClick={() => void inspectDocument()}>Inspect document</button>{documentResult && <pre className="document-preview">{documentResult}</pre>}
             {selectedNote && (
               <>
                 <input value={selectedNote} aria-label="Selected note path" readOnly />
@@ -1109,7 +1110,7 @@ export function App() {
                   onChange={(event) => setNoteContent(event.target.value)}
                   rows={14}
                 />
-                <button onClick={() => void saveNote()}>Save note</button>
+                <button disabled={!status.connected} onClick={() => void saveNote()}>Save note</button>
               </>
             )}
           </section>
@@ -1147,7 +1148,7 @@ export function App() {
                     <strong>{task.state}</strong>
                     <span>{task.prompt}</span>
                     {task.state === "queued" || task.state === "running" ? (
-                      <button onClick={() => void cancelTask(task.id)}>
+                      <button disabled={!status.connected} onClick={() => void cancelTask(task.id)}>
                         Cancel
                       </button>
                     ) : (
@@ -1176,10 +1177,10 @@ export function App() {
                     {new Date(approval.expires_at * 1000).toLocaleTimeString()}
                   </small>
                   <div>
-                    <button onClick={() => void decide(approval.id, "approve")}>
+                    <button disabled={!status.connected} onClick={() => void decide(approval.id, "approve")}>
                       Approve
                     </button>
-                    <button onClick={() => void decide(approval.id, "reject")}>
+                    <button disabled={!status.connected} onClick={() => void decide(approval.id, "reject")}>
                       Reject
                     </button>
                   </div>
@@ -1208,6 +1209,7 @@ export function App() {
                   </span>
                   <small>{skill.description || "No description"}</small>
                   <button
+                    disabled={!status.connected}
                     onClick={() =>
                       void setSkill(
                         skill.name,
@@ -1254,6 +1256,7 @@ export function App() {
                   <div>
                     {!item.installed && (
                       <button
+                        disabled={!status.connected}
                         onClick={() =>
                           void setIntegration(item.name, "install")
                         }
@@ -1263,6 +1266,7 @@ export function App() {
                     )}
                     {item.installed && !item.enabled && !item.revoked && (
                       <button
+                        disabled={!status.connected}
                         onClick={() => void setIntegration(item.name, "enable")}
                       >
                         Enable
@@ -1270,6 +1274,7 @@ export function App() {
                     )}
                     {item.enabled && (
                       <button
+                        disabled={!status.connected}
                         onClick={() =>
                           void setIntegration(item.name, "disable")
                         }
@@ -1279,6 +1284,7 @@ export function App() {
                     )}
                     {!item.revoked && (
                       <button
+                        disabled={!status.connected}
                         onClick={() => void setIntegration(item.name, "revoke")}
                       >
                         Revoke

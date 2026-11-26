@@ -164,7 +164,7 @@ class AgentExecutionBackend:
                 if native_tool_calls:
                     messages.append({"role": "tool", "tool_call_id": call.get("id", ""), "name": name, "content": result})
                 else:
-                    messages.append({"role": "user", "content": f"Hermes tool result ({name}):\n{result}"})
+                    messages.append({"role": "user", "content": f"OMNI-X tool result ({name}):\n{result}"})
                 self.store.add_message(session_id, "tool", f"{name}: {result}")
                 self.store.event(task_id, "tool_result", name)
 

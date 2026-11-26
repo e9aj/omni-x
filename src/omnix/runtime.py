@@ -16,7 +16,7 @@ from .hermes_bridge import TOOL_CALL_CONTRACT
 from .agent_backend import AgentExecutionBackend
 
 
-SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. When a task asks for a specialist, invoke the supplied delegate_task function immediately; do not merely narrate that you will delegate. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this Hermes-compatible contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
+SYSTEM = "You are OMNI-X, a careful autonomous agent. Use tools only when useful. Never claim an action succeeded unless the tool result proves it. Ask for approval before sensitive actions. Keep answers concise and explain limitations. When a task asks for a specialist, invoke the supplied delegate_task function immediately; do not merely narrate that you will delegate. Use the supplied function tools; if the provider cannot emit standard tool calls, follow this text tool-call contract: " + TOOL_CALL_CONTRACT + " Never invent a tool result."
 CONTENT_INSTRUCTIONS = {
     "standard": "Use a balanced, factual tone and avoid unnecessary stylistic flourishes.",
     "creative": "Use an imaginative, expressive tone when useful while remaining accurate and safe.",

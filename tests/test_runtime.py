@@ -144,6 +144,8 @@ def test_integrated_backend_executes_gateway_textual_tool_list(monkeypatch, tmp_
         def complete(self, messages, tools, record=None):
             self.calls += 1
             route = type("Route", (), {"provider": "omniroute", "model": "test"})()
+            if self.calls == 2:
+                assert any("OMNI-X tool result (list_directory)" in item.get("content", "") and "gateway.txt" in item.get("content", "") for item in messages)
             content = 'tool_calls: [{"name":"list_directory","arguments":"{}"}]' if self.calls == 1 else "The actual listing contained gateway.txt."
             response = {"choices": [{"message": {"role": "assistant", "content": content}}], "usage": {"prompt_tokens": 2, "completion_tokens": 1}}
             if record:

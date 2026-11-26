@@ -153,6 +153,8 @@ export function App() {
   const [councilResult, setCouncilResult] = useState<CouncilResult>();
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [modelsError, setModelsError] = useState<string>();
+  const [modelsRefresh, setModelsRefresh] = useState(0);
+  const [modelsLoading, setModelsLoading] = useState(false);
   const [notes, setNotes] = useState<BrainNote[]>([]);
   const [selectedNote, setSelectedNote] = useState("");
   const [noteContent, setNoteContent] = useState("");
@@ -276,13 +278,18 @@ export function App() {
   useEffect(() => { setModelsError(undefined); }, [section]);
   useEffect(() => {
     if (section !== "Models" || !status.connected) return;
+    let current = true;
+    setModelsLoading(true);
     void invoke<{ models: ModelInfo[]; error?: string }>("backend_models")
       .then((result) => {
+        if (!current) return;
         setModels(result.models);
         setModelsError(result.error);
       })
-      .catch((error) => setModelsError(String(error)));
-  }, [section, status.connected]);
+      .catch((error) => { if (current) setModelsError(String(error)); })
+      .finally(() => { if (current) setModelsLoading(false); });
+    return () => { current = false; };
+  }, [section, status.connected, modelsRefresh]);
   useEffect(() => {
     if (section !== "Memory" || !status.connected) return;
     void Promise.all([
@@ -815,9 +822,8 @@ export function App() {
             <h2>Ask the Council</h2>
             <p className="muted">
               Standard uses one model by default. Council uses three, Advanced
-              five, and Research requires an explicit model group. The backend
-              keeps provider credentials, FREE mode and spending policy
-              authoritative.
+              five, and Research requires an explicit model group. Your
+              provider, FREE mode and spending settings apply to every answer.
             </p>
             <form className="council-form" onSubmit={runCouncil}>
               <label>
@@ -841,6 +847,7 @@ export function App() {
                 />
               </label>
               <textarea
+                aria-label="Council prompt"
                 value={councilPrompt}
                 onChange={(event) => setCouncilPrompt(event.target.value)}
                 placeholder="What should the Council compare?"
@@ -877,19 +884,19 @@ export function App() {
           </section>
         ) : section === "Models" ? (
           <section className="panel">
-            <p className="eyebrow">OMNIROUTE · FREE MODE</p>
+            <p className="eyebrow">MODEL DISCOVERY</p>
             <h2>Available models</h2>
             <p className="muted">
               Discovery reports what the configured gateway currently exposes. A
               model is selectable only when the backend verifies it as free.
             </p>
+            <button disabled={!status.connected || modelsLoading} onClick={() => setModelsRefresh((value) => value + 1)}>Refresh models</button>
             {modelsError && (
               <p className="muted">Discovery error: {modelsError}</p>
             )}
             {models.length === 0 && !modelsError && (
               <p className="muted">
-                No catalogue loaded yet. Refresh this section to query
-                OmniRoute.
+                {!status.connected ? "Connect the local runtime to load models." : modelsLoading ? "Loading models…" : "No models returned. Check your gateway and refresh."}
               </p>
             )}
             {models.map((item) => (
@@ -1108,12 +1115,12 @@ export function App() {
           </section>
         ) : section === "Tasks" || section === "Agents" ? (
           <section className="panel">
-            <p className="eyebrow">TASKSERVICE · DURABLE SQLITE QUEUE</p>
+            <p className="eyebrow">BACKGROUND WORK</p>
             <h2>{section}</h2>
             <p className="muted">
               {section === "Agents"
                 ? "Review agent activity and delegated work from the shared task queue."
-                : "Queue and cancel background work without creating a second scheduler."}
+                : "Queue and cancel background work."}
             </p>
             {section === "Tasks" && (
               <form className="council-form" onSubmit={enqueueTask}>
@@ -1133,7 +1140,7 @@ export function App() {
             )}
             <div className="note-list">
               {tasks.length === 0 ? (
-                <p className="muted">No tasks have been queued.</p>
+                <p className="muted">{status.connected ? "No tasks have been queued." : "Connect the local runtime to load tasks."}</p>
               ) : (
                 tasks.map((task) => (
                   <article className="candidate" key={task.id}>
@@ -1154,12 +1161,12 @@ export function App() {
         ) : section === "Tools & Skills" ? (
           <section className="panel">
             <p className="eyebrow">
-              BACKEND-ENFORCED APPROVALS · REVIEWED SKILLS
+              APPROVALS · REVIEWED SKILLS
             </p>
             <h2>Tools & Skills</h2>
             <h3>Pending approvals</h3>
             {approvals.length === 0 ? (
-              <p className="muted">No pending requests.</p>
+              <p className="muted">{status.connected ? "No pending requests." : "Connect the local runtime to load approvals."}</p>
             ) : (
               approvals.map((approval) => (
                 <article className="approval" key={approval.id}>
@@ -1181,12 +1188,12 @@ export function App() {
             )}
             <h3>Skills catalogue</h3>
             <p className="muted">
-              Skills are disabled by default. Installation remains an explicit
-              reviewed backend operation; this screen only changes enablement.
+              Skills are disabled by default. Review and install skills before
+              enabling them here.
             </p>
             {skills.length === 0 ? (
               <p className="muted">
-                No reviewed skills are installed or discoverable.
+                {status.connected ? "No reviewed skills are installed or discoverable." : "Connect the local runtime to load skills."}
               </p>
             ) : (
               skills.map((skill) => (
@@ -1221,12 +1228,11 @@ export function App() {
             </p>
             <h2>Integrations</h2>
             <p className="muted">
-              The catalogue is metadata-only until you explicitly install and
-              enable an integration. OMNI-X never connects to external services
-              or exposes credentials from this screen.
+              Integrations are disabled by default. Review and enable each one
+              explicitly; this screen does not connect services or reveal credentials.
             </p>
             {integrations.length === 0 ? (
-              <p className="muted">No catalogue entries available.</p>
+              <p className="muted">{status.connected ? "No catalogue entries available." : "Connect the local runtime to load integrations."}</p>
             ) : (
               integrations.map((item) => (
                 <article className="candidate" key={item.name}>
@@ -1291,6 +1297,7 @@ export function App() {
               Content style{" "}
               <select
                 value={contentPreference}
+                disabled={!status.connected}
                 onChange={(event) =>
                   void changeContentPreference(event.target.value)
                 }

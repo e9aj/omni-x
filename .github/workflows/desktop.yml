@@ -135,6 +135,7 @@ jobs:
           Write-Host "Backend authenticated readiness observed (ms): $($launchTimer.ElapsedMilliseconds) (includes window and polling overhead)"
           $frontendMarker = if (Test-Path $supervisorLog) { Select-String -Path $supervisorLog -SimpleMatch 'frontend animation frame elapsed_ms=' | Select-Object -First 1 } else { $null }
           if ($frontendMarker) { Write-Host "Frontend frame marker: $($frontendMarker.Line) (does not measure input responsiveness)" } else { Write-Host 'Frontend frame marker unavailable' }
+          if (Test-Path $supervisorLog) { Select-String -Path $supervisorLog -Pattern 'spawned backend pid=|health passed launcher_pid=' | ForEach-Object { Write-Host "Startup marker: $($_.Line)" } }
           $desktop.Refresh()
           $cpuStart = $desktop.TotalProcessorTime.TotalSeconds
           Start-Sleep -Seconds 2

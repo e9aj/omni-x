@@ -25,7 +25,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(b"data: " + json.dumps(event).encode() + b"\n\n")
             self.wfile.flush()
             if text == "fixture ":
-                time.sleep(2)
+                time.sleep(5)
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()
 

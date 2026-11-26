@@ -303,7 +303,10 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
         .map_err(|e| format!("backend start failed: {e}"))?;
     let expected_pid = child.id();
     eprintln!("OMNI-X backend sidecar spawned with pid {expected_pid}");
-    supervisor_log(&format!("spawned backend pid={expected_pid}"));
+    supervisor_log(&format!(
+        "spawned backend pid={expected_pid} elapsed_ms={}",
+        state.launched_at.elapsed().as_millis()
+    ));
     *state
         .child
         .lock()
@@ -314,7 +317,8 @@ fn start_backend(app: &AppHandle, state: &BackendState) -> Result<(), String> {
             if let Some(actual_pid) = value["pid"].as_u64().map(|value| value as u32) {
                 if process_is_owned_descendant(actual_pid, expected_pid) {
                     supervisor_log(&format!(
-                        "health passed launcher_pid={expected_pid} backend_pid={actual_pid}"
+                        "health passed launcher_pid={expected_pid} backend_pid={actual_pid} elapsed_ms={}",
+                        state.launched_at.elapsed().as_millis()
                     ));
                     return Ok(());
                 }

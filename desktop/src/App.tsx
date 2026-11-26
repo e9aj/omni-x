@@ -206,7 +206,9 @@ export function App() {
 
   async function refreshStatus() {
     try {
-      setStatus(await invoke<BackendStatus>("backend_status"));
+      const result = await invoke<BackendStatus>("backend_status");
+      if (!result || typeof result.connected !== "boolean") throw new Error("Runtime status unavailable.");
+      setStatus(result);
     } catch (error) {
       setStatus({
         connected: false,
@@ -358,13 +360,21 @@ export function App() {
     event.preventDefault();
     const text = prompt.trim();
     if (!text || running) return;
+    let streamId: string;
+    try {
+      streamId = typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    } catch {
+      setMessages((items) => [...items, { role: "error", content: "Could not start the request. Please try again." }]);
+      return;
+    }
     setPrompt("");
     setMessages((items) => [...items, { role: "user", content: text }]);
     runningRef.current = true;
     setRunning(true);
     setStreamText("");
     setStreamStatus("Starting");
-    const streamId = crypto.randomUUID();
     let polling = true;
     const poll = async () => {
       while (polling) {

@@ -136,6 +136,7 @@ export function App() {
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [running, setRunning] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [streamStatus, setStreamStatus] = useState("");
   const [booting, setBooting] = useState(true);
@@ -380,14 +381,17 @@ export function App() {
       polling = false;
       setStreamText("");
       setStreamStatus("");
+      setStopping(false);
       setRunning(false);
       void refreshStatus();
     }
   }
   async function stop() {
+    setStopping(true);
     try {
       await invoke("backend_stop");
     } catch (error) {
+      setStopping(false);
       setMessages((items) => [
         ...items,
         { role: "error", content: String(error) },
@@ -748,8 +752,8 @@ export function App() {
               ))}
               {running && (
                 <article className="message assistant">
-                  <span className="message-role">assistant · {streamStatus || "working"}</span>
-                  <p>{streamText || "Working…"}</p>
+                  <span className="message-role">assistant · {stopping ? "stopping" : (streamStatus || "working")}</span>
+                  <p>{stopping ? "Stopping the current task…" : (streamText || "Working…")}</p>
                 </article>
               )}
             </div>
@@ -763,8 +767,9 @@ export function App() {
               <button
                 type={running ? "button" : "submit"}
                 onClick={running ? stop : undefined}
+                disabled={stopping}
               >
-                {running ? "Stop" : "Send"}
+                {stopping ? "Stopping…" : running ? "Stop" : "Send"}
               </button>
             </form>
             {usage && (

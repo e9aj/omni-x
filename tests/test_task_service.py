@@ -224,6 +224,22 @@ def test_job_claimed_after_shutdown_does_not_execute(tmp_path: Path):
     service.close()
 
 
+def test_worker_submit_race_during_shutdown_preserves_queued_job(monkeypatch, tmp_path: Path):
+    store = Store(tmp_path / "submit-race.sqlite3")
+    service = TaskService(Settings(), store, tmp_path)
+    job = store.create_job("task")
+
+    def reject_submission(*_args):
+        service._stop.set()
+        raise RuntimeError("executor is shutting down")
+
+    monkeypatch.setattr(service._pool, "submit", reject_submission)
+    service._loop()
+    assert store.job(job)["state"] == "queued"
+    assert job not in service._inflight
+    service.close()
+
+
 def test_native_queued_job_cancellation_reaches_terminal_state(tmp_path: Path):
     service = TaskService(Settings(), Store(tmp_path / "native-cancel.sqlite3"), tmp_path, max_workers=1)
     job = service.enqueue("cancel before claim")

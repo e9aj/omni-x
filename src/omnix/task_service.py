@@ -199,6 +199,8 @@ class TaskService:
         while not self._stop.is_set():
             now = time.time()
             for row in self.store.due_schedules(now):
+                if self._stop.is_set():
+                    break
                 try:
                     kind, parsed_next, recurrence = _parse_schedule(row["schedule"])
                     # Re-parse cron expressions after each fire; intervals use
@@ -213,12 +215,21 @@ class TaskService:
                     self.store.event("schedule:" + row["id"], "schedule_error", str(exc))
                     self.store.advance_schedule(row["id"], None, now)
             for row in self.store.jobs(100):
+                if self._stop.is_set():
+                    break
                 if row["state"] == "queued":
                     with self._inflight_lock:
                         if row["id"] in self._inflight:
                             continue
                         self._inflight.add(row["id"])
-                    self._pool.submit(self._run, row["id"])
+                    try:
+                        self._pool.submit(self._run, row["id"])
+                    except RuntimeError:
+                        with self._inflight_lock:
+                            self._inflight.discard(row["id"])
+                        if self._stop.is_set():
+                            return
+                        raise
             self._wake.wait(0.25); self._wake.clear()
 
     def _run(self, job_id: str) -> None:

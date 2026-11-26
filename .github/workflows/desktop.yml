@@ -147,6 +147,32 @@ jobs:
           $desktop.Refresh()
           $cpuDelta = $desktop.TotalProcessorTime.TotalSeconds - $cpuStart
           Write-Host "Desktop process idle sample: CPU seconds over 2s=$cpuDelta; private bytes=$($desktop.PrivateMemorySize64) (excludes WebView and backend processes)"
+          function Get-OwnedResourceSample([int]$rootId) {
+            $processes = @(Get-CimInstance Win32_Process)
+            $ids = [System.Collections.Generic.HashSet[int]]::new()
+            [void]$ids.Add($rootId)
+            do {
+              $changed = $false
+              foreach ($process in $processes) {
+                if ($ids.Contains([int]$process.ParentProcessId) -and $ids.Add([int]$process.ProcessId)) { $changed = $true }
+              }
+            } while ($changed)
+            $samples = @{}
+            foreach ($id in $ids) {
+              $process = Get-Process -Id $id -ErrorAction SilentlyContinue
+              if ($process) { try { $samples[$id] = @{ cpu = $process.TotalProcessorTime.TotalSeconds; memory = $process.PrivateMemorySize64; started = $process.StartTime.ToUniversalTime().Ticks } } catch { } }
+            }
+            return $samples
+          }
+          $treeStart = Get-OwnedResourceSample $desktop.Id
+          Start-Sleep -Seconds 2
+          $treeEnd = Get-OwnedResourceSample $desktop.Id
+          $treeCpu = 0.0; $treeMemory = 0
+          foreach ($id in $treeEnd.Keys) {
+            $treeMemory += $treeEnd[$id].memory
+            if ($treeStart.ContainsKey($id) -and $treeStart[$id].started -eq $treeEnd[$id].started) { $treeCpu += [Math]::Max(0, $treeEnd[$id].cpu - $treeStart[$id].cpu) }
+          }
+          Write-Host "Desktop process-tree idle sample: processes=$($treeEnd.Count); CPU seconds over at least 2s=$treeCpu; private bytes=$treeMemory (snapshot; excludes processes outside the tree and CPU of newly started/exited children)"
           Add-Type -AssemblyName System.Drawing
           Add-Type -TypeDefinition @'
           using System;

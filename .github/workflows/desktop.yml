@@ -216,6 +216,28 @@ jobs:
           }
           if (-not $approvalCleared) { throw 'Cancelled workflow approval remained pending' }
           Write-Host 'Brain note readback and workflow approval cancellation passed'
+          # Exercise concurrent reads while the scheduler owns the same SQLite store.
+          $readJobs = @()
+          try {
+            for ($worker = 0; $worker -lt 4; $worker++) {
+              $readJobs += Start-Job -ArgumentList $base,$appToken -ScriptBlock {
+                param($endpoint, $token)
+                $requestHeaders = @{ Authorization = "Bearer $token"; Origin = 'tauri://localhost' }
+                for ($i = 0; $i -lt 25; $i++) {
+                  $result = Invoke-RestMethod -Uri "$endpoint/v1/tasks" -Headers $requestHeaders -TimeoutSec 10 -ErrorAction Stop
+                  if ($null -eq $result.tasks) { throw 'Task list missing from response' }
+                }
+              }
+            }
+            if (-not (Wait-Job -Job $readJobs -Timeout 90)) { throw 'Concurrent task reads timed out' }
+            foreach ($job in $readJobs) {
+              if ($job.State -ne 'Completed') { Receive-Job -Job $job -ErrorAction Stop; throw 'Concurrent task read failed' }
+              Receive-Job -Job $job -ErrorAction Stop | Out-Null
+            }
+          } finally {
+            foreach ($job in $readJobs) { if ($job.State -eq 'Running') { Stop-Job -Job $job }; Remove-Job -Job $job -Force }
+          }
+          Write-Host 'Concurrent packaged task reads passed'
           $oldBackendPid = $ownedBackendIds[0]
           $oldHealth = $readyHealth
           if (-not (Test-ProcessDescendant ([int]$oldHealth.pid) $oldBackendPid)) { throw "Authenticated backend PID $($oldHealth.pid) is not owned by launcher $oldBackendPid" }

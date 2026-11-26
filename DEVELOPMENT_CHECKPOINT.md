@@ -23,6 +23,7 @@ Updated: 2026-11-26
 
 ## Overhaul continuation — 25–26 November 2026
 
+- Added concurrent packaged task-list reads to the Windows installer smoke test to exercise the shared store alongside the scheduler. Workflow YAML and PowerShell syntax parse locally; the hosted test has not yet run.
 - Workflow steps and Brain canvas cards now support keyboard repositioning; canvas cards can also be selected with Enter or Space. The frontend production build passes. Packaged keyboard and screen-reader interaction remains to be verified.
 - Resumed from `43c4a65`. Hosted CI, Windows Desktop and security workflows all passed for that head (runs `45521357856`, `45521357930`, `45521358032`); these do not validate subsequent changes.
 - Added incremental OpenAI-compatible SSE parsing, fragmented tool-call reconstruction, bounded stream sizes, route failure handling after partial output, and authenticated per-request desktop polling. Only completed responses are persisted; provisional output is cleared on completion or failure. Anthropic remains one-shot; cancellation cannot interrupt a socket stalled inside a read; live provider and packaged UI testing remain outstanding. Streaming acceptance is not complete.

@@ -123,6 +123,11 @@ const navigation = [
   { label: "CONFIGURE", items: ["Models", "Tools & Skills", "Integrations", "Voice", "Settings"] },
 ];
 
+function requireList<T>(value: unknown, label: string): T[] {
+  if (!Array.isArray(value)) throw new Error(`Could not load ${label}.`);
+  return value as T[];
+}
+
 export function App() {
   const [section, setSection] = useState("Chat");
   const [status, setStatus] = useState<BackendStatus>({
@@ -143,6 +148,7 @@ export function App() {
   const [booting, setBooting] = useState(true);
   const [usage, setUsage] = useState<string>();
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [approvalsState, setApprovalsState] = useState<"loading" | "ready" | "error">("loading");
   const [contentPreference, setContentPreference] = useState("creative");
   const [model, setModel] = useState("auto/best-free");
   const [provider, setProvider] = useState("");
@@ -253,9 +259,10 @@ export function App() {
         const result = await invoke<{ approvals: Approval[] }>(
           "backend_approvals",
         );
-        setApprovals(result.approvals);
+        setApprovals(requireList<Approval>(result?.approvals, "approvals"));
+        setApprovalsState("ready");
       } catch {
-        /* backend status displays the connection error */
+        setApprovalsState("error");
       }
       if (!stopped) timer = window.setTimeout(refresh, 1000);
     }
@@ -283,7 +290,7 @@ export function App() {
     void invoke<{ models: ModelInfo[]; error?: string }>("backend_models")
       .then((result) => {
         if (!current) return;
-        setModels(result.models);
+        setModels(requireList<ModelInfo>(result?.models, "models"));
         setModelsError(result.error);
       })
       .catch((error) => { if (current) setModelsError(String(error)); })
@@ -299,29 +306,35 @@ export function App() {
       invoke<{ suggestions: MemorySuggestion[] }>("backend_memory_suggestions"),
     ])
       .then(([noteResult, graphResult, canvas, suggestions]) => {
-        setNotes(noteResult.notes);
+        const loadedNotes = requireList<BrainNote>(noteResult?.notes, "notes");
+        requireList(graphResult?.nodes, "knowledge graph");
+        requireList(graphResult?.edges, "knowledge graph");
+        requireList(canvas?.nodes, "canvas");
+        requireList(canvas?.edges, "canvas");
+        const loadedSuggestions = requireList<MemorySuggestion>(suggestions?.suggestions, "memory suggestions");
+        setNotes(loadedNotes);
         setBrainGraph(graphResult);
         setBrainCanvas(canvas);
-        setMemorySuggestions(suggestions.suggestions.filter((item) => item.state === "pending"));
+        setMemorySuggestions(loadedSuggestions.filter((item) => item.state === "pending"));
       })
       .catch((error) => setModelsError(String(error)));
   }, [section, status.connected]);
   useEffect(() => {
     if ((section !== "Tasks" && section !== "Agents") || !status.connected) return;
     void invoke<{ tasks: TaskItem[] }>("backend_tasks")
-      .then((result) => setTasks(result.tasks))
+      .then((result) => setTasks(requireList<TaskItem>(result?.tasks, "tasks")))
       .catch((error) => setModelsError(String(error)));
   }, [section, status.connected]);
   useEffect(() => {
     if (section !== "Tools & Skills" || !status.connected) return;
     void invoke<{ skills: SkillItem[] }>("backend_skills")
-      .then((result) => setSkills(result.skills))
+      .then((result) => setSkills(requireList<SkillItem>(result?.skills, "skills")))
       .catch((error) => setModelsError(String(error)));
   }, [section, status.connected]);
   useEffect(() => {
     if (section !== "Integrations" || !status.connected) return;
     void invoke<{ integrations: IntegrationItem[] }>("backend_integrations")
-      .then((result) => setIntegrations(result.integrations))
+      .then((result) => setIntegrations(requireList<IntegrationItem>(result?.integrations, "integrations")))
       .catch((error) => setModelsError(String(error)));
   }, [section, status.connected]);
   useEffect(() => {
@@ -336,8 +349,7 @@ export function App() {
     if (section !== "Workflows" || !status.connected) return;
     void invoke<{ workflows: WorkflowItem[] }>("backend_workflows")
       .then((result) => {
-        if (!Array.isArray(result.workflows)) throw new Error("Could not load workflows.");
-        setWorkflows(result.workflows);
+        setWorkflows(requireList<WorkflowItem>(result?.workflows, "workflows"));
       })
       .catch((error) => setModelsError(String(error)));
   }, [section, status.connected]);
@@ -1058,11 +1070,11 @@ export function App() {
               </article>
             ))}
             <p className="muted">
-              {status.connected ? `Knowledge graph: ${brainGraph.nodes.length} notes · ${brainGraph.edges.length} links. Local semantic search is active; neural embeddings and OCR are optional local engines.` : "Connect the local runtime to load the knowledge graph."}
+              {!status.connected ? "Connect the local runtime to load the knowledge graph." : modelsError ? "Knowledge graph data may be incomplete." : `Knowledge graph: ${brainGraph.nodes.length} notes · ${brainGraph.edges.length} links. Local semantic search is active; neural embeddings and OCR are optional local engines.`}
             </p>
             <h3>Memory suggestions</h3>
             {memorySuggestions.length === 0 ? (
-              <p className="muted">{status.connected ? "No pending suggestions. Suggestions always require approval." : "Connect the local runtime to load memory suggestions."}</p>
+              <p className="muted">{!status.connected ? "Connect the local runtime to load memory suggestions." : modelsError ? "Memory suggestions may be incomplete." : "No pending suggestions. Suggestions always require approval."}</p>
             ) : memorySuggestions.map((suggestion) => (
               <article className="candidate" key={suggestion.id}>
                 <strong>{suggestion.memory_key}</strong>
@@ -1081,7 +1093,7 @@ export function App() {
             <div className="note-list">
               {notes.length === 0 ? (
                 <p className="muted">
-                  {status.connected ? "No Markdown notes yet. Create one in the Brain vault to begin." : "Connect the local runtime to load Brain notes."}
+                  {!status.connected ? "Connect the local runtime to load Brain notes." : modelsError ? "Brain notes may be incomplete." : "No Markdown notes yet. Create one in the Brain vault to begin."}
                 </p>
               ) : (
                 notes.map((note) => (
@@ -1144,7 +1156,7 @@ export function App() {
             )}
             <div className="note-list">
               {tasks.length === 0 ? (
-                <p className="muted">{status.connected ? "No tasks have been queued." : "Connect the local runtime to load tasks."}</p>
+                <p className="muted">{!status.connected ? "Connect the local runtime to load tasks." : modelsError ? "Tasks may be incomplete." : "No tasks have been queued."}</p>
               ) : (
                 tasks.map((task) => (
                   <article className="candidate" key={task.id}>
@@ -1169,8 +1181,10 @@ export function App() {
             </p>
             <h2>Tools & Skills</h2>
             <h3>Pending approvals</h3>
-            {approvals.length === 0 ? (
-              <p className="muted">{status.connected ? "No pending requests." : "Connect the local runtime to load approvals."}</p>
+            {!status.connected || approvalsState !== "ready" ? (
+              <p className="muted">{!status.connected ? "Connect the local runtime to load approvals." : approvalsState === "loading" ? "Checking approvals…" : "Could not load approvals. OMNI-X will retry."}</p>
+            ) : approvals.length === 0 ? (
+              <p className="muted">No pending requests.</p>
             ) : (
               approvals.map((approval) => (
                 <article className="approval" key={approval.id}>
@@ -1197,7 +1211,7 @@ export function App() {
             </p>
             {skills.length === 0 ? (
               <p className="muted">
-                {status.connected ? "No reviewed skills are installed or discoverable." : "Connect the local runtime to load skills."}
+                {!status.connected ? "Connect the local runtime to load skills." : modelsError ? "Skills may be incomplete." : "No reviewed skills are installed or discoverable."}
               </p>
             ) : (
               skills.map((skill) => (
@@ -1237,7 +1251,7 @@ export function App() {
               explicitly; this screen does not connect services or reveal credentials.
             </p>
             {integrations.length === 0 ? (
-              <p className="muted">{status.connected ? "No catalogue entries available." : "Connect the local runtime to load integrations."}</p>
+              <p className="muted">{!status.connected ? "Connect the local runtime to load integrations." : modelsError ? "Integrations may be incomplete." : "No catalogue entries available."}</p>
             ) : (
               integrations.map((item) => (
                 <article className="candidate" key={item.name}>

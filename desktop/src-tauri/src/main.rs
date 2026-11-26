@@ -477,7 +477,7 @@ async fn backend_chat_stream(stream_id: String, app: AppHandle) -> Result<Value,
     .map_err(|_| "Stream worker stopped unexpectedly".to_string())?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_council(
     prompt: String,
     mode: String,
@@ -518,7 +518,7 @@ async fn backend_approvals(app: AppHandle) -> Result<Value, String> {
     .map_err(|_| "Approval worker stopped unexpectedly".to_string())?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_approval_decide(
     id: String,
     decision: String,
@@ -535,17 +535,17 @@ fn backend_approval_decide(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_settings(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/settings", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_models(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/models", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_set_model(model: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if model.trim().is_empty() || model.len() > 200 {
         return Err("model is invalid".into());
@@ -558,22 +558,22 @@ fn backend_set_model(model: String, state: State<'_, BackendState>) -> Result<Va
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_notes(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/brain/notes", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_graph(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/brain/graph", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_canvas(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/brain/canvas", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_save_canvas(
     canvas: Value,
     state: State<'_, BackendState>,
@@ -584,12 +584,12 @@ fn backend_brain_save_canvas(
     request(&state, "POST", "/v1/brain/canvas", Some(canvas))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_memory_suggestions(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/memory/suggestions", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_memory_decide(
     id: String,
     state: String,
@@ -611,7 +611,7 @@ fn backend_memory_decide(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if query.trim().is_empty() || query.len() > 200 {
         return Err("search query is invalid".into());
@@ -624,7 +624,7 @@ fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_semantic_search(
     query: String,
     state: State<'_, BackendState>,
@@ -640,7 +640,7 @@ fn backend_brain_semantic_search(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_inspect(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
     request(
         &state,
@@ -650,7 +650,7 @@ fn backend_brain_inspect(path: String, state: State<'_, BackendState>) -> Result
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_note(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
     request(
         &state,
@@ -660,7 +660,7 @@ fn backend_brain_note(path: String, state: State<'_, BackendState>) -> Result<Va
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_save(
     path: String,
     content: String,
@@ -674,12 +674,12 @@ fn backend_brain_save(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_attachments(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/brain/attachments", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_history(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
     request(
         &state,
@@ -689,7 +689,7 @@ fn backend_brain_history(path: String, state: State<'_, BackendState>) -> Result
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_from_session(
     session_id: String,
     path: String,
@@ -703,7 +703,7 @@ fn backend_brain_from_session(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_brain_document(
     path: String,
     allow_ocr: bool,
@@ -721,12 +721,12 @@ fn backend_brain_document(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_tasks(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/tasks", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_task_action(
     action: String,
     task_id: Option<String>,
@@ -751,12 +751,12 @@ fn backend_task_action(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_skills(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/skills", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_skill_action(
     name: String,
     action: String,
@@ -776,22 +776,22 @@ fn backend_skill_action(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_integrations(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/integrations", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_voice_capabilities(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/voice/capabilities", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_voice_devices(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/voice/devices", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_voice_transcribe(
     path: String,
     model: String,
@@ -805,7 +805,7 @@ fn backend_voice_transcribe(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_voice_record(
     path: String,
     duration_seconds: f64,
@@ -820,7 +820,7 @@ fn backend_voice_record(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_voice_speak(
     text: String,
     output_path: Option<String>,
@@ -834,12 +834,12 @@ fn backend_voice_speak(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_workflows(state: State<'_, BackendState>) -> Result<Value, String> {
     request(&state, "GET", "/v1/workflows", None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_workflow_save(
     name: String,
     definition: Value,
@@ -857,7 +857,7 @@ fn backend_workflow_save(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_workflow_run(id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if id.trim().is_empty() || id.len() > 100 {
         return Err("workflow id is invalid".into());
@@ -870,7 +870,7 @@ fn backend_workflow_run(id: String, state: State<'_, BackendState>) -> Result<Va
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_workflow_cancel(
     run_id: String,
     state: State<'_, BackendState>,
@@ -886,7 +886,7 @@ fn backend_workflow_cancel(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_workflow_schedule(
     id: String,
     schedule: String,
@@ -904,7 +904,7 @@ fn backend_workflow_schedule(
     )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_workflow_runs(id: String, state: State<'_, BackendState>) -> Result<Value, String> {
     if id.trim().is_empty() || id.len() > 100 {
         return Err("workflow id is invalid".into());
@@ -912,7 +912,7 @@ fn backend_workflow_runs(id: String, state: State<'_, BackendState>) -> Result<V
     request(&state, "GET", &format!("/v1/workflows/{id}/runs"), None)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_integration_action(
     name: String,
     action: String,
@@ -945,7 +945,7 @@ async fn backend_session(session_id: String, app: AppHandle) -> Result<Value, St
     .map_err(|_| "Session worker stopped unexpectedly".to_string())?
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn backend_set_content_preference(
     preference: String,
     state: State<'_, BackendState>,

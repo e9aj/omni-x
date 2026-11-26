@@ -477,25 +477,39 @@ async fn backend_chat_stream(stream_id: String, app: AppHandle) -> Result<Value,
     .map_err(|_| "Stream worker stopped unexpectedly".to_string())?
 }
 
-#[tauri::command(async)]
-fn backend_council(
-    prompt: String,
-    mode: String,
-    models: Vec<String>,
-    session_id: Option<String>,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if prompt.trim().is_empty() || models.len() > 5 {
-        return Err("invalid Council request".into());
+macro_rules! blocking_backend_command {
+    ($name:ident ($($arg:ident: $kind:ty),* $(,)?) $state:ident $body:block) => {
+        #[tauri::command]
+        async fn $name($($arg: $kind,)* app: AppHandle) -> Result<Value, String> {
+            tauri::async_runtime::spawn_blocking(move || {
+                let $state = app.state::<BackendState>();
+                $body
+            })
+            .await
+            .map_err(|_| "Backend worker stopped unexpectedly".to_string())?
+        }
+    };
+}
+
+blocking_backend_command! {
+    backend_council(
+        prompt: String,
+        mode: String,
+        models: Vec<String>,
+        session_id: Option<String>,
+    ) state {
+        if prompt.trim().is_empty() || models.len() > 5 {
+            return Err("invalid Council request".into());
+        }
+        request(
+            &state,
+            "POST",
+            "/v1/council",
+            Some(json!({
+                "prompt": prompt, "mode": mode, "models": models, "session_id": session_id
+            })),
+        )
     }
-    request(
-        &state,
-        "POST",
-        "/v1/council",
-        Some(json!({
-            "prompt": prompt, "mode": mode, "models": models, "session_id": session_id
-        })),
-    )
 }
 
 #[tauri::command]
@@ -518,418 +532,452 @@ async fn backend_approvals(app: AppHandle) -> Result<Value, String> {
     .map_err(|_| "Approval worker stopped unexpectedly".to_string())?
 }
 
-#[tauri::command(async)]
-fn backend_approval_decide(
-    id: String,
-    decision: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if decision != "approve" && decision != "reject" {
-        return Err("invalid approval decision".into());
-    }
-    request(
-        &state,
-        "POST",
-        &format!("/v1/approvals/{id}"),
-        Some(json!({"decision": decision})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_settings(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/settings", None)
-}
-
-#[tauri::command(async)]
-fn backend_models(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/models", None)
-}
-
-#[tauri::command(async)]
-fn backend_set_model(model: String, state: State<'_, BackendState>) -> Result<Value, String> {
-    if model.trim().is_empty() || model.len() > 200 {
-        return Err("model is invalid".into());
-    }
-    request(
-        &state,
-        "POST",
-        "/v1/settings",
-        Some(json!({"model": model})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_notes(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/brain/notes", None)
-}
-
-#[tauri::command(async)]
-fn backend_brain_graph(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/brain/graph", None)
-}
-
-#[tauri::command(async)]
-fn backend_brain_canvas(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/brain/canvas", None)
-}
-
-#[tauri::command(async)]
-fn backend_brain_save_canvas(
-    canvas: Value,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if !canvas.is_object() {
-        return Err("canvas payload is invalid".into());
-    }
-    request(&state, "POST", "/v1/brain/canvas", Some(canvas))
-}
-
-#[tauri::command(async)]
-fn backend_memory_suggestions(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/memory/suggestions", None)
-}
-
-#[tauri::command(async)]
-fn backend_memory_decide(
-    id: String,
-    state: String,
-    key: Option<String>,
-    value: Option<String>,
-    backend: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if id.trim().is_empty()
-        || id.len() > 100
-        || !["approved", "rejected", "deleted"].contains(&state.as_str())
-    {
-        return Err("memory decision is invalid".into());
-    }
-    request(
-        &backend,
-        "POST",
-        &format!("/v1/memory/suggestions/{id}"),
-        Some(json!({"state": state, "key": key, "value": value})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_search(query: String, state: State<'_, BackendState>) -> Result<Value, String> {
-    if query.trim().is_empty() || query.len() > 200 {
-        return Err("search query is invalid".into());
-    }
-    request(
-        &state,
-        "GET",
-        &format!("/v1/brain/search?q={}", encode_query(&query)),
-        None,
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_semantic_search(
-    query: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if query.trim().is_empty() || query.len() > 200 {
-        return Err("search query is invalid".into());
-    }
-    request(
-        &state,
-        "GET",
-        &format!("/v1/brain/semantic-search?q={}", encode_query(&query)),
-        None,
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_inspect(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
-    request(
-        &state,
-        "GET",
-        &format!("/v1/brain/note/inspect?path={}", encode_query(&path)),
-        None,
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_note(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
-    request(
-        &state,
-        "GET",
-        &format!("/v1/brain/note?path={}", encode_query(&path)),
-        None,
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_save(
-    path: String,
-    content: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    request(
-        &state,
-        "POST",
-        "/v1/brain/notes",
-        Some(json!({"path": path, "content": content})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_attachments(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/brain/attachments", None)
-}
-
-#[tauri::command(async)]
-fn backend_brain_history(path: String, state: State<'_, BackendState>) -> Result<Value, String> {
-    request(
-        &state,
-        "GET",
-        &format!("/v1/brain/history?path={}", encode_query(&path)),
-        None,
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_from_session(
-    session_id: String,
-    path: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    request(
-        &state,
-        "POST",
-        "/v1/brain/from-session",
-        Some(json!({"session_id": session_id, "path": path})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_brain_document(
-    path: String,
-    allow_ocr: bool,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    request(
-        &state,
-        "GET",
-        &format!(
-            "/v1/brain/document?path={}&ocr={}",
-            encode_query(&path),
-            if allow_ocr { 1 } else { 0 }
-        ),
-        None,
-    )
-}
-
-#[tauri::command(async)]
-fn backend_tasks(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/tasks", None)
-}
-
-#[tauri::command(async)]
-fn backend_task_action(
-    action: String,
-    task_id: Option<String>,
-    prompt: Option<String>,
-    schedule: Option<String>,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if action == "cancel" {
-        let id = task_id.ok_or("task id is required")?;
-        return request(
+blocking_backend_command! {
+    backend_approval_decide(
+        id: String,
+        decision: String,
+    ) state {
+        if decision != "approve" && decision != "reject" {
+            return Err("invalid approval decision".into());
+        }
+        request(
             &state,
             "POST",
-            &format!("/v1/tasks/{id}"),
-            Some(json!({"action": "cancel"})),
-        );
+            &format!("/v1/approvals/{id}"),
+            Some(json!({"decision": decision})),
+        )
     }
-    request(
-        &state,
-        "POST",
-        "/v1/tasks",
-        Some(json!({"action": action, "prompt": prompt, "schedule": schedule})),
-    )
 }
 
-#[tauri::command(async)]
-fn backend_skills(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/skills", None)
-}
-
-#[tauri::command(async)]
-fn backend_skill_action(
-    name: String,
-    action: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if name.trim().is_empty()
-        || name.len() > 120
-        || !matches!(action.as_str(), "enable" | "disable")
-    {
-        return Err("skill action is invalid".into());
+blocking_backend_command! {
+    backend_settings() state {
+        request(&state, "GET", "/v1/settings", None)
     }
-    request(
-        &state,
-        "POST",
-        &format!("/v1/skills/{}", encode_query(&name)),
-        Some(json!({"action": action})),
-    )
 }
 
-#[tauri::command(async)]
-fn backend_integrations(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/integrations", None)
-}
-
-#[tauri::command(async)]
-fn backend_voice_capabilities(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/voice/capabilities", None)
-}
-
-#[tauri::command(async)]
-fn backend_voice_devices(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/voice/devices", None)
-}
-
-#[tauri::command(async)]
-fn backend_voice_transcribe(
-    path: String,
-    model: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    request(
-        &state,
-        "POST",
-        "/v1/voice/transcribe",
-        Some(json!({"path": path, "model": model})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_voice_record(
-    path: String,
-    duration_seconds: f64,
-    device: Option<i32>,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    request(
-        &state,
-        "POST",
-        "/v1/voice/record",
-        Some(json!({"path": path, "duration_seconds": duration_seconds, "device": device})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_voice_speak(
-    text: String,
-    output_path: Option<String>,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    request(
-        &state,
-        "POST",
-        "/v1/voice/speak",
-        Some(json!({"text": text, "output_path": output_path})),
-    )
-}
-
-#[tauri::command(async)]
-fn backend_workflows(state: State<'_, BackendState>) -> Result<Value, String> {
-    request(&state, "GET", "/v1/workflows", None)
-}
-
-#[tauri::command(async)]
-fn backend_workflow_save(
-    name: String,
-    definition: Value,
-    id: Option<String>,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if name.trim().is_empty() || name.len() > 200 || !definition.is_object() {
-        return Err("workflow definition is invalid".into());
+blocking_backend_command! {
+    backend_models() state {
+        request(&state, "GET", "/v1/models", None)
     }
-    request(
-        &state,
-        "POST",
-        "/v1/workflows",
-        Some(json!({"name": name, "definition": definition, "id": id})),
-    )
 }
 
-#[tauri::command(async)]
-fn backend_workflow_run(id: String, state: State<'_, BackendState>) -> Result<Value, String> {
-    if id.trim().is_empty() || id.len() > 100 {
-        return Err("workflow id is invalid".into());
+blocking_backend_command! {
+    backend_set_model(
+        model: String,
+    ) state {
+        if model.trim().is_empty() || model.len() > 200 {
+            return Err("model is invalid".into());
+        }
+        request(
+            &state,
+            "POST",
+            "/v1/settings",
+            Some(json!({"model": model})),
+        )
     }
-    request(
-        &state,
-        "POST",
-        &format!("/v1/workflows/{id}/run"),
-        Some(json!({})),
-    )
 }
 
-#[tauri::command(async)]
-fn backend_workflow_cancel(
-    run_id: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if run_id.trim().is_empty() || run_id.len() > 100 {
-        return Err("workflow run id is invalid".into());
+blocking_backend_command! {
+    backend_brain_notes() state {
+        request(&state, "GET", "/v1/brain/notes", None)
     }
-    request(
-        &state,
-        "POST",
-        &format!("/v1/workflow-runs/{run_id}/cancel"),
-        Some(json!({})),
-    )
 }
 
-#[tauri::command(async)]
-fn backend_workflow_schedule(
-    id: String,
-    schedule: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if id.trim().is_empty() || id.len() > 100 || schedule.trim().is_empty() || schedule.len() > 200
-    {
-        return Err("workflow schedule is invalid".into());
+blocking_backend_command! {
+    backend_brain_graph() state {
+        request(&state, "GET", "/v1/brain/graph", None)
     }
-    request(
-        &state,
-        "POST",
-        &format!("/v1/workflows/{id}/schedule"),
-        Some(json!({"schedule": schedule})),
-    )
 }
 
-#[tauri::command(async)]
-fn backend_workflow_runs(id: String, state: State<'_, BackendState>) -> Result<Value, String> {
-    if id.trim().is_empty() || id.len() > 100 {
-        return Err("workflow id is invalid".into());
+blocking_backend_command! {
+    backend_brain_canvas() state {
+        request(&state, "GET", "/v1/brain/canvas", None)
     }
-    request(&state, "GET", &format!("/v1/workflows/{id}/runs"), None)
 }
 
-#[tauri::command(async)]
-fn backend_integration_action(
-    name: String,
-    action: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    if name.trim().is_empty()
-        || name.len() > 120
-        || !matches!(action.as_str(), "install" | "enable" | "disable" | "revoke")
-    {
-        return Err("integration action is invalid".into());
+blocking_backend_command! {
+    backend_brain_save_canvas(
+        canvas: Value,
+    ) state {
+        if !canvas.is_object() {
+            return Err("canvas payload is invalid".into());
+        }
+        request(&state, "POST", "/v1/brain/canvas", Some(canvas))
     }
-    request(
-        &state,
-        "POST",
-        &format!("/v1/integrations/{}", encode_query(&name)),
-        Some(json!({"action": action})),
-    )
+}
+
+blocking_backend_command! {
+    backend_memory_suggestions() state {
+        request(&state, "GET", "/v1/memory/suggestions", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_memory_decide(
+        id: String,
+        state: String,
+        key: Option<String>,
+        value: Option<String>,
+    ) backend {
+        if id.trim().is_empty()
+            || id.len() > 100
+            || !["approved", "rejected", "deleted"].contains(&state.as_str())
+        {
+            return Err("memory decision is invalid".into());
+        }
+        request(
+            &backend,
+            "POST",
+            &format!("/v1/memory/suggestions/{id}"),
+            Some(json!({"state": state, "key": key, "value": value})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_search(
+        query: String,
+    ) state {
+        if query.trim().is_empty() || query.len() > 200 {
+            return Err("search query is invalid".into());
+        }
+        request(
+            &state,
+            "GET",
+            &format!("/v1/brain/search?q={}", encode_query(&query)),
+            None,
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_semantic_search(
+        query: String,
+    ) state {
+        if query.trim().is_empty() || query.len() > 200 {
+            return Err("search query is invalid".into());
+        }
+        request(
+            &state,
+            "GET",
+            &format!("/v1/brain/semantic-search?q={}", encode_query(&query)),
+            None,
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_inspect(
+        path: String,
+    ) state {
+        request(
+            &state,
+            "GET",
+            &format!("/v1/brain/note/inspect?path={}", encode_query(&path)),
+            None,
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_note(
+        path: String,
+    ) state {
+        request(
+            &state,
+            "GET",
+            &format!("/v1/brain/note?path={}", encode_query(&path)),
+            None,
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_save(
+        path: String,
+        content: String,
+    ) state {
+        request(
+            &state,
+            "POST",
+            "/v1/brain/notes",
+            Some(json!({"path": path, "content": content})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_attachments() state {
+        request(&state, "GET", "/v1/brain/attachments", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_history(
+        path: String,
+    ) state {
+        request(
+            &state,
+            "GET",
+            &format!("/v1/brain/history?path={}", encode_query(&path)),
+            None,
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_from_session(
+        session_id: String,
+        path: String,
+    ) state {
+        request(
+            &state,
+            "POST",
+            "/v1/brain/from-session",
+            Some(json!({"session_id": session_id, "path": path})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_brain_document(
+        path: String,
+        allow_ocr: bool,
+    ) state {
+        request(
+            &state,
+            "GET",
+            &format!(
+                "/v1/brain/document?path={}&ocr={}",
+                encode_query(&path),
+                if allow_ocr { 1 } else { 0 }
+            ),
+            None,
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_tasks() state {
+        request(&state, "GET", "/v1/tasks", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_task_action(
+        action: String,
+        task_id: Option<String>,
+        prompt: Option<String>,
+        schedule: Option<String>,
+    ) state {
+        if action == "cancel" {
+            let id = task_id.ok_or("task id is required")?;
+            return request(
+                &state,
+                "POST",
+                &format!("/v1/tasks/{id}"),
+                Some(json!({"action": "cancel"})),
+            );
+        }
+        request(
+            &state,
+            "POST",
+            "/v1/tasks",
+            Some(json!({"action": action, "prompt": prompt, "schedule": schedule})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_skills() state {
+        request(&state, "GET", "/v1/skills", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_skill_action(
+        name: String,
+        action: String,
+    ) state {
+        if name.trim().is_empty()
+            || name.len() > 120
+            || !matches!(action.as_str(), "enable" | "disable")
+        {
+            return Err("skill action is invalid".into());
+        }
+        request(
+            &state,
+            "POST",
+            &format!("/v1/skills/{}", encode_query(&name)),
+            Some(json!({"action": action})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_integrations() state {
+        request(&state, "GET", "/v1/integrations", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_voice_capabilities() state {
+        request(&state, "GET", "/v1/voice/capabilities", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_voice_devices() state {
+        request(&state, "GET", "/v1/voice/devices", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_voice_transcribe(
+        path: String,
+        model: String,
+    ) state {
+        request(
+            &state,
+            "POST",
+            "/v1/voice/transcribe",
+            Some(json!({"path": path, "model": model})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_voice_record(
+        path: String,
+        duration_seconds: f64,
+        device: Option<i32>,
+    ) state {
+        request(
+            &state,
+            "POST",
+            "/v1/voice/record",
+            Some(json!({"path": path, "duration_seconds": duration_seconds, "device": device})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_voice_speak(
+        text: String,
+        output_path: Option<String>,
+    ) state {
+        request(
+            &state,
+            "POST",
+            "/v1/voice/speak",
+            Some(json!({"text": text, "output_path": output_path})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_workflows() state {
+        request(&state, "GET", "/v1/workflows", None)
+    }
+}
+
+blocking_backend_command! {
+    backend_workflow_save(
+        name: String,
+        definition: Value,
+        id: Option<String>,
+    ) state {
+        if name.trim().is_empty() || name.len() > 200 || !definition.is_object() {
+            return Err("workflow definition is invalid".into());
+        }
+        request(
+            &state,
+            "POST",
+            "/v1/workflows",
+            Some(json!({"name": name, "definition": definition, "id": id})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_workflow_run(
+        id: String,
+    ) state {
+        if id.trim().is_empty() || id.len() > 100 {
+            return Err("workflow id is invalid".into());
+        }
+        request(
+            &state,
+            "POST",
+            &format!("/v1/workflows/{id}/run"),
+            Some(json!({})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_workflow_cancel(
+        run_id: String,
+    ) state {
+        if run_id.trim().is_empty() || run_id.len() > 100 {
+            return Err("workflow run id is invalid".into());
+        }
+        request(
+            &state,
+            "POST",
+            &format!("/v1/workflow-runs/{run_id}/cancel"),
+            Some(json!({})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_workflow_schedule(
+        id: String,
+        schedule: String,
+    ) state {
+        if id.trim().is_empty() || id.len() > 100 || schedule.trim().is_empty() || schedule.len() > 200
+        {
+            return Err("workflow schedule is invalid".into());
+        }
+        request(
+            &state,
+            "POST",
+            &format!("/v1/workflows/{id}/schedule"),
+            Some(json!({"schedule": schedule})),
+        )
+    }
+}
+
+blocking_backend_command! {
+    backend_workflow_runs(
+        id: String,
+    ) state {
+        if id.trim().is_empty() || id.len() > 100 {
+            return Err("workflow id is invalid".into());
+        }
+        request(&state, "GET", &format!("/v1/workflows/{id}/runs"), None)
+    }
+}
+
+blocking_backend_command! {
+    backend_integration_action(
+        name: String,
+        action: String,
+    ) state {
+        if name.trim().is_empty()
+            || name.len() > 120
+            || !matches!(action.as_str(), "install" | "enable" | "disable" | "revoke")
+        {
+            return Err("integration action is invalid".into());
+        }
+        request(
+            &state,
+            "POST",
+            &format!("/v1/integrations/{}", encode_query(&name)),
+            Some(json!({"action": action})),
+        )
+    }
 }
 
 #[tauri::command]
@@ -945,17 +993,17 @@ async fn backend_session(session_id: String, app: AppHandle) -> Result<Value, St
     .map_err(|_| "Session worker stopped unexpectedly".to_string())?
 }
 
-#[tauri::command(async)]
-fn backend_set_content_preference(
-    preference: String,
-    state: State<'_, BackendState>,
-) -> Result<Value, String> {
-    request(
-        &state,
-        "POST",
-        "/v1/settings",
-        Some(json!({"content_preference": preference})),
-    )
+blocking_backend_command! {
+    backend_set_content_preference(
+        preference: String,
+    ) state {
+        request(
+            &state,
+            "POST",
+            "/v1/settings",
+            Some(json!({"content_preference": preference})),
+        )
+    }
 }
 
 fn main() {

@@ -69,6 +69,18 @@ fn random_token() -> Result<String, getrandom::Error> {
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
+fn read_bounded_response(reader: impl Read, limit: u64) -> Result<String, String> {
+    let mut bytes = Vec::new();
+    reader
+        .take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    if bytes.len() as u64 > limit {
+        return Err("backend response exceeds the desktop size limit".into());
+    }
+    String::from_utf8(bytes).map_err(|_| "backend response is not valid UTF-8".into())
+}
+
 fn request(
     state: &BackendState,
     method: &str,
@@ -101,10 +113,7 @@ fn request(
     stream
         .write_all(request.as_bytes())
         .map_err(|e| e.to_string())?;
-    let mut response = String::new();
-    stream
-        .read_to_string(&mut response)
-        .map_err(|e| e.to_string())?;
+    let response = read_bounded_response(stream, 32_000_000)?;
     let status = response.lines().next().unwrap_or("");
     let json_body = response.split("\r\n\r\n").nth(1).unwrap_or("");
     let value: Value = serde_json::from_str(json_body).map_err(|e| e.to_string())?;
@@ -1182,6 +1191,20 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::{pid_is_in_ancestry, random_token, terminate_authenticated_orphan};
+
+    #[test]
+    fn backend_response_read_is_bounded_and_validates_utf8() {
+        assert_eq!(
+            super::read_bounded_response(&b"hello"[..], 5).unwrap(),
+            "hello"
+        );
+        assert!(super::read_bounded_response(&b"too long"[..], 3)
+            .unwrap_err()
+            .contains("size limit"));
+        assert!(super::read_bounded_response(&b"\xff"[..], 3)
+            .unwrap_err()
+            .contains("UTF-8"));
+    }
 
     #[test]
     fn generated_ipc_tokens_are_distinct_and_well_formed() {
